@@ -157,11 +157,15 @@ def GetIndiciiSame(data1,data2):   # Takes only pandas dataframe or series and g
     return data1, data2
 
 def ReSampleToRefIndex(data,index,freq:str):   #This function will resample and reindex a series or dataframe to a given reference index. 
-    print(type(data),type(index))           #freq is the frequency of the reference index as str, e.g 'D' for daily, 'W' for weekly, 'M' monthly.
+    #freq is the frequency of the reference index as str, e.g 'D' for daily, 'W' for weekly, 'M' monthly.
     if str(type(data)) ==  "<class 'pandas.core.series.Series'>":
-        print('Data is series')
+        data =  pd.DataFrame(data); datType = 'series'
+        pass
+        #print('Data is series')
     elif str(type(data)) == "<class 'pandas.core.frame.DataFrame'>":
-        print('This data is a dataframe.')
+        data =  pd.DataFrame(data); datType = 'df'
+        pass
+        #print('This data is a dataframe.')
     else:
         print('We need input data to be a series or dataframe. Convert to that before using this ReSampleToRefIndex function.')
         return (data)
@@ -169,13 +173,18 @@ def ReSampleToRefIndex(data,index,freq:str):   #This function will resample and 
         pass
     else:
         print('This function needs a datetime index as a reference index. This index will not do, pulling out.')
-        return (data)
-    data = data.reindex(index=index,method="ffill")
-    data = data.resample(freq).mean()
-    data.fillna(method='ffill',inplace=True)
+        return (data) 
+    index = pd.DatetimeIndex(index); index = index.drop_duplicates()
+    data.reset_index(inplace=True); data.drop_duplicates(subset=data.columns[0],inplace=True)
+    data.set_index(pd.DatetimeIndex(data.iloc[:,0]),inplace=True)
+    data.drop(data.columns[0],axis=1,inplace=True)
     data = data.reindex(index=index)
     data = data.resample(freq).mean()
+    data.fillna(method='ffill',inplace=True)
     data.fillna(method='bfill',inplace=True)
+    if datType == 'series':
+        data = pd.Series(data.squeeze())
+    #print('Data after reindexing function, ',data.head(54))    
     return data
 
 def pullyfseries(ticker,start:str="2020-01-01",interval="1d"):
@@ -208,6 +217,7 @@ def PullDailyAssetData(ticker:str,PriceAPI:str,startDate:str,endDate:str=None): 
     else:
         EndDate = datetime.date.today()
     TimeLength=(EndDate-StartDate).days
+    print('Looking for data for ticker:',ticker,'using',PriceAPI,'for date range: ',StartDate,' to ',EndDate)
     AssetData = []
 
     if PriceAPI == 'coingecko':
@@ -230,7 +240,7 @@ def PullDailyAssetData(ticker:str,PriceAPI:str,startDate:str,endDate:str=None): 
         if len(AssetData) < 1: 
             AssetData = Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate) 
         if len(AssetData) < 1:     
-            AssetData = DataReaderAllSources(ticker,DataStart=StartDate) 
+            AssetData = DataReaderAllSources(ticker,DataStart=StartDate,end_date = EndDate) 
     elif  PriceAPI == 'tv': 
         split = ticker.split(',')
         ticker = (split[0],split[1]); print(ticker,type(ticker))
@@ -239,13 +249,13 @@ def PullDailyAssetData(ticker:str,PriceAPI:str,startDate:str,endDate:str=None): 
             AssetData = DataFromTVDaily(symbol,exchange,start_date=StartDate,end_date=EndDate)
             AssetData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
             AssetData.drop('Symbol',axis=1,inplace=True)
-            print('Data pulled from TV for: ',ticker,"\n",AssetData)
+            print('Data pulled from TV for: ',ticker,"\n")
         else:
             print('You should provide "ticker" as a tuple with (ticker,exchange) when using data from TV. Otherwise exchange will be "NSE" by default.')
             AssetData = DataFromTVDaily(ticker,start_date=StartDate,end_date=EndDate)    
             AssetData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
             AssetData.drop('Symbol',axis=1,inplace=True)
-            print('Data pulled from TV for: ',ticker,"\n",AssetData)
+            print('Data pulled from TV for: ',ticker,"\n")
     else:
         try:        
             AssetData = pd.DataFrame(web.DataReader(ticker,PriceAPI,start=StartDate)) 
