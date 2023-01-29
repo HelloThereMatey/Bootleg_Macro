@@ -421,8 +421,8 @@ TGA_PastRS.to_excel(wd+FDel+'TreasuryData'+FDel+'TGA_Since2005_RS.xlsx',index_la
 TGA_Daily_Series = pd.Series(TGA_PastRS['close_today_bal'],name='TGA Bal. (Bil. $)')
 TGA_Daily_Series /= 1000 # TGA account balance is in millions $ from the Treasury, convert to Billions $.  
 TGA_Daily_Series = TGA_Daily_Series[StartDate:EndDate]
-#print(TGA_Daily_Series)
 print('TGA series, start & end dates: ',TGA_Daily_Series.index[0],TGA_Daily_Series.index[len(TGA_Daily_Series)-1])
+
 
 ################# Pull data for an asset/s to compare against fed liquidity and other FRED data ##############
 CADict = {}; CAList = []
@@ -497,7 +497,9 @@ else:
     NLQMA1 = pd.Series(NetLiquidity).rolling(NLQ_MA).mean(); NLQMA2 = pd.Series(NetLiquidity2).rolling(NLQ_MA).mean(); NLQMA3 = pd.Series(NetLiquidity3).rolling(NLQ_MA).mean()
 
 dic = {"id":"Net Liquidity",'title':"Net liquidity = WALCL - WTREGEN - RRPONTSYD","units_short":"USD-$",'frequency':'Weekly'}
+dic2 = {"id":"TGA balance",'title':"Treasury General Account Balance (billions of USD)","units_short":"bil. of USD-$",'frequency':'Daily'}
 Info = pd.Series(dic)
+Info2 = pd.Series(dic2)
 #SeriesDict["Net liquidity"] = (Info,NetLiquidity)
 NetLiquidity.sort_index(inplace=True); FirstDS.sort_index(inplace=True)
 
@@ -505,6 +507,7 @@ Corrs = AssCorr(NetLiquidity,FirstDS['Close'],[90,180,365])
 Corrs2 = AssCorr(NetLiquidity2,FirstDS['Close'],[90,180,365]) # Calculate Pearson correlation coefficients between NLQ and asset #1.
 Corrs3 = AssCorr(NetLiquidity3,FirstDS['Close'],[90,180,365])
 LiqFig = FedFig(NetLiquidity,Info,RightSeries=FirstDS['Close'],rightlab=FirstDSName)  #Plot the series from FRED along with asset #1. 
+TGA_Daily = FedFig(TGA_Daily_Series,Info2) 
 CorrDF = pd.DataFrame(Corrs[0]); CorrString = 'Correlation over the whole period: '+str(Corrs[1])
 CorrDF2 = pd.DataFrame(Corrs2[0]); CorrString2 = 'Correlation over the whole period: '+str(Corrs2[1])
 CorrDF3 = pd.DataFrame(Corrs3[0]); CorrString3 = 'Correlation over the whole period: '+str(Corrs3[1])
