@@ -11,10 +11,16 @@ USD NET LIQUIDITY SCRIPT
     There is also a package 'tvDatafeed' which is used and the files of which are included in this repo. This package is great and allows us to pull data for any asset that you can find on tradingview from tradingview itself without needing a subscription. I'm quite sure that it is safe and have been using it for months. I suspect that it doesn't get hosted on PyPi as the scraping of data from sites can be legally dubious in some jursidictions. Anyhow teh script could operate fine without it, you'd just not be able to get data from TV and would need to modify all references to the module in the script. 
     
     How to use scipt: 
-     - Place NetLiquidity project folder where you wish. Set working directory to the folder. 
-     - Install the necessary modules using requirements.txt.
-     - Set your input parameters in the excel file. Correlation will be calculated between NLQ & the asset in slot #1 on excel file.
+     - Place Plebs_Macro project folder where you wish. Set working directory to PlebsMacro/NetLiquidity.
+     - Install the necessary modules using requirements.txt - 'pip install -r requirements.txt' enter in terminal. 
+     - Set your input parameters in the excel file 'NetLiquidityInputParams.xlsx'. Correlation will be calculated between NLQ & the asset in slot #1 in            this spreadsheet. 
      - Run script.
+V1.1 update:
+    - One can look at YoY % change for assets and NLQ. Other features have been added and are outlined in the excel file. 
+    - There is now also a more generic script for looking at correlations between any two assets. This is in the folder PairCorrelation. Use
+    script 'TheCorellatooorrr_V2.py' in a similar way to the NetLiqudity script, with input parameters set in the Input excel file in that folder. 
+    - MacroBackend folder now contains all of the utility scripts for pulling price data and formatting matplotlib charts etc. 
+
 A more detailed usage guide can be found here in my twitter thread about NLQ: 
 https://twitter.com/Tech_Pleb/status/1619542486208372737?s=20&t=lwqXKHnHwTkcF2V1RMnzBg
      
