@@ -1,0 +1,8 @@
+requests
+pandas
+pandas-datareader
+numpy
+matplotlib
+openpyxl
+yfinance
+yahoo_fin
