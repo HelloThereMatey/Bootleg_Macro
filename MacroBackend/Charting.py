@@ -132,8 +132,8 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
         Eq_ymin = AssetData['Close'].min(); Eq_ymax = AssetData['Close'].max()
 
     if LYScale == 'log' and RYScale == 'log':       ##This provides cool looking equally spaced log ticks and tick labels on both y axii. 
-        # for axis in axList:
-            #axis.set_yscale('log')
+        for axis in axList:
+            axis.set_yscale('log')
         axb.set_yscale('log')
         ax.set_yscale('log')
         bTicks = np.real(np.logspace(start = np.log10(Eq_ymin), stop = np.log10(Eq_ymax), num=8, base=10)); #bTicks.round(decimals=0,out=bTicks) 
