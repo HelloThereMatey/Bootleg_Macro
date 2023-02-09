@@ -21,7 +21,8 @@ V1.1 update:
     script 'TheCorellatooorrr_V2.py' in a similar way to the NetLiqudity script, with input parameters set in the Input excel file in that folder. 
     - MacroBackend folder now contains all of the utility scripts for pulling price data and formatting matplotlib charts etc. 
 
-A more detailed usage guide can be found here in my twitter thread about NLQ: 
+A more detailed usage guide can be found here in my twitter threads about the NLQ script: 
 https://twitter.com/Tech_Pleb/status/1619542486208372737?s=20&t=lwqXKHnHwTkcF2V1RMnzBg
+https://twitter.com/Tech_Pleb/status/1622916354008584192?s=20&t=k0nnXAlNTvv5iiISzwvyAA
      
      
