@@ -172,7 +172,6 @@ TGA_Daily_Series /= 1000 # TGA account balance is in millions $ from the Treasur
 TGA_Daily_Series = TGA_Daily_Series[StartDate:EndDate]
 print('TGA series, start & end dates: ',TGA_Daily_Series.index[0],TGA_Daily_Series.index[len(TGA_Daily_Series)-1])
 
-
 ################# Pull data for an asset/s to compare against fed liquidity and other FRED data ##############
 CADict = {}; CAList = []
 for i in range(1,6,1):
@@ -222,14 +221,37 @@ if len(Findex.difference(TGA_FRED.index)) > 0:
     TGA_FRED = PriceImporter.ReSampleToRefIndex(TGA_FRED,Findex,'D')
 if len(Findex.difference(RevRep.index)) > 0:    
     RevRep = PriceImporter.ReSampleToRefIndex(RevRep,Findex,'D')
- 
-NetLiquidity = SeriesDict['WALCL'][1]-SeriesDict['WTREGEN'][1]-SeriesDict['RRPONTSYD'][1] #Weekly net liq calculation. No reindexing. Weekly and daily data combos, all FRED data. 
+
+########## Load data for BOJ balance sheet in USD terms ###########################
+LoadBOJ = Inputs.loc['IncludeBOJ'].at['Additional FRED Data']
+if pd.isna(LoadBOJ) is False:    
+    BOJData = PriceImporter.GetBOJ_USD(myFredAPI_key,DataStart,EndDateStr)
+    BOJ_USD = BOJData[0]; BOJ_USDInfo = BOJData[1]
+
+############ Main NET LIQUIDITY SERIES ##################################################################################### 
+NetLiquidity = pd.Series((SeriesDict['WALCL'][1]-SeriesDict['WTREGEN'][1]-SeriesDict['RRPONTSYD'][1]),name='Net liquidity (weekly)') #Weekly net liq calculation. No reindexing. Weekly and daily data combos, all FRED data. 
 NetLiquidity = pd.Series(NetLiquidity,name='Fed net liq 1 (Bil $)'); NetLiquidity.dropna(inplace=True)
 #print('Net liquidity using FRED weekly data: ',NetLiquidity)
 NetLiquidity2 = pd.Series((FedBal - TGA_FRED - RevRep),name='Fed net liq 2 (Bil $)')    ##Resampled to daily data calculation. Data from FRED reseampled to daily frequency. 
 #print('Net liquidity using FRED weekly data, resampled to daily: ',NetLiquidity2)
 NetLiquidity3 = pd.Series((FedBal - TGA_Daily_Series - RevRep),name='Fed net liq 3 (Bil $)') ## Net liquidity calculated using daily data from the treasury in place of the FRED TGA series. 
 #print('Net liquidity using Treasury daily data:',NetLiquidity3)
+NetLiquidity.sort_index(inplace=True); FirstDS.sort_index(inplace=True)
+savePath = wd+FDel+'NLQ_Data'+FDel+'NLQ_Data.xlsx'
+NetLiquidity.to_excel(savePath,sheet_name='Weekly')
+with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
+    NetLiquidity2.to_excel(writer, sheet_name='Resampled2Daily')
+    NetLiquidity3.to_excel(writer, sheet_name='Daily_TGAData')
+
+if pd.isna(LoadBOJ) is False: ####If importing BOJ balance sheet as well, display NLQ as NLQ + BOJ bal. sheet
+    NetLiquidity = NetLiquidity+BOJ_USD; NetLiquidity2 = NetLiquidity2+BOJ_USD; NetLiquidity3 = NetLiquidity3+BOJ_USD
+    MainLabel = 'NLQ + BOJ bal. sheet (left)'
+    with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
+        NetLiquidity.to_excel(writer, sheet_name='Weekly_plusBOJ')
+        NetLiquidity2.to_excel(writer, sheet_name='Resamp_plusBOJ')
+        NetLiquidity3.to_excel(writer, sheet_name='TGAData_PlusBOJ')
+else:    
+    MainLabel = 'Net liquidity (left)'
 NLQ_MA = Inputs.loc['NLQ_MA (days)'].at['Additional FRED Data']; FaceColor = Inputs.loc['MainFig FaceColor'].at['Additional FRED Data']
 if pd.isna(NLQ_MA):
     NLQMA1 = None; NLQMA2 = None; NLQMA3 = None
@@ -241,8 +263,6 @@ dic = {"id":"Net Liquidity",'title':"Net liquidity = WALCL - WTREGEN - RRPONTSYD
 dic2 = {"id":"TGA balance",'title':"Treasury General Account Balance (billions of USD)","units_short":"bil. of USD-$",'frequency':'Daily'}
 Info = pd.Series(dic)
 Info2 = pd.Series(dic2)
-#SeriesDict["Net liquidity"] = (Info,NetLiquidity)
-NetLiquidity.sort_index(inplace=True); FirstDS.sort_index(inplace=True)
 
 ##### This is the code for plotting the original weekly series with all data sourced from FRED ########################
 FontFamily = Inputs.loc['FontFamily'].at['Additional FRED Data']
@@ -254,8 +274,9 @@ periodsList = Inputs['Correlation Periods'].dropna().astype(int).to_list(); peri
 print('Correlation periods to use on bottom chart: ',periodsList)
 Corrs = PriceImporter.AssCorr(NetLiquidity,FirstDS['Close'],periodsList)
 LYScale = Inputs.loc['Yscale'].at['Additional FRED Data']; RYScale = Inputs.loc['Yscale'].at['Additional FRED Data']
+print('Scaling for main figures: ',LYScale,RYScale)
 CorrDF = pd.DataFrame(Corrs[0]); CorrString = 'Correlation over the whole period: '+str(Corrs[1])
-NLQ1 = Charting.MainFig(NetLiquidity,CADict,CorrDF,FirstDS,'Net Liquidity Fed weekly (USD)',CorrString,LYScale=LYScale,RYScale=RYScale,NLQ_Color=NLQ_Color,\
+NLQ1 = Charting.MainFig(NetLiquidity,CADict,CorrDF,FirstDS,'Net Liquidity Fed weekly (USD)',CorrString,Mainlabel=MainLabel,LYScale=LYScale,RYScale=RYScale,NLQ_Color=NLQ_Color,\
     NLQMA=NLQMA1,background=FaceColor,RightLabel=RightLabel,YAxLabPrefix='$')
 
 Corrs2 = PriceImporter.AssCorr(NetLiquidity2,FirstDS['Close'],periodsList) # Calculate Pearson correlation coefficients between NLQ and asset #1.
@@ -301,15 +322,14 @@ if TracesType == 'yoy':
     CorrDF3 = pd.DataFrame(Corrs3[0]); CorrString3 = 'Correlation over the whole period: '+str(Corrs3[1])
     NLQ2 = Charting.MainFig(NetLiquidity2,CADict,CorrDF2,FirstDS,r'Net Liquidity Fed resampled to daily (YoY $\Delta$%)',CorrString2,\
         NLQ_Color=NLQ_Color,background=FaceColor,RightLabel=FirstDSName+r' YoY $\Delta$%',Xmin=NetLiquidity2.index[0],Xmax=NetLiquidity2.index[len(NetLiquidity2)-1],\
-            RYMin=FirstDS['Close'].min(),RYMax=RyMax)
+            RYMin=FirstDS['Close'].min(),RYMax=RyMax,LYScale=LYScale,RYScale=RYScale,Mainlabel=MainLabel)
     NLQ3 = Charting.MainFig(NetLiquidity3,CADict,CorrDF3,FirstDS,r'Net Liquidity Fed using daily data from Treasury (YoY $\Delta$%)',CorrString3,\
         NLQ_Color=NLQ_Color,background=FaceColor,RightLabel=FirstDSName+r' YoY $\Delta$%',Xmin=NetLiquidity3.index[0],Xmax=NetLiquidity3.index[len(NetLiquidity3)-1],\
-            RYMin=FirstDS['Close'].min(),RYMax=RyMax,YLabel=r'YoY $\Delta$%')        
+            RYMin=FirstDS['Close'].min(),RYMax=RyMax,YLabel=r'YoY $\Delta$%',LYScale=LYScale,RYScale=RYScale,Mainlabel=MainLabel)        
 else:
     ## Main figures ######
     NLQ2 = Charting.MainFig(NetLiquidity2,CADict,CorrDF2,FirstDS,'Net Liquidity Fed resampled to daily (USD)',CorrString2,LYScale=LYScale,RYScale=RYScale,NLQ_Color=NLQ_Color,\
-        NLQMA=NLQMA2,RightLabel=RightLabel,background=FaceColor,YAxLabPrefix='$')
+        NLQMA=NLQMA2,RightLabel=RightLabel,background=FaceColor,YAxLabPrefix='$',Mainlabel=MainLabel)
     NLQ3 = Charting.MainFig(NetLiquidity3,CADict,CorrDF3,FirstDS,'Net Liquidity Fed using daily data from Treasury (USD)',CorrString3,LYScale=LYScale,RYScale=RYScale,\
-        NLQ_Color=NLQ_Color,RightLabel=RightLabel,NLQMA=NLQMA3,background=FaceColor,YAxLabPrefix='$')        
-
+        NLQ_Color=NLQ_Color,RightLabel=RightLabel,NLQMA=NLQMA3,background=FaceColor,YAxLabPrefix='$',Mainlabel=MainLabel)        
 plt.show() # Show figure/s. Function will remain running until you close the figure.
