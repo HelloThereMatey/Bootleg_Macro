@@ -27,5 +27,9 @@ V1.2:
 A more detailed usage guide can be found here in my twitter threads about the NLQ script: 
 https://twitter.com/Tech_Pleb/status/1619542486208372737?s=20&t=lwqXKHnHwTkcF2V1RMnzBg
 https://twitter.com/Tech_Pleb/status/1622916354008584192?s=20&t=k0nnXAlNTvv5iiISzwvyAA
+- Since V1.1 the script uses the tkinter package. It may be necessary to install this using the command:
+sudo apt-get install python3-tk
+- That will install tkinter. This fixes a bug where matplotlib does not display the figures. On windows use python inplace of python3. 
+
      
      
