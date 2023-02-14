@@ -20,6 +20,9 @@ V1.1 update:
     - There is now also a more generic script for looking at correlations between any two assets. This is in the folder PairCorrelation. Use
     script 'TheCorellatooorrr_V2.py' in a similar way to the NetLiqudity script, with input parameters set in the Input excel file in that folder. 
     - MacroBackend folder now contains all of the utility scripts for pulling price data and formatting matplotlib charts etc. 
+V1.2:
+    - Added option to pull data for the Bank of Japan Balance sheet in USD and add to NLQ series. 
+    - For this, BOJ bal. sheet data is pulled from from FRED (JPNASSETS, monthly data series) & JPYUSD FX data pulled from trading view. The two are   convolved to produce a BOJ bal. sheet series with daily frequency measured in USD. This is then added to NLQ. 
 
 A more detailed usage guide can be found here in my twitter threads about the NLQ script: 
 https://twitter.com/Tech_Pleb/status/1619542486208372737?s=20&t=lwqXKHnHwTkcF2V1RMnzBg
