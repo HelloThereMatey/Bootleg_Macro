@@ -14,6 +14,7 @@ from sys import platform
 import re
 
 wd = os.path.dirname(os.path.realpath(__file__))
+dir = os.path.dirname(wd)
 if platform == "linux" or platform == "linux2":
     FDel = '/' # linux
 elif platform == "darwin":
@@ -121,14 +122,16 @@ def DataReaderAllSources(ticker,DataStart,DataEnd=datetime.date.today()):    ###
     return AssetData  
 
 def GetIndiciiSame(data1,data2):   # Takes only pandas dataframe or series and gets them same length with same datetime index, padding nans.
-    print('Running index resampler...',type(data1.index),type(data2.index))
+    print('Running index resampler...',type(data1.index),type(data2.index),len(data1.index),len(data2.index))
     data1 = pd.DataFrame(data1); data2 = pd.DataFrame(data2)
-    data1.set_index(pd.DatetimeIndex(data1.index),inplace=True)
-    data2.set_index(pd.DatetimeIndex(data2.index),inplace=True)
-    freq1 = data1.index.inferred_freq
-    freq2 = data2.index.inferred_freq
+    data1.reset_index(inplace=True); data2.reset_index(inplace=True)
+    data1.drop_duplicates(subset=data1.columns[0],inplace=True); data2.drop_duplicates(subset=data2.columns[0],inplace=True)
+    data1.set_index(pd.DatetimeIndex(data1[data1.columns[0]]),inplace=True)
+    data2.set_index(pd.DatetimeIndex(data2[data2.columns[0]]),inplace=True)
+    data1.drop(data1.columns[0],axis=1,inplace=True); data2.drop(data2.columns[0],axis=1,inplace=True)
+    freq1 = data1.index.inferred_freq; freq2 = data2.index.inferred_freq
     print('Series inferred frequencies, data1: ',freq1,', data2: ',freq2)
-    #print(type(data1.index),type(data2.index),data1.index,data2.index)
+    #print('Resampling function, index differentials',data1.index.difference(data2.index),data2.index.difference(data1.index))
     d1_start = data1.index[0]; d2_start = data2.index[0]
     d1_end = data1.index[len(data1)-1]; d2_end = data2.index[len(data2)-1]
     if len(data1) < len(data2):
@@ -144,7 +147,7 @@ def GetIndiciiSame(data1,data2):   # Takes only pandas dataframe or series and g
     else:
         end_date = d1_end
     index.insert(0,start_date); index.append(end_date)
-    index = pd.DatetimeIndex(index)
+    index = pd.DatetimeIndex(pd.DatetimeIndex(index).date)
     data1 = data1.reindex(index=index,method="ffill")
     data2 = data2.reindex(index=index,method="ffill")
     data1 = data1.resample('D').mean()
@@ -313,6 +316,22 @@ def DataFromTVDaily(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end
     data = tv.get_hist(symbol,exchange,n_bars=numBars)
     return data
 
+def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_date=datetime.date.today(),BarTimeFrame='daily'): 
+    numDays = (end_date-start_date).days; print('Number of days of data for ',symbol,': ',numDays)
+    tv = TvDatafeed()
+    if BarTimeFrame == 'daily':
+        TimeFrame = Interval.in_daily; numBars = numDays
+    elif BarTimeFrame == 'weekly':
+        TimeFrame = Interval.in_weekly; numBars = ceil(numDays/7)
+    elif BarTimeFrame == 'monthly':
+        TimeFrame = Interval.in_monthly; numBars = ceil(numDays/30)
+    elif BarTimeFrame == '4hr':
+        TimeFrame = Interval.in_4_hour; numBars = numDays*6
+    elif BarTimeFrame == 'hr':
+        TimeFrame = Interval.in_1_hour; numBars = numDays*24
+    data = tv.get_hist(symbol,exchange,interval=TimeFrame,n_bars=numBars)
+    return data
+
 ###### Functions ###############################################################################################################################################
 
 def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate Pearson Correlation co-efficient between two series with time frame: period. 
@@ -437,7 +456,72 @@ def AssCorr(series1:pd.Series, series2:pd.Series,periodsList:list, SaveDatas: st
         CorrDict["CC_"+str(period)+r"$_{day}$"] = Correlation(series1,series2,period=period) 
     #print('Correlation master function: ',CorrDict)    
     Correlations = pd.DataFrame(CorrDict)  
-    return Correlations, Correlation(series1,series2)    
+    return Correlations, Correlation(series1,series2)  
+
+################ PullFX data if wanted #############################################################################
+### This gets data for the BOJ balance sheet from trading view. Returns a series of BOJ bal. sheet in USD as well as raw data. 
+def GetBOJ_USD(apiKey,Start:str,end:str=None):
+    StartDate = datetime.datetime.strptime(Start,'%Y-%m-%d').date()
+    if end is not None:
+        EndDate = datetime.datetime.strptime(end,'%Y-%m-%d').date(); EndDateStr = end
+    else:
+        EndDate = datetime.date.today()
+    
+    FXData = pd.read_excel(dir+FDel+'GlobalReserves'+FDel+'FXData'+FDel+'JPYUSD'+'.xlsx')
+    dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(FXData['datetime']).date)
+    FXData.set_index(dtIndex,inplace=True); FXData.drop('datetime',axis=1,inplace=True)
+    FXData = FXData[StartDate::]; FXData.fillna(method='ffill',inplace=True)
+    FXData.dropna(inplace=True); FXData.index.rename('datetime',inplace=True) 
+    LastDay = FXData.index[len(FXData)-1]; LastDay = LastDay.date()
+    FirstDay = FXData.index[0]; FirstDay = FirstDay.date()
+    if LastDay < datetime.date.today() or FirstDay > StartDate:
+        print('FXData not up to date, pulling new data for JPYUSD from TV......')
+        NewFXData = pd.DataFrame(DataFromTVGen('JPYUSD',exchange='FX_IDC',start_date=StartDate,end_date=EndDate))
+        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewFXData.index).date)
+        NewFXData.set_index(dtIndex,inplace=True)
+        NewFXData.index.rename('Date',inplace=True)
+        NewFXData = NewFXData[StartDate::]
+        NewFXData.fillna(method='ffill',inplace=True)
+        NewFXData.dropna(inplace=True)
+        FXData = NewFXData
+        FXData.index.rename('datetime',inplace=True)    
+        FXData.to_excel(dir+FDel+'GlobalReserves'+FDel+'FXData'+FDel+'JPYUSD'+'.xlsx')
+        #print('FXData to add: ',NewFXData)
+
+    BOJAss = pd.read_excel(dir+FDel+'GlobalReserves'+FDel+'FRED_Data'+FDel+'JPNASSETS'+'.xlsx',sheet_name='Data')
+    BOJAss.set_index('date',inplace=True); BOJAss = pd.Series(BOJAss.squeeze())
+    BOJAss.fillna(method='ffill',inplace=True); BOJAss.dropna(inplace=True)
+    BOJLastDay = BOJAss.index[len(BOJAss)-1]; BOJLastDay = BOJLastDay.date()
+    BOJFirstDay = BOJAss.index[0]; BOJFirstDay = BOJFirstDay.date()
+
+    if BOJLastDay < datetime.date.today() or BOJFirstDay > StartDate:
+        DPStart = BOJLastDay.strftime('%Y-%m-%d')
+        ############# Pull data from FRED. ###########################################
+        DataPull = PullFredSeries("JPNASSETS",apiKey,start=DPStart,end=EndDateStr)
+        NewData = pd.DataFrame(DataPull[1])
+        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewData.index).date)
+        NewData.set_index(dtIndex,inplace=True)
+        LastPoint = NewData.index[len(NewData)-1]; LastPoint = LastPoint.date()
+        FirstPoint = NewData.index[0]; FirstPoint = FirstPoint.date()
+        if LastPoint > BOJLastDay or FirstPoint < BOJFirstDay: 
+            print('New data available for JPNASSETS from FRED')
+            BOJAss = pd.Series(pd.concat([BOJAss,NewData],axis=0))
+            BOJAss.to_excel(dir+FDel+'GlobalReserves'+FDel+'FRED_Data'+FDel+'JPNASSETS'+'.xlsx',sheet_name='Data')
+    BOJAss = BOJAss[StartDate:EndDate]
+    SeriesInfo = pd.read_excel(dir+FDel+'GlobalReserves'+FDel+'FRED_Data'+FDel+'JPNASSETS'+'.xlsx',sheet_name='SeriesInfo')
+    SeriesInfo.set_index('Unnamed: 0',inplace=True); SeriesInfo = pd.Series(SeriesInfo.squeeze())
+    Index = FXData.index
+    BOJAss_d = pd.Series(ReSampleToRefIndex(BOJAss,Index,freq='D'),name='BOJ bal. sheet (bil. USD)')
+    BOJAss_d *= 100000000. #Convert to Yen.
+    BOJAss_dUS = BOJAss_d*FXData['close'] #Convert to USD.
+    BOJAss_dUS /= 10**9 #Convert to bilper cats. 
+    BOJAss_dUS.fillna(method='ffill',inplace=True); BOJAss_dUS.dropna(inplace=True)
+    SeriesInfo_US = SeriesInfo.copy()
+    SeriesInfo_US['units'] = 'Billions of U.S dollaridoos'
+    SeriesInfo_US['units_short'] = 'Billlions of USD'
+    SeriesInfo_US['title'] = 'Bank of Japan: Total Assets in USD worth'
+    SeriesInfo_US['id'] = 'BOJ Assets (USD)' 
+    return BOJAss_dUS, SeriesInfo_US, BOJAss, SeriesInfo, FXData
 
 """WORLD BANK API DATA STUFF. """
 # print(wb.series.info(id="FM.LBL.BMNY.ZG"))
