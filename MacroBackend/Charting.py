@@ -8,17 +8,13 @@ import datetime
 from datetime import timedelta
 
    #######. MatPlotLib Section. Making good figs with MPL takes many lines of code dagnammit.  ###################
-def FedFig(TheData:pd.Series,SeriesInfo:pd.Series,RightSeries:pd.Series=None,rightlab="",Lyscale="linear",Ryscale="linear",CustomXAxis=True):
+def FedFig(TheData:pd.Series,SeriesInfo:pd.Series,RightSeries:pd.Series=None,rightlab="",LYScale="linear",RYScale="linear",CustomXAxis=True):
     fig = plt.figure(num=SeriesInfo["id"],figsize=(15,5), tight_layout=True)
     ax = fig.add_subplot()
     plot1 = ax.plot(TheData,color="black",label=SeriesInfo["id"])       ### This is a simple fig template to view series from FRED with a comparison asset. 
-    if Lyscale == "log":
-        ax.set_yscale('log')
     if RightSeries is not None:
         axb = ax.twinx()
         plot2 = axb.plot(RightSeries,color="red",label=rightlab) 
-        if Ryscale == "log":
-            axb.set_yscale('log')
         axb.set_ylabel(rightlab+' price (USD)',fontweight='bold')
         axb.legend(loc=1,fontsize='small'); axb.minorticks_on()
     ax.set_title(SeriesInfo["title"])
@@ -30,6 +26,30 @@ def FedFig(TheData:pd.Series,SeriesInfo:pd.Series,RightSeries:pd.Series=None,rig
         ax.xaxis.set_ticks(XTicks); ax.set_xlim(Xmin-datetime.timedelta(days=15),Xmax+datetime.timedelta(days=15))
         ax.tick_params(axis='x',length=3,labelrotation=45)
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b'))
+    ymin = TheData.min(); ymax = TheData.max()
+    if LYScale == 'log':      ##This provides cool looking equally spaced log ticks and tick labels on both y axii. 
+        ax.set_yscale('log')
+        yTicks = np.real(np.logspace(start = np.log10(ymin), stop = np.log10(ymax), num=8, base=10)); #yTicks.round(decimals=0,out=yTicks)
+    else:  
+        yTicks = np.real(np.linspace(start = ymin, stop = ymax, num=8)); #yTicks.round(decimals=0,out=yTicks)
+    yTicks = np.ndarray.astype(yTicks,dtype=float,copy=False)  
+    ax.tick_params(axis='y',which='both',width=0,labelsize=0); ax.minorticks_off() #Had to do this to eliminate pesky ticks that kept coming on top of my custom ones.  
+    ax.set_yticks(yTicks); ax.set_yticklabels(yTicks); ax.yaxis.set_major_formatter('{x:1.1f}'); ax.tick_params(axis='y',which='major',width=0.5,labelsize='small') 
+    if RightSeries is not None: 
+        Eq_ymin = RightSeries.min(); Eq_ymax = RightSeries.max()
+        if RYScale == 'log':
+            axb.set_yscale('log')
+            bTicks = np.real(np.logspace(start = np.log10(Eq_ymin), stop = np.log10(Eq_ymax), num=8, base=10)); #bTicks.round(decimals=0,out=bTicks) 
+        else:
+            bTicks = np.real(np.linspace(start = Eq_ymin, stop = Eq_ymax, num=8)); #bTicks.round(decimals=0,out=bTicks) 
+        bTicks = np.ndarray.astype(bTicks,dtype=float,copy=False)  
+        axb.tick_params(axis='y',which='both',width=0,labelsize=0); axb.minorticks_off() #Had to do this to eliminate pesky ticks that kept coming on top of my custom ones. 
+        axb.set_yticks(bTicks); axb.set_yticklabels(bTicks)
+        axb.tick_params(axis='y',which='major',width=0.5,labelsize='small')     #All this to get y custom evenly spaced log ticks.
+        axb.yaxis.set_major_formatter('{x:1.1f}')
+        axb.yaxis.set_major_formatter('{x:1.1f}')
+        axb.tick_params(axis='y',which='major',width=0.5,labelsize='small')     #All this to get y custom evenly spaced log ticks. 
+     
     frequency = SeriesInfo['frequency']
     ax.text(0.5,0.05,'Series updated: '+frequency,horizontalalignment='center',verticalalignment='center', transform=ax.transAxes)  
     ax.legend(loc=2,fontsize='small')
@@ -152,8 +172,8 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     axb.set_yticks(bTicks); axb.set_yticklabels(bTicks)
     axb.tick_params(axis='y',which='major',width=0.5,labelsize='small')     #All this to get y custom evenly spaced log ticks. 
     ax.tick_params(axis='y',which='both',width=0,labelsize=0); ax.minorticks_off() #Had to do this to eliminate pesky ticks that kept coming on top of my custom ones.    
+    ax.set_yticks(yTicks); ax.set_yticklabels(yTicks)
 
-    ax.set_yticks(yTicks); ax.set_yticklabels(yTicks); 
     if YAxLabPrefix is not None:
         ax.yaxis.set_major_formatter(YAxLabPrefix+' {x:1.0f}'); axb.yaxis.set_major_formatter(YAxLabPrefix+' {x:1.1f}')
     else:
