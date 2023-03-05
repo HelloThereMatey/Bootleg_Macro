@@ -138,7 +138,7 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     axb.legend(handles=Handles,labels=Labels, loc=1,fontsize='small',bbox_to_anchor=(0.98,1.06),framealpha=1)
     LastAxes = axList[numCAs-1]
     LastAxes.add_artist(legend_1); LastAxes.set_ylabel(RightLabel,fontweight='bold'); LastAxes.axis('on')
-    ax.set_title('Net liquidity: Fed bal. sheet - rev. repo bal. - treasury gen. account', fontweight='bold')
+    ax.set_title('Global liquidity index', fontweight='bold')
     ax.set_ylabel(YLabel, fontweight='bold')
     for axis in ['top','bottom','left','right']:
                 ax.spines[axis].set_linewidth(1.5)        
@@ -146,11 +146,14 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
         ymin = YMin; ymax = YMax
     else:    
         ymin = NetLiquidity.min(); ymax = NetLiquidity.max()
-    if RYMin and RYMax is not None and pd.isna(RYMax) is False:
-        Eq_ymin = RYMin; Eq_ymax = RYMax
+    if RYMax is not None and pd.isna(RYMax) is False:
+        Eq_ymax = RYMax; axb.set_ylim(top=Eq_ymax)
+    else:
+        Eq_ymax = AssetData['Close'].max()
+    if RYMin is not None and pd.isna(RYMin) is False: 
+        Eq_ymin = RYMin; axb.set_ylim(bottom=Eq_ymin)
     else:    
-        Eq_ymin = AssetData['Close'].min(); Eq_ymax = AssetData['Close'].max()
-
+        Eq_ymin = AssetData['Close'].min()
     if LYScale == 'log' and RYScale == 'log':       ##This provides cool looking equally spaced log ticks and tick labels on both y axii. 
         for axis in axList:
             axis.set_yscale('log')
