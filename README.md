@@ -31,5 +31,10 @@ https://twitter.com/Tech_Pleb/status/1622916354008584192?s=20&t=k0nnXAlNTvv5iiIS
 sudo apt-get install python3-tk
 - That will install tkinter. This fixes a bug where matplotlib does not display the figures. On windows use python inplace of python3. 
 
+V1.3: 
+    - Big upgrades here. Added option to add bal. sheets of the other 4 main world CB's to create a 'global liquidity'index. 
+    - Upgrades in the usability of the excel control input params file. Much easier to use and you have more possibilities. 
+    Get at it. 
+
      
      
