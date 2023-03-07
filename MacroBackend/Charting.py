@@ -90,7 +90,7 @@ def NLQ_ElementsChart(FedBal:pd.Series,RevRep:pd.Series,TGA:pd.Series,title:str,
 ######## All this shit below is matplotlib figure generation code. One needs all this shit to get a figure exactly as wanted. ##############
 ### Main figure with Net liquidity + comparison asset and correlations. #############################
 def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.DataFrame,figname:str,CorrString:str,YLabel:str='Bil. of U.S. $',Mainlabel:str='Net liquidity (left)',\
-    LYScale:str='linear',RYScale:str='linear',NLQ_Color:str='black',NLQMA:pd.Series=None,background=np.nan,RightLabel:str='',YAxLabPrefix=None,Xmin=None,Xmax=None,YMin=None,YMax=None,\
+    LYScale:str='linear',RYScale:str='linear',NLQ_Color:str='black',NLQMA:pd.Series=None,NLQ_MAPer:int=None,background=np.nan,RightLabel:str='',YAxLabPrefix=None,Xmin=None,Xmax=None,YMin=None,YMax=None,\
         YMargin=None,RYMin=None,RYMax=None):
     fig = plt.figure(num=figname,figsize=(15.5,8), tight_layout=True)
     gs = GridSpec(2, 1, top = 0.96, bottom=0.08,left=0.06,right=0.92, height_ratios=[3,1], hspace=0.02)
@@ -103,7 +103,7 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     ax = fig.add_subplot(gs[0]); ax1 = fig.add_subplot(gs[1],sharex=ax)
     plot1 = ax.plot(NetLiquidity,color=NLQ_Color,lw=2.5,label=Mainlabel)
     if NLQMA is not None:
-        MA = ax.plot(NLQMA,color='gold',lw=1,label='NLQ_MA')
+        MA = ax.plot(NLQMA,color='gold',lw=1,label='NLQ MA ('+str(NLQ_MAPer)+'day)')
     legend_1 = ax.legend(loc=2,fontsize='small',bbox_to_anchor=(0,1.06),framealpha=1)
     legend_1.remove(); ax.minorticks_on()
     i = 0; axList = []; Handles= []; Labels = []
@@ -138,7 +138,7 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     axb.legend(handles=Handles,labels=Labels, loc=1,fontsize='small',bbox_to_anchor=(0.98,1.06),framealpha=1)
     LastAxes = axList[numCAs-1]
     LastAxes.add_artist(legend_1); LastAxes.set_ylabel(RightLabel,fontweight='bold'); LastAxes.axis('on')
-    ax.set_title('Global liquidity index', fontweight='bold')
+    ax.set_title('BM Pleb Custom Global Liquidity Index', fontweight='bold')
     ax.set_ylabel(YLabel, fontweight='bold')
     for axis in ['top','bottom','left','right']:
                 ax.spines[axis].set_linewidth(1.5)        
