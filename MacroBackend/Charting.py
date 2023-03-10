@@ -85,7 +85,36 @@ def NLQ_ElementsChart(FedBal:pd.Series,RevRep:pd.Series,TGA:pd.Series,title:str,
     ax.legend(loc=2,fontsize='small'); axb.legend(loc=2,fontsize='small',bbox_to_anchor=(0,0.9))
     for axis in ['top','bottom','left','right']:
                 ax.spines[axis].set_linewidth(1.5)
-    ax.minorticks_on()    
+    ax.minorticks_on();  axb.minorticks_on() 
+
+#######. MatPlotLib Section. Making good figs with MPL takes many lines of code dagnammit.  ###################
+def GNLQ_ElementsChart(GNLQ:pd.Series,US_NLQ:pd.Series,title:str,YScale='linear',ECB:pd.Series=None,BOJ:pd.Series=None,PBoC:pd.Series=None,BoE:pd.Series=None):
+    ######## Figure to plot all the elements of the the global liquidity, much like the Fed NLQ elements. 
+    fig = plt.figure(num=title,figsize=(9,8), tight_layout=True)
+    ax = fig.add_subplot(); axb = ax.twinx()
+    GCBM = ax.plot(GNLQ,color="black",label='Global CB money')   ### This is a simple fig template to view the 3 NLQ elements in a single chart. 
+    ax.fill_between(GNLQ.index,GNLQ,color='black',alpha=0.35)
+    Fed = axb.plot(US_NLQ,color="blue",label='Fed Net Liq. (right)',lw=1.5)
+    ecb = axb.plot(ECB,color="aqua",label='ECB bal. sheet (right)',lw=1.5)
+    boj = axb.plot(BOJ,color="green",label='BoJ bal. sheet (right)',lw=1.5)
+    pboc = axb.plot(PBoC,color="red",label='PBoC bal. sheet (right)',lw=1.5)
+    boe = axb.plot(BoE,color="brown",label='BoE bal. sheet (right)',lw=1.5)
+    
+    if YScale == "log":
+        ax.set_yscale('log')
+    ax.set_title(title)
+    ax.set_ylabel('Billions of USD ($)', fontweight='bold'); axb.set_ylabel('Billions of USD ($)', fontweight='bold')  
+    Xmax = max(GNLQ.index); Xmin = min(GNLQ.index)
+    stepsize = (Xmax - Xmin) / 20
+    XTicks = np.arange(Xmin, Xmax, stepsize); XTicks = np.append(XTicks,Xmax)
+    ax.xaxis.set_ticks(XTicks); ax.set_xlim(Xmin-datetime.timedelta(days=15),Xmax+datetime.timedelta(days=15))
+    ax.tick_params(axis='x',length=3,labelrotation=45)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b'))
+    ax.set_ylim(GNLQ.min(),GNLQ.max()); ax.margins(y=0.05)
+    ax.legend(loc=2,fontsize='small'); axb.legend(loc=2,fontsize='small',bbox_to_anchor=(0,0.9))
+    for axis in ['top','bottom','left','right']:
+                ax.spines[axis].set_linewidth(1.5)
+    ax.minorticks_on();  axb.minorticks_on()    
 
 ######## All this shit below is matplotlib figure generation code. One needs all this shit to get a figure exactly as wanted. ##############
 ### Main figure with Net liquidity + comparison asset and correlations. #############################
@@ -138,7 +167,7 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     axb.legend(handles=Handles,labels=Labels, loc=1,fontsize='small',bbox_to_anchor=(0.98,1.06),framealpha=1)
     LastAxes = axList[numCAs-1]
     LastAxes.add_artist(legend_1); LastAxes.set_ylabel(RightLabel,fontweight='bold'); LastAxes.axis('on')
-    ax.set_title('BM Pleb Custom Global Liquidity Index', fontweight='bold')
+    ax.set_title('BM Pleb CB Global Liquidity Index', fontweight='bold')
     ax.set_ylabel(YLabel, fontweight='bold')
     for axis in ['top','bottom','left','right']:
                 ax.spines[axis].set_linewidth(1.5)        
