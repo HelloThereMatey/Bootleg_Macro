@@ -222,7 +222,6 @@ for key in SeriesDict.keys():    #Plot all of the fed series along wih compariso
 
 ##### Calculate the FED net liquidity as defined by crew such as the legend Darius Dale of 42 Macro. #########
 ### All of this below reindexes the 3 main series to have the same indexes with daily frequency. 
-print(SeriesDict.keys(),type(SeriesDict['WALCL']),SeriesDict['WALCL'][0])
 FedBal = pd.DataFrame(SeriesDict['WALCL'][1]); TGA_FRED = pd.DataFrame(SeriesDict['WTREGEN'][1]); RevRep = pd.DataFrame(SeriesDict['RRPONTSYD'][1])
 FedBal.sort_index(inplace=True); TGA_FRED.sort_index(inplace=True); RevRep.sort_index(inplace=True)
 Findex = pd.date_range(StartDate,EndDate,freq='D'); #print('Master index: ',Findex)  
@@ -241,6 +240,7 @@ NetLiquidity = pd.Series(NetLiquidity,name='Fed net liq 1 (Bil $)'); NetLiquidit
 NetLiquidity2 = pd.Series((FedBal - TGA_FRED - RevRep),name='Fed net liq 2 (Bil $)')    ##Resampled to daily data calculation. Data from FRED reseampled to daily frequency. 
 #print('Net liquidity using FRED weekly data, resampled to daily: ',NetLiquidity2)
 NetLiquidity3 = pd.Series((FedBal - TGA_Daily_Series - RevRep),name='Fed net liq 3 (Bil $)') ## Net liquidity calculated using daily data from the treasury in place of the FRED TGA series. 
+USD_NetLiq = NetLiquidity3.copy()
 #print('Net liquidity using Treasury daily data:',NetLiquidity3)
 NetLiquidity.sort_index(inplace=True); FirstDS.sort_index(inplace=True)
 savePath = wd+FDel+'NLQ_Data'+FDel+'NLQ_Data.xlsx'
@@ -323,7 +323,7 @@ if pd.isna(NLQ_MA):
 else:
     NLQMA1 = pd.Series(NetLiquidity).rolling(NLQ_MA).mean(); NLQMA2 = pd.Series(NetLiquidity2).rolling(NLQ_MA).mean(); NLQMA3 = pd.Series(NetLiquidity3).rolling(NLQ_MA).mean()
 
-print("Moving average for Net liquidity trace: ",NLQ_MA)
+print("Moving average for Net liquidity trace: ",NLQ_MA,' days.')
 dic = {"id":"Net Liquidity",'title':"Net liquidity = WALCL - WTREGEN - RRPONTSYD","units_short":"USD-$",'frequency':'Weekly'}
 dic2 = {"id":"TGA balance",'title':"Treasury General Account Balance (billions of USD)","units_short":"bil. of USD-$",'frequency':'Daily'}
 Info = pd.Series(dic)
@@ -338,8 +338,10 @@ DisEle= Inputs.loc['FED NLQ Elements'].at['Additional FRED Data']
 DisGEle = Inputs.loc['Global NLQ Elements'].at['Additional FRED Data']
 NLQSimp = Inputs.loc['NLQ Simple chart'].at['Additional FRED Data']
 TGA_D = Inputs.loc['TGA Daily'].at['Additional FRED Data']
+G_Ele = Inputs.loc['Global NLQ Elements'].at['Additional FRED Data']
 
-if pd.isna(FontFamily) is False:
+plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 200   ###Set the resolution of the displayed figs & saved fig respectively. 
+if pd.isna(FontFamily) is False:     ###Set font family for the figures. 
     print('Using font family: ',FontFamily)
     plt.rcParams.update({'font.family':FontFamily})   
 
@@ -373,7 +375,11 @@ if pd.isna(DisEle) or str(DisEle).upper() == NoString.upper():
     pass
 else:
     Elements = Charting.NLQ_ElementsChart(FedBal,RevRep,TGA_Daily_Series,'Net liquidity elements')
-
+if pd.isna(G_Ele) or str(G_Ele).upper() == NoString.upper():
+    pass
+else:    
+    G_Elements = Charting.GNLQ_ElementsChart(NetLiquidity3,USD_NetLiq,'Global CB money Elements',YScale='linear',ECB=ECB_USD,BOJ=BOJ_USD,PBoC=PBoC_USD,BoE=BoE_USD)
+    
 ########### For the other two NLQ series that have daily frequency, we can optionally transform them to YoY Delta%. ##########
 TracesType = Inputs.loc['TracesType'].at['Additional FRED Data']     ##This does a YoY Delta% tarnsformation to the data if that is set in the inputs file. 
 
