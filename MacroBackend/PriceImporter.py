@@ -556,7 +556,9 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
         quit()    
     print(TV_Code,FXSymbol)
 
-    StartDate = datetime.datetime.strptime(Start,'%Y-%m-%d').date()    ## sTART AND END DATES FOR DATA. 
+    StartDate = datetime.datetime.strptime(Start,'%Y-%m-%d').date() ## sTART AND END DATES FOR DATA. 
+    print('Get CB data function, start date: ',StartDate,type(StartDate))
+    StartDate
     if end is not None:
         EndDate = datetime.datetime.strptime(end,'%Y-%m-%d').date(); EndDateStr = end
     else:
@@ -633,9 +635,16 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
         BSData = pd.concat([BSData,NewBSData],axis=0)
         BSData.to_excel(BSDataPath)
 
-    Index = FXData.index; CB_SeriesInfo = {}
+    StartDay = pd.to_datetime(StartDate)
+    #FXData.resample('D').mean(); FXData.fillna(method='ffill')
+    Index = FXData.index.drop_duplicates(); CB_SeriesInfo = {} 
+    
     BSData_d = pd.Series(ReSampleToRefIndex(BSData['close'],Index,freq='D'),name=SerName+' BS (bil. USD)')
-    BSData_d = BSData_d[StartDate::]; FXData = FXData[StartDate::]
+    BSData_d = BSData_d[BSData_d.index.drop_duplicates()]
+    BSData_d = BSData_d[StartDate::] 
+    date = FXData.index.searchsorted(StartDay); print('This the first day?',date)
+    FXData = FXData[date::]
+
     if len(BSData_d.index.difference(FXData.index)) > 0 or len(FXData.index.difference(BSData_d.index)) > 0:
         BSData_d, FXData = GetIndiciiSame(BSData_d,FXData)
     BSData_dUS = BSData_d*FXData['close'] #Convert to USD.
