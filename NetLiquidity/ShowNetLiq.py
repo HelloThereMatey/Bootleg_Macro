@@ -44,14 +44,15 @@ elif sys.platform == "win32":
 print('System information: ',sys.platform, OpSys,', directory delimiter: ', FDel, ', working directory: ', wd)
 
 try:
-    Inputs = pd.read_excel(wd+'/NetLiquidity_InputParams.xlsx')     ##Pull input parameters from the input parameters excel file. 
+    Inputs = pd.read_excel(wd+'/NetLiquidity_InputParams_BU.xlsx')     ##Pull input parameters from the input parameters excel file. 
 except Exception as e: 
     print(e)
     try:    
-        Inputs = pd.read_excel(wd+'\\NetLiquidity_InputParams.xlsx')
+        Inputs = pd.read_excel(wd+'\\NetLiquidity_InputParams_BU.xlsx')
     except Exception as e:
         print(e) 
-        print("What you using bro? Windows mac or linux supported. If using something else, you'll just need to set the folder delimeter for all path references below.")    
+        print("Check InputParams excel file. If name has been changed from  'NetLiquidity_InputParams.xlsx', or is not there, that is the problem.\
+              Issue could also be non-standard OS. If using an OS other than windows, mac or linux you'll just need to set the folder delimeter for all path references below.")    
         quit()
 Inputs.set_index('Index',inplace=True)      
 
@@ -218,8 +219,8 @@ for key in SeriesDict.keys():    #Plot all of the fed series along wih compariso
     if pd.isna(display) or str(display).upper() == NoString.upper():
         pass
     else:
-        Charting.FedFig(SeriesData,SeriesInfo,RightSeries=FirstDS['Close'],rightlab=FirstDSName)
-
+        Charting.FedFig(SeriesData,SeriesInfo,RightSeries=FirstDS['Close'],rightlab=FirstDSName) 
+      
 ##### Calculate the FED net liquidity as defined by crew such as the legend Darius Dale of 42 Macro. #########
 ### All of this below reindexes the 3 main series to have the same indexes with daily frequency. 
 FedBal = pd.DataFrame(SeriesDict['WALCL'][1]); TGA_FRED = pd.DataFrame(SeriesDict['WTREGEN'][1]); RevRep = pd.DataFrame(SeriesDict['RRPONTSYD'][1])
@@ -315,6 +316,16 @@ else:
         NetLiquidity3.to_excel(writer, sheet_name='TGAData_PlusBoE') 
 MainLabel += " bal. sheets (left axis)"   
 
+Get_DXY = Inputs.loc['Get_DXY'].at['Additional FRED Data']  #Get DXY and divide the foreign CB bal sheets by DXY to norm. for dollar strength. 
+if pd.isna(Get_DXY) or str(Get_DXY).upper() == NoString.upper():
+    Norm2DXY = False
+else:
+    DXY = PriceImporter.PullDailyAssetData("DX-Y.NYB","yfinance",DataStart,endDate=EndDateStr)  #Plot the series from FRED along with asset #1. 
+    DXY = pd.Series(DXY['Close'],name='US Dollar Index') 
+    DXY = PriceImporter.ReSampleToRefIndex(DXY,Findex,'D') 
+    Norm2DXY = True
+    NetLiquidity3 = NetLiquidity3/(1/DXY); ECB_USD = ECB_USD/(1/DXY); PBoC_USD = PBoC_USD/(1/DXY); BoE_USD = BoE_USD/(1/DXY); BOJ_USD = BOJ_USD/(1/DXY)
+    
 #################  Chuck on a moving average of NLQ if requested by user. ############################################
 NLQ_MA = Inputs.loc['NLQ_MA (days)'].at['Additional FRED Data']; FaceColor = Inputs.loc['MainFig FaceColor'].at['Additional FRED Data']
 if pd.isna(NLQ_MA):
@@ -377,8 +388,11 @@ else:
     Elements = Charting.NLQ_ElementsChart(FedBal,RevRep,TGA_Daily_Series,'Net liquidity elements')
 if pd.isna(G_Ele) or str(G_Ele).upper() == NoString.upper():
     pass
-else:    
-    G_Elements = Charting.GNLQ_ElementsChart(NetLiquidity3,USD_NetLiq,'Global CB money Elements',YScale='linear',ECB=ECB_USD,BOJ=BOJ_USD,PBoC=PBoC_USD,BoE=BoE_USD)
+else:
+    if Norm2DXY is True:
+        G_Elements = Charting.GNLQ_ElementsChart(NetLiquidity3,'Global CB money Elements',YScale='linear',ECB=ECB_USD,BOJ=BOJ_USD,PBoC=PBoC_USD) #BoE=BoE_USD
+    else:
+        G_Elements = Charting.GNLQ_ElementsChart(NetLiquidity3,'Global CB money Elements',YScale='linear',US_NLQ=USD_NetLiq,ECB=ECB_USD,BOJ=BOJ_USD,PBoC=PBoC_USD)    
     
 ########### For the other two NLQ series that have daily frequency, we can optionally transform them to YoY Delta%. ##########
 TracesType = Inputs.loc['TracesType'].at['Additional FRED Data']     ##This does a YoY Delta% tarnsformation to the data if that is set in the inputs file. 
