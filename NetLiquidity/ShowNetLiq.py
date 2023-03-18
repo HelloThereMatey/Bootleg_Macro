@@ -44,11 +44,11 @@ elif sys.platform == "win32":
 print('System information: ',sys.platform, OpSys,', directory delimiter: ', FDel, ', working directory: ', wd)
 
 try:
-    Inputs = pd.read_excel(wd+'/NetLiquidity_InputParams_BU.xlsx')     ##Pull input parameters from the input parameters excel file. 
+    Inputs = pd.read_excel(wd+'/NetLiquidity_InputParams.xlsx')     ##Pull input parameters from the input parameters excel file. 
 except Exception as e: 
     print(e)
     try:    
-        Inputs = pd.read_excel(wd+'\\NetLiquidity_InputParams_BU.xlsx')
+        Inputs = pd.read_excel(wd+'\\NetLiquidity_InputParams.xlsx')
     except Exception as e:
         print(e) 
         print("Check InputParams excel file. If name has been changed from  'NetLiquidity_InputParams.xlsx', or is not there, that is the problem.\
