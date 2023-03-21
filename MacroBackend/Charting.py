@@ -88,17 +88,22 @@ def NLQ_ElementsChart(FedBal:pd.Series,RevRep:pd.Series,TGA:pd.Series,title:str,
     ax.minorticks_on();  axb.minorticks_on() 
 
 #######. MatPlotLib Section. Making good figs with MPL takes many lines of code dagnammit.  ###################
-def GNLQ_ElementsChart(GNLQ:pd.Series,US_NLQ:pd.Series,title:str,YScale='linear',ECB:pd.Series=None,BOJ:pd.Series=None,PBoC:pd.Series=None,BoE:pd.Series=None):
+def GNLQ_ElementsChart(GNLQ:pd.Series,title:str,YScale='linear',US_NLQ:pd.Series=None,ECB:pd.Series=None,BOJ:pd.Series=None,PBoC:pd.Series=None,BoE:pd.Series=None):
     ######## Figure to plot all the elements of the the global liquidity, much like the Fed NLQ elements. 
     fig = plt.figure(num=title,figsize=(9,8), tight_layout=True)
     ax = fig.add_subplot(); axb = ax.twinx()
     GCBM = ax.plot(GNLQ,color="black",label='Global CB money')   ### This is a simple fig template to view the 3 NLQ elements in a single chart. 
     ax.fill_between(GNLQ.index,GNLQ,color='black',alpha=0.35)
-    Fed = axb.plot(US_NLQ,color="blue",label='Fed Net Liq. (right)',lw=1.5)
-    ecb = axb.plot(ECB,color="aqua",label='ECB bal. sheet (right)',lw=1.5)
-    boj = axb.plot(BOJ,color="green",label='BoJ bal. sheet (right)',lw=1.5)
-    pboc = axb.plot(PBoC,color="red",label='PBoC bal. sheet (right)',lw=1.5)
-    boe = axb.plot(BoE,color="brown",label='BoE bal. sheet (right)',lw=1.5)
+    if US_NLQ is not None:
+        Fed = axb.plot(US_NLQ,color="blue",label='Fed Net Liq. (right)',lw=1.5)
+    if ECB is not None:    
+        ecb = axb.plot(ECB,color="aqua",label='ECB bal. sheet (right)',lw=1.5)
+    if BOJ is not None: 
+        boj = axb.plot(BOJ,color="green",label='BoJ bal. sheet (right)',lw=1.5)
+    if PBoC is not None:
+        pboc = axb.plot(PBoC,color="red",label='PBoC bal. sheet (right)',lw=1.5)
+    if BoE is not None:    
+        boe = axb.plot(BoE,color="brown",label='BoE bal. sheet (right)',lw=1.5)
     
     if YScale == "log":
         ax.set_yscale('log')
