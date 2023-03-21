@@ -165,9 +165,7 @@ else:
 Index = pd.date_range(TGA_Past.index[0],TGA_Past.index[len(TGA_Past)-1],freq='D')
 Index = pd.DatetimeIndex(Index)
 if len(Index.difference(TGA_Past.index)) > 0:
-    #print('Resample triggered')
-    TGA_PastRS = PriceImporter.ReSampleToRefIndex(TGA_Past,Index,'D')
-    #print('Data after resample: ',TGA_PastRS)  
+    TGA_PastRS = PriceImporter.ReSampleToRefIndex(TGA_Past,Index,'D')  
 TGA_Past.set_index('record_date',inplace=True)      
 TGA_Past = TGA_Past[['account_type','open_today_bal','close_today_bal','open_month_bal','month_close_bal_ifToday']]
 #print('TGA data after update: ',TGA_Past)
@@ -233,6 +231,8 @@ if len(Findex.difference(TGA_FRED.index)) > 0:
     TGA_FRED = PriceImporter.ReSampleToRefIndex(TGA_FRED,Findex,'D')
 if len(Findex.difference(RevRep.index)) > 0:    
     RevRep = PriceImporter.ReSampleToRefIndex(RevRep,Findex,'D')
+if len(Findex.difference(TGA_Daily_Series.index)) > 0:    
+    TGA_Daily_Series = PriceImporter.ReSampleToRefIndex(TGA_Daily_Series,Findex,'D')    
 
 ############ Main NET LIQUIDITY SERIES ##################################################################################### 
 NetLiquidity = (SeriesDict['WALCL'][1]-SeriesDict['WTREGEN'][1]-SeriesDict['RRPONTSYD'][1]) #Weekly net liq calculation. No reindexing. Weekly and daily data combos, all FRED data. 
