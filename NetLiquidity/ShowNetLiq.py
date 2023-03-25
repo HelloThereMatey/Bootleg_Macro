@@ -220,8 +220,23 @@ for key in SeriesDict.keys():    #Plot all of the fed series along wih compariso
         Charting.FedFig(SeriesData,SeriesInfo,RightSeries=FirstDS['Close'],rightlab=FirstDSName) 
       
 ##### Calculate the FED net liquidity as defined by crew such as the legend Darius Dale of 42 Macro. #########
-### All of this below reindexes the 3 main series to have the same indexes with daily frequency. 
-FedBal = pd.DataFrame(SeriesDict['WALCL'][1]); TGA_FRED = pd.DataFrame(SeriesDict['WTREGEN'][1]); RevRep = pd.DataFrame(SeriesDict['RRPONTSYD'][1])
+### All of this below reindexes the 3 main series to have the same indexes with daily frequency.  
+BS_Series = str(Inputs.loc['Fed_BS_Full_Or_QE'].at['Additional FRED Data']); QEStr = 'qe'; TotStr = 'total'
+if BS_Series == 'nan'or BS_Series.upper() == TotStr.upper():
+    FedBal = pd.DataFrame(SeriesDict['WALCL'][1])   #Use the total fed balance sheet in the calculation. 
+    NetLiquidity = (SeriesDict['WALCL'][1]-SeriesDict['WTREGEN'][1]-SeriesDict['RRPONTSYD'][1]) #Weekly net liq calculation. No reindexing. Weekly and daily data combos, all FRED data. 
+    NetLiquidity = pd.Series(NetLiquidity,name='Fed net liq 1 (Bil $)'); NetLiquidity.dropna(inplace=True)
+    MainLabel = 'USD Net liquidity (NLQ) = (FED (total) - RevRepo - TGA)\n'  ###This will be the label for the main NLQ trace on the figures. 
+elif BS_Series.upper() == QEStr.upper():
+    FedBal = pd.DataFrame(SeriesDict['RESPPNTNWW'][1]) #Use the QE only part of the fed balance sheet in the calculation (better IMO). 
+    NetLiquidity = (SeriesDict['RESPPNTNWW'][1]-SeriesDict['WTREGEN'][1]-SeriesDict['RRPONTSYD'][1]) 
+    NetLiquidity = pd.Series(NetLiquidity,name='Fed net liq 1 (Bil $)'); NetLiquidity.dropna(inplace=True)
+    MainLabel = 'USD Net liquidity (NLQ) = (FED (QE only) - RevRepo - TGA)\n' 
+else:
+    print("Which series do you want to use for the Fed balance sheet. Set Fed_BS_Full_Or_QE parameter in input file to either 'QE' or 'total'")    
+    quit()
+
+TGA_FRED = pd.DataFrame(SeriesDict['WTREGEN'][1]); RevRep = pd.DataFrame(SeriesDict['RRPONTSYD'][1])
 FedBal.sort_index(inplace=True); TGA_FRED.sort_index(inplace=True); RevRep.sort_index(inplace=True)
 Findex = pd.date_range(StartDate,EndDate,freq='D'); #print('Master index: ',Findex)  
 FedBal = FedBal.squeeze(); FedBal = pd.Series(FedBal); TGA_FRED = TGA_FRED.squeeze(); TGA_FRED = pd.Series(TGA_FRED); RevRep = RevRep.squeeze(); RevRep = pd.Series(RevRep)
@@ -235,8 +250,6 @@ if len(Findex.difference(TGA_Daily_Series.index)) > 0:
     TGA_Daily_Series = PriceImporter.ReSampleToRefIndex(TGA_Daily_Series,Findex,'D')    
 
 ############ Main NET LIQUIDITY SERIES ##################################################################################### 
-NetLiquidity = (SeriesDict['WALCL'][1]-SeriesDict['WTREGEN'][1]-SeriesDict['RRPONTSYD'][1]) #Weekly net liq calculation. No reindexing. Weekly and daily data combos, all FRED data. 
-NetLiquidity = pd.Series(NetLiquidity,name='Fed net liq 1 (Bil $)'); NetLiquidity.dropna(inplace=True)
 #print('Net liquidity using FRED weekly data: ',NetLiquidity)
 NetLiquidity2 = pd.Series((FedBal - TGA_FRED - RevRep),name='Fed net liq 2 (Bil $)')    ##Resampled to daily data calculation. Data from FRED reseampled to daily frequency. 
 #print('Net liquidity using FRED weekly data, resampled to daily: ',NetLiquidity2)
@@ -255,8 +268,6 @@ LoadECB = Inputs.loc['Include_ECB'].at['Additional FRED Data']
 LoadBOJ = Inputs.loc['Include_BOJ'].at['Additional FRED Data']
 LoadPBOC = Inputs.loc['Include_PboC'].at['Additional FRED Data']
 LoadBOE = Inputs.loc['Include_BoE'].at['Additional FRED Data']
-
-MainLabel = 'USD Net liquidity (NLQ) = (FED - RevRepo - TGA)\n'                         ###This will be the label for the main NLQ trace on the figures. 
 
 if pd.isna(LoadECB) or str(LoadECB).upper() == NoString.upper():  
     pass
