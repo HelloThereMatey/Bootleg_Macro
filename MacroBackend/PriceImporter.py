@@ -290,8 +290,7 @@ def YoYCalcFromDaily(series:pd.Series):
     return YoYSeries   
 
 def YoY4Monthly(series:pd.Series): #Input monthly data and get out monthly series.
-    series = series.resample('M').mean()
-    series.fillna(method='ffill',inplace=True) #This'l make it daily data even if weekly data is input. 
+    series.fillna(method='ffill',inplace=True)
     YoYCalc = [np.nan for i in range(12)]
     for i in range(12,len(series),1):
         YoYCalc.append(((series[i]-series[i-12])/series[i-12])*100)

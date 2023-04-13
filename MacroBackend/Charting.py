@@ -96,13 +96,13 @@ def GNLQ_ElementsChart(GNLQ:pd.Series,title:str,YScale='linear',US_NLQ:pd.Series
     ax.fill_between(GNLQ.index,GNLQ,color='black',alpha=0.35)
     if US_NLQ is not None:
         Fed = axb.plot(US_NLQ,color="blue",label='Fed Net Liq. (right)',lw=1.5)
-    if ECB is not None:    
+    if ECB is not None:
         ecb = axb.plot(ECB,color="aqua",label='ECB bal. sheet (right)',lw=1.5)
-    if BOJ is not None: 
+    if BOJ is not None:
         boj = axb.plot(BOJ,color="green",label='BoJ bal. sheet (right)',lw=1.5)
-    if PBoC is not None:
+    if PBoC is not None:    
         pboc = axb.plot(PBoC,color="red",label='PBoC bal. sheet (right)',lw=1.5)
-    if BoE is not None:    
+    if BoE is not None:
         boe = axb.plot(BoE,color="brown",label='BoE bal. sheet (right)',lw=1.5)
     
     if YScale == "log":
