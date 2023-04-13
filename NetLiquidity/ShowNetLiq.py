@@ -68,7 +68,10 @@ else:
     SaveFredData = True 
 
 ## Pull FRED series for net liquidity curve calculation ############# All the important parameters are set here. 
+BS_Series = str(Inputs.loc['Fed_BS_Full_Or_QE'].at['Additional FRED Data']); QEStr = 'qe'; TotStr = 'total'
 SeriesList = ["WALCL","RRPONTSYD",'WTREGEN'] #These are the 3 main series from FRED for the net lqiuidity curve calculation.
+if BS_Series.upper() == QEStr.upper():
+    SeriesList.append('RESPPNTNWW')
 for i in range(1,6,1):
     ExtraSeries = Inputs.loc[i].at['Additional FRED Data']         ###Extra series are optionally added to be pulled from FRED. 
     Display = Inputs.loc[i].at['Display Individually']
@@ -221,7 +224,6 @@ for key in SeriesDict.keys():    #Plot all of the fed series along wih compariso
       
 ##### Calculate the FED net liquidity as defined by crew such as the legend Darius Dale of 42 Macro. #########
 ### All of this below reindexes the 3 main series to have the same indexes with daily frequency.  
-BS_Series = str(Inputs.loc['Fed_BS_Full_Or_QE'].at['Additional FRED Data']); QEStr = 'qe'; TotStr = 'total'
 if BS_Series == 'nan'or BS_Series.upper() == TotStr.upper():
     FedBal = pd.DataFrame(SeriesDict['WALCL'][1])   #Use the total fed balance sheet in the calculation. 
     NetLiquidity = (SeriesDict['WALCL'][1]-SeriesDict['WTREGEN'][1]-SeriesDict['RRPONTSYD'][1]) #Weekly net liq calculation. No reindexing. Weekly and daily data combos, all FRED data. 
@@ -339,9 +341,18 @@ else:
     
 #################  Chuck on a moving average of NLQ if requested by user. ############################################
 NLQ_MA = Inputs.loc['NLQ_MA (days)'].at['Additional FRED Data']; FaceColor = Inputs.loc['MainFig FaceColor'].at['Additional FRED Data']
+Smooth = Inputs.loc['Use_Smoothed'].at['Additional FRED Data']
+if pd.isna(Smooth):
+    Use_Smoothed = False
+else:
+    Use_Smoothed = True
 if pd.isna(NLQ_MA):
     NLQMA1 = None; NLQMA2 = None; NLQMA3 = None
     pass
+elif pd.isna(NLQ_MA) is False and Use_Smoothed is True:
+    NLQMA1 = pd.Series(NetLiquidity).rolling(NLQ_MA).mean(); NLQMA2 = pd.Series(NetLiquidity2).rolling(NLQ_MA).mean(); NLQMA3 = pd.Series(NetLiquidity3).rolling(NLQ_MA).mean()
+    NetLiquidity = NLQMA1.copy(); NetLiquidity2 = NLQMA2.copy(); NetLiquidity3 = NLQMA3.copy()
+    MainLabel += ' '+str(NLQ_MA)+' MA '
 else:
     NLQMA1 = pd.Series(NetLiquidity).rolling(NLQ_MA).mean(); NLQMA2 = pd.Series(NetLiquidity2).rolling(NLQ_MA).mean(); NLQMA3 = pd.Series(NetLiquidity3).rolling(NLQ_MA).mean()
 
