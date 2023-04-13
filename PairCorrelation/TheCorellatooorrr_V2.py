@@ -281,5 +281,6 @@ xmin = Percentage.index[0]; xmax = Percentage.index[len(Percentage)-1]; tick_cou
 stepsize = (xmax - xmin) / tick_count        
 ax3.xaxis.set_ticks(np.arange(xmin, xmax, stepsize))
 ax3.tick_params(axis='x', labelsize='small',labelrotation=45)
+ax3.minorticks_on(); ax3.grid(visible=True,which='both',axis='both')
 
 plt.show() # Show figure. Function will remain running until you close the figure. 
