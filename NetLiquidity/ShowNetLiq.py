@@ -131,12 +131,11 @@ for column in TGA_Past.columns:
     if re.search('1',column) is not None or re.search('record_date',column) is not None:
         TGA_Past.drop(column,axis=1,inplace=True)
 
-TGA_Past.index.rename('record_date',inplace=True) 
+TGA_Past.index.rename('record_date',inplace=True)
 FirstDay = TGA_Past.index[0].date(); LastDay = TGA_Past.index[len(TGA_Past)-1].date()
 LastDate = datetime.datetime.strftime(LastDay,'%Y-%m-%d')
 DateDiff = LastDay - FirstDay; Index = pd.date_range(FirstDay,LastDay,freq='D')
 print('First day in TGA data: ',FirstDay,'Last day in TGA data: ',LastDay,', Length of data: ',len(TGA_Past),'. Date range: ',DateDiff.days)
-#print('TGA data before update: ',TGA_Past)
 print('Getting new data for the TGA from Treasury to update the TGA data excel file, please wait............')
 
 CheckData2 = PriceImporter.PullTGA_Data(AccountName = 'Treasury General Account (TGA) Closing Balance',start_date=LastDate)   #Check the latest data from treasury.
@@ -165,13 +164,16 @@ if LatestDayFromTreasury > LastDay:    #This updates the excel file with TGA dat
 else:
     print('The excel file containing TGA data is up to date.\n')  
 
+print(TGA_Past)
 Index = pd.date_range(TGA_Past.index[0],TGA_Past.index[len(TGA_Past)-1],freq='D')
 Index = pd.DatetimeIndex(Index)
+
 if len(Index.difference(TGA_Past.index)) > 0:
     TGA_PastRS = PriceImporter.ReSampleToRefIndex(TGA_Past,Index,'D')  
-TGA_Past.set_index('record_date',inplace=True)      
-TGA_Past = TGA_Past[['account_type','open_today_bal','close_today_bal','open_month_bal','month_close_bal_ifToday']]
+#TGA_Past.set_index('record_date',inplace=True)      
+TGA_Past = TGA_Past[['open_today_bal','close_today_bal','open_month_bal','month_close_bal_ifToday']]
 #print('TGA data after update: ',TGA_Past)
+print(TGA_Past)
 TGA_Past.to_excel(wd+FDel+'TreasuryData'+FDel+'TGA_Since2005.xlsx',index_label=TGA_Past.index.name)
 TGA_PastRS.drop('month_close_bal_ifToday',axis=1,inplace=True)
 TGA_PastRS.to_excel(wd+FDel+'TreasuryData'+FDel+'TGA_Since2005_RS.xlsx',index_label=TGA_Past.index.name)
