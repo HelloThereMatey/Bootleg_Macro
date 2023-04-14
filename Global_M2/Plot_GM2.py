@@ -47,7 +47,7 @@ def PlotM2Data(GlobalM2:pd.DataFrame,DataSum:pd.DataFrame,Rank:list=None,LedgFon
     if str(type(colors)) == "<class 'dict'>":
         colors = [color for color in colors.keys()]
     figure = plt.figure(figsize=(11,8.5), tight_layout=True); numEcons = len(DataSum)
-    gs = GridSpec(2, 1, top = 0.94, bottom=0.1,left=0.08,right=0.85, height_ratios=[1,1], hspace=0)
+    gs = GridSpec(2, 1, top = 0.94, bottom=0.05,left=0.08,right=0.85, height_ratios=[1,1], hspace=0)
     ax = figure.add_subplot(gs[0]); ax2 = figure.add_subplot(gs[1],sharex=ax)
     ax.set_title('M2 money supply (in USD value), top '+str(numEcons)+' economies',fontweight='bold',fontsize=14)
     if Rank is not None:
@@ -76,22 +76,25 @@ def PlotM2Data(GlobalM2:pd.DataFrame,DataSum:pd.DataFrame,Rank:list=None,LedgFon
     ax.margins(0.02,0.02); ax2.margins(0.02,0.02)
 
 def Plot_GlobalM2(Global_M2:pd.Series,GlobalM2:pd.DataFrame):
-    fig = plt.figure(figsize=(11,8.5), tight_layout=True)
-    gs = GridSpec(2, 1, top = 0.94, bottom=0.1,left=0.1,right=0.96, height_ratios=[1,1], hspace=0)
-    ax = fig.add_subplot(gs[0]); ax2 = fig.add_subplot(gs[1],sharex=ax)
+    fig = plt.figure(figsize=(11,9), tight_layout=True)
+    gs = GridSpec(3, 1, top = 0.94, bottom=0.05,left=0.1,right=0.96, height_ratios=[1,0.7,0.33], hspace=0.01)
+    ax = fig.add_subplot(gs[0]); ax2 = fig.add_subplot(gs[1],sharex=ax); ax3 = fig.add_subplot(gs[2],sharex=ax)
     ax.set_title('M2 money supply, sum of top '+str(int(round(((len(GlobalM2.columns)-2)/2),0)))+' economies (USD)',fontweight='bold',fontsize=14)
     YoYm2 = PriceImporter.YoY4Monthly(Global_M2)
     Dat2 = ax.plot(Global_M2,label='Global M2 (top 24)',color='blue',lw=2)
     yoy2 = ax2.plot(YoYm2,label=r'Global M2 YoY $\Delta$%',color='black',lw=1.75)
     ax.set_yscale('log'); ax.set_ylabel('M2 Money supply (USD)',fontweight='bold',fontsize=12)
-    ax.tick_params(axis='x',labelsize=0)
-    ax2.set_ylabel(r'M2 YoY $\Delta$%',fontweight='bold',fontsize=12)
-    ax2.axhline(y=0,linestyle='dashed',color='red')
+    mom = pd.Series([((((Global_M2[i]-Global_M2[i-1])/Global_M2[i-1])*100)) for i in range(len(Global_M2))],name="GlobalM2_MoM",index=Global_M2.index)
+    mom2 = ax3.plot(mom,label=r'Global M2 MoM $\Delta$%',color='green',lw=1)
+    ax.tick_params(axis='x',labelsize=0); ax.tick_params(axis='x',labelsize=0); ax2.tick_params(axis='x',labelsize=0)
+    ax2.set_ylabel(r'M2 YoY $\Delta$%',fontweight='bold',fontsize=12); ax3.set_ylabel(r'MoM $\Delta$%',fontweight='bold',fontsize=10)
+    ax2.axhline(y=0,linestyle='dashed',color='red'); ax3.axhline(y=0,linestyle='dashed',color='red',lw=0.75)
     ax.legend(loc=1,bbox_to_anchor=(0.1,1.1),fontsize=9)         
     for axis in ['top','bottom','left','right']:
-            ax.spines[axis].set_linewidth(1.5); ax2.spines[axis].set_linewidth(1.5)        
-    ax.minorticks_on(); ax2.minorticks_on()
-    ax.margins(0.02,0.02); ax2.margins(0.02,0.02)
+            ax.spines[axis].set_linewidth(1.5); ax2.spines[axis].set_linewidth(1.5) ; ax3.spines[axis].set_linewidth(1.5)      
+    ax.minorticks_on(); ax2.minorticks_on(); ax3.minorticks_on()
+    ax.margins(0.02,0.02); ax2.margins(0.02,0.02); ax3.margins(0.02,0.02)
+    ax2.grid(which='both',axis="both",linestyle="dotted"); ax3.grid(which='both',axis="both",linestyle="dotted")
 
     laggers = []; latestPrint = GlobalM2.index[len(GlobalM2)-1]; print('Latest data print: ',latestPrint); M2Total = 0; missingT = 0
     for i in range(2,len(GlobalM2.columns),1):
@@ -118,7 +121,7 @@ def Plot_GlobalM2(Global_M2:pd.Series,GlobalM2:pd.DataFrame):
     MissedProportion = round((missingT/M2Total)*100,2)
     mesg = 'Proportion of data missing from latest data point: '+str(MissedProportion)+'%.'
     print(mesg)   
-    ax.text(0.45,0.05,s=mesg,fontsize=11,transform=ax.transAxes,horizontalalignment='center',verticalalignment='center') 
+    ax.text(0.55,0.05,s=mesg,fontsize=11,transform=ax.transAxes,horizontalalignment='center',verticalalignment='center') 
  
 def Compare_GlobalM2s(M2List:list,title:str='M2 money supply global, index comparisons.'):  ##Put in multiple global M2 traces to compare them. 
     fig = plt.figure(figsize=(11,8.5), tight_layout=True)  #M2List has format: [('GlobalM2_MasterDFName','Label','Color'),('GlobalM2_MasterDFName','Label','Color')]
