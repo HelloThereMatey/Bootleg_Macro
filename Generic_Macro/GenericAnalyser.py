@@ -14,7 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.gridspec import GridSpec
-from matplotlib.ticker import FuncFormatter
+
 ### These are standard python packages included in the latest python distributions. No need to install them. 
 import datetime
 import re 
@@ -67,10 +67,10 @@ for i in range(1,6):
     if pd.isna(ticker):
         pass
     else:
-        source = Inputs.loc[i].at['Source']; type = Inputs.loc[i].at['UnitsType']
+        source = Inputs.loc[i].at['Source']; Tipe = Inputs.loc[i].at['UnitsType']
         color = Inputs.loc[i].at['TraceColor']; label = Inputs.loc[i].at['Legend_Name']; name = Inputs.loc[i].at['Name']
         axis = Inputs.loc[i].at['Axis']; yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['Resample2D']
-        SeriesDict[name] = {'Ticker': ticker, 'Source': source, 'UnitsType': type, 'TraceColor': color, 'Legend_Name': label, 'Name': name, 'Axis': axis,\
+        SeriesDict[name] = {'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name, 'Axis': axis,\
                             'YScale': yscale,'Ymax': Ymax, 'Resample2D': resample} 
         SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList)  
         Axii = Inputs['Axis'].copy(); Axii.dropna(inplace=True); Axii = Axii.unique() ;numAxii = len(Axii)
@@ -163,9 +163,14 @@ for series in SeriesDict.keys():
     else:
         SeriesInfo['units'] = 'US Dollars'; SeriesInfo['units_short'] = 'USD'
         SeriesInfo['title'] = TheSeries['Legend_Name']; SeriesInfo['id'] = TheSeries['Name'] 
-    TheData.index.rename('date',inplace=True); TheData = pd.Series(TheData.squeeze(),name=ticker)
-    SeriesInfo.index.rename('Property',inplace=True); SeriesInfo = pd.Series(SeriesInfo.squeeze(),name='Value')
-    TheSeries['Data'] = TheData
+    TheData.index.rename('date',inplace=True)
+    print(type(TheData))
+    if str(type(TheData)) == "<class 'pandas.core.series.Series'>":
+        TheData2 = TheData.copy()
+    else:
+        TheData2 = TheData['Close'].copy()
+    SeriesInfo.index.rename('Property',inplace=True); #SeriesInfo = pd.Series(SeriesInfo,name="Value")
+    TheSeries['Data'] = TheData2
     TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.   
     SeriesDict[series] = TheSeries
     print(ticker,TheData)
@@ -196,7 +201,8 @@ if TheSource.upper() != loadStr.upper() and TheSource.upper() != SpreadStr.upper
 normStr = 'normal'; YoYStr = 'yoy'
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]; data = pd.Series(TheSeries['Data']); TraceType = str(TheSeries['UnitsType'])
-    Freq = str(data.index.inferred_freq); print(data.name,' Inferred frequency: ',Freq)
+    idx = pd.DatetimeIndex(data.index)
+    Freq = str(idx); print(data.name,' Inferred frequency: ',Freq)
     if TraceType.upper() == YoYStr.upper():
         if Freq == 'D':
             data = pd.Series(PriceImporter.YoYCalcFromDaily(data))
