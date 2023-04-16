@@ -202,6 +202,7 @@ def pullyfseries(ticker,start:str="2020-01-01",interval="1d"):
 
 def Yahoo_Fin_PullData(Ticker, start_date = None, end_date = None): #Pull daily data for an asset using yahoo_fin web scraper
     data = si.get_data(Ticker,start_date = start_date, end_date = end_date) #Start date end date in YYYY-MM-DD str format. 
+    print(data); data.drop("ticker",axis=1,inplace=True)
     data = data.resample('D').mean()
     data.fillna(method='pad',inplace=True)
     data.rename({"open":"Open","high":"High","low":"Low","close":"Close","adjclose":"AdjClose","volume":"Volume","ticker":"Ticker"},\
@@ -355,6 +356,9 @@ def PullFredSeries(series:str,apikey:str,start="1776-07-04",filetype="&file_type
     
     series_data = "https://api.stlouisfed.org/fred/series/observations?series_id="  
     r = requests.get(series_data+series+"&observation_start="+start+"&api_key="+apikey+filetype)
+    if r.status_code != 200:
+        print('Attempt to get series: ',series,' data from FRED has failed. Check internet connection perhaps. Pulling out')
+        quit()
     df = pd.json_normalize(r.json())
     df2 = pd.DataFrame.from_dict(df['observations'][0])
     dateIndex = pd.DatetimeIndex(df2['date'])
@@ -576,6 +580,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
         dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(FXData.index).date)
         FXData.set_index(dtIndex,inplace=True)
     
+    FXData.drop("symbol",axis=1,inplace=True); print(FXData)
     FXData.fillna(method='ffill',inplace=True)
     FXData.dropna(inplace=True); FXData.index.rename('datetime',inplace=True) 
     LastDay = FXData.index[len(FXData)-1]; LastDay = LastDay.date()
