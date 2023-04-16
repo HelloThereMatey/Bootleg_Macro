@@ -4,12 +4,13 @@ wd = os.path.dirname(__file__)  ## This gets the working directory which is the 
 dir = os.path.dirname(wd)
 print(wd,dir)
 import sys ; sys.path.append(dir)
+from MacroBackend.tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
 import pandas as pd
 from matplotlib import colors as mcolors
 import matplotlib.pylab as pl
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from tvDatafeed import TvDatafeed, Interval
+#from tvDatafeed import TvDatafeed, Interval
 import numpy as np
 import datetime
 import tkinter as tk
@@ -142,6 +143,11 @@ def CombineDatasSimp(FullInfo:pd.DataFrame,DataSum:pd.DataFrame,M2Path:str,FXPat
 
         index = pd.DatetimeIndex(pd.DatetimeIndex(FX_Data[FX_Data.columns[0]]).date)
         FX_Data.set_index(index,inplace=True); FX_Data.fillna('ffill',inplace=True)
+        try:
+            FX_Data.drop(["volume","datetime","symbol"],axis=1,inplace=True)
+        except:
+            pass    
+        print(FX_Data)
         FX_Data = FX_Data.resample('MS').mean()
         #print(Country,' FX Data: ',FX_Data)
 
@@ -233,7 +239,8 @@ filename = askopenfilename(title="Choose excel file (.xlsx only), suggest M2Info
 M2Path = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'M2_Data'); FXPath = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'FX_Data') ###Change these if changing the folder structure within "Global_M2" folder.
 print('Loading global M2 information from: ',filename)
 FullList = pd.read_excel(filename)   #Step #1 load file that has info on which countries + the M2 & FX codes for data to pull from TV. 
-FullList.set_index('Country',inplace=True); print("Global M2 initial dataframe: ",FullList)
+FullList.set_index('Country',inplace=True) #;FullList = FullList[0:3]
+print("Global M2 initial dataframe: ",FullList)
 split = filename.split(FDel); nam = split[len(split)-1]; split2 = nam.split("."); naml = split2[0]; split3 = naml.split("_"); des = split3[1]
 DataComp = UpdateData(FullList,M2Path,FXPath)        #Step #2 update M2 & FX data if not already done (optional). 
 DataComp.to_excel(wd+FDel+des+'_DataComp.xlsx')
