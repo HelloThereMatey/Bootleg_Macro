@@ -60,6 +60,8 @@ V1.3:
     - Big upgrades here. Added option to add bal. sheets of the other 4 main world CB's to create a 'global liquidity'index. 
     - Upgrades in the usability of the excel control input params file. Much easier to use and you have more possibilities. 
     Get at it. 
+V1.4:
+    - Added the generic chating tool and the aggregated global M2 toolz. 
 
      
      
