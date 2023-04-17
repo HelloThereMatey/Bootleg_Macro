@@ -594,7 +594,8 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
         NewFXData.set_index(dtIndex,inplace=True)
         NewFXData.index.rename('datetime',inplace=True)
         NewFXData.fillna(method='ffill',inplace=True)
-        NewFXData.dropna(inplace=True) 
+        NewFXData.dropna(inplace=True)
+        NewFXData.drop('symbol',axis=1,inplace=True) 
         if FirstDay > StartDate:
             FXData = NewFXData
         else:
