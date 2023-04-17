@@ -1,6 +1,36 @@
 # Plebs_Macro
 Open sourcing financial data that is generally hidden behind high paywalls. 
 
+Multiple tools for obtaining and then charting and comparing economic data with asset price data. Has two aggregated liquidity indexes that you won't find elsewhere for free. Tools:
+- Generic Charting tool:
+    - Chart up to 5 traces on the same chart for comparison.
+- Correlation tool:
+    - Look at correlation between any two datasets. 
+- Central bank global money index.
+    - Aggregated customizable index that shows the sum of the major central bank balance sheets. Included more elaborate index for the Fed (Net liquidity). Net liquidity metric formulation devised by 42 Macro, see info below. 
+    - Compare this index with up to 5 comparison assets. 
+    - This script is the most developed & best to start with this one. 
+- Aggregated global M2 money supply index.
+    - This takes M2 money supply data for the top 50 economies and aggregates. Check it out. 
+
+ Installation: 
+     - Download the repo as zip file. Unzip to any location. Change the folder name from "Plebs_Macro-main" to "Plebs_Macro".
+     - Install the required packages if not already present. In terminal:
+        - cd wd      (where wd is your Plebs_Macro directory full path).
+        - pip3 install -r requirements.txt   (pip on windows pip3 on mac/ linux) - That will install the python modules listed in requirements.txt. 
+        - set working directory to folder containg the tool you wanna use (e.g cd ...............Plebs_Macro/NetLiquidity)
+        - Fill in the necessary parameters in the control excel file. Save file.
+        - Run script (e.g enter 'python3 ShowNetLiq.py' into terminal when working directory set to Plebs_Macro/NetLiquidity). 
+        - Could alternatively be run in an editor such as VS code or pycharm. 
+     
+    
+     
+Controlling tools:
+    - All of the tools are controlled by excel sheets (.xlsx). 
+    - Fill in the indicated cells in each sheet and then run the corresponding script. 
+    - Usage information is found in each excel sheet. 
+    - A free excel alternative such as libre office can be used but make sure that the file type is .xlsx. 
+
 USD NET LIQUIDITY SCRIPT 
     The net lqiuidity metric (NLQ) was originally formulated by Darius Dale and 42Macro, much respect DD, 42 Macro is best in class. If you can afford it, you're best off to just get a 42 Macro subscription. If however, you are a low-time preferenced, humble, sat-stacking pleb that would rather use that money to stack sats and doesn't mind getting your hands dirty with coding and data diving, then this approach is for you. 
     The net liquidity time series is the Fed balance sheet (FedBal) - the balance in the reverse repo facility (RevRep) - the treasury general account (TGA). 
@@ -10,11 +40,6 @@ USD NET LIQUIDITY SCRIPT
     Apart from standard, well vetted, python packages, my script uses another script 'PriceImporter' that contains my functions for pulling price history from different APIs. 
     There is also a package 'tvDatafeed' which is used and the files of which are included in this repo. This package is great and allows us to pull data for any asset that you can find on tradingview from tradingview itself without needing a subscription. I'm quite sure that it is safe and have been using it for months. I suspect that it doesn't get hosted on PyPi as the scraping of data from sites can be legally dubious in some jursidictions. Anyhow teh script could operate fine without it, you'd just not be able to get data from TV and would need to modify all references to the module in the script. 
     
-    How to use scipt: 
-     - Place Plebs_Macro project folder where you wish. Set working directory to PlebsMacro/NetLiquidity.
-     - Install the necessary modules using requirements.txt - 'pip install -r requirements.txt' enter in terminal. 
-     - Set your input parameters in the excel file 'NetLiquidityInputParams.xlsx'. Correlation will be calculated between NLQ & the asset in slot #1 in            this spreadsheet. 
-     - Run script.
 V1.1 update:
     - One can look at YoY % change for assets and NLQ. Other features have been added and are outlined in the excel file. 
     - There is now also a more generic script for looking at correlations between any two assets. This is in the folder PairCorrelation. Use
