@@ -579,8 +579,10 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
         FXData.to_excel(FXDataPath); print('FXData for '+FXSymbol[1]+', pulled from TV.')
         dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(FXData.index).date)
         FXData.set_index(dtIndex,inplace=True)
-    
-    FXData.drop("symbol",axis=1,inplace=True); print(FXData)
+    try:
+        FXData.drop("symbol",axis=1,inplace=True)
+    except:
+        pass    
     FXData.fillna(method='ffill',inplace=True)
     FXData.dropna(inplace=True); FXData.index.rename('datetime',inplace=True) 
     LastDay = FXData.index[len(FXData)-1]; LastDay = LastDay.date()
@@ -595,7 +597,10 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
         NewFXData.index.rename('datetime',inplace=True)
         NewFXData.fillna(method='ffill',inplace=True)
         NewFXData.dropna(inplace=True)
-        NewFXData.drop('symbol',axis=1,inplace=True) 
+        try:
+            NewFXData.drop("symbol",axis=1,inplace=True)
+        except:
+            pass  
         if FirstDay > StartDate:
             FXData = NewFXData
         else:
