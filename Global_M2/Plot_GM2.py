@@ -61,7 +61,9 @@ def PlotM2Data(GlobalM2:pd.DataFrame,DataSum:pd.DataFrame,Rank:list=None,LedgFon
         ranNum = np.random.random(); culNum = int(round(ranNum*(len(colors)-1-i),0)); culla = colors[culNum]
         Country = str(iterator[i])
         M2Trace = GlobalM2[Country].copy(); print(Country+', latest print: '+str(M2Trace[len(M2Trace)-1])+', one before that: '+str(M2Trace[len(M2Trace)-2]))
-        YoYm = PriceImporter.YoY4Monthly(M2Trace)
+        print(M2Trace.tail(10))
+        YoYm = PriceImporter.YoY4Monthly(M2Trace.copy())
+        print(M2Trace.tail(10))
         Dat = ax.plot(M2Trace,label=Country,color=colors[culNum])
         yoy = ax2.plot(YoYm,label=Country,color=colors[culNum])
         colors.remove(colors[culNum])
