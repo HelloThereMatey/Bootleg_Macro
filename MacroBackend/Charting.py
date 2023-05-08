@@ -252,4 +252,59 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     if pd.isna(background) is False:
         ax.set_facecolor(background)
     return fig
+
+#### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
+def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
+               LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None):
+    
+    fig = plt.figure(num=title,figsize=(13,6.5), tight_layout=True)
+    gs1 = GridSpec(1, 1, top = 0.95, bottom=0.14 ,left=0.06,right=0.92)
+    ax1 = fig.add_subplot(gs1[0])
+    ax1 = fig.axes[0]
+    ax1.set_title(title,fontweight='bold')
+
+    for trace in LeftTraces.keys():
+        ax1.plot(LeftTraces[trace][0],label = trace,color=LeftTraces[trace][1],lw=LeftTraces[trace][2])
+    if LeftScale == 'log':
+        ax1.set_yscale('log')    
+    if LeftTicks is not None:    ### Ticks must be input as a tuple of lists or np.arrays. WIth format (Tick positions list, tick labels list)
+            ax1.minorticks_off()
+            ax1.tick_params(axis='y',which='both',length=0,labelsize=0,left=False,labelleft=False)
+            ax1.set_yticks(LeftTicks[0]); ax1.set_yticklabels(LeftTicks[1])
+            ax1.tick_params(axis='y',which='major',length=3,labelsize=9,left=True,labelleft=True)
+    if RightTraces is not None:
+        ax1b = ax1.twinx()
+        ax1b.margins(0.02,0.03)
+        for axis in ['top','bottom','left','right']:
+            ax1b.spines[axis].set_linewidth(1.5) 
+        for trace in RightTraces.keys():
+            ax1b.plot(RightTraces[trace][0],label = trace,color=RightTraces[trace][1],lw=RightTraces[trace][2])
+        ax1b.legend(loc=4,fontsize=9)
+        if RightScale == 'log':    
+            ax1b.set_yscale('log')
+        if RYLabel is not None:
+            ax1b.set_ylabel(RYLabel,fontweight='bold',labelpad=15,fontsize=11)
+        if RightTicks is not None:  
+            ax1b.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
+            ax1b.set_yticks(RightTicks[0]); ax1b.set_yticklabels(RightTicks[1])
+            ax1b.tick_params(axis='y',which='major',width=1,length=3,labelsize=9,right=True,labelright=True)
+            if RightMinTicks is not None:
+                ax1b.set_yticks(RightMinTicks[0],minor=True); 
+                ax1b.set_yticklabels(RightMinTicks[1],minor=True)
+                ax1b.tick_params(axis='y',which='minor',length=2,labelsize=7)
+
+    if XTicks is not None:
+        ax1.xaxis.set_ticks(XTicks) 
+        ax1.tick_params(axis='x',length=3,labelsize='small',labelrotation=45)
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b'))
+        ax1.set_xlim(XTicks[0],XTicks[len(XTicks)-1])
+        ax1.set_xlabel('Date (year-month)',fontweight='bold',fontsize=11)
+       
+    ax1.legend(loc=2,fontsize=9)
+    ax1.set_ylabel(LYLabel,fontweight='bold',fontsize=11)
+    for axis in ['top','bottom','left','right']:
+            ax1.spines[axis].set_linewidth(1.5)
+    if text1 is not None:
+        ax1.text(text1)
+    return fig   
               
