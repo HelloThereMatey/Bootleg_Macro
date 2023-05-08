@@ -461,84 +461,6 @@ def AssCorr(series1:pd.Series, series2:pd.Series,periodsList:list, SaveDatas: st
     Correlations = pd.DataFrame(CorrDict)  
     return Correlations, Correlation(series1,series2)  
 
-################ PullFX data if wanted #############################################################################
-### This gets data for the BOJ balance sheet from trading view. Returns a series of BOJ bal. sheet in USD as well as raw data. 
-def GetBOJ_USD(apiKey,Start:str,end:str=None):
-    StartDate = datetime.datetime.strptime(Start,'%Y-%m-%d').date()
-    if end is not None:
-        EndDate = datetime.datetime.strptime(end,'%Y-%m-%d').date(); EndDateStr = end
-    else:
-        EndDate = datetime.date.today(); EndDateStr = EndDate.strftime('%Y-%m-%d')
-    
-    try:
-        FXData = pd.read_excel(dir+FDel+'GlobalReserves'+FDel+'FXData'+FDel+'JPYUSD'+'.xlsx')
-        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(FXData['datetime']).date)
-        FXData.set_index(dtIndex,inplace=True); FXData.drop('datetime',axis=1,inplace=True)
-    except:
-        FXData = pd.DataFrame(DataFromTVGen('JPYUSD',exchange='FX_IDC',start_date=StartDate,end_date=EndDate))
-        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(FXData.index).date)
-        FXData.set_index(dtIndex,inplace=True)
-    
-    FXData = FXData[StartDate::]; FXData.fillna(method='ffill',inplace=True)
-    FXData.dropna(inplace=True); FXData.index.rename('datetime',inplace=True) 
-    LastDay = FXData.index[len(FXData)-1]; LastDay = LastDay.date()
-    FirstDay = FXData.index[0]; FirstDay = FirstDay.date()
-    if LastDay < datetime.date.today() or FirstDay > StartDate:
-        print('FXData not up to date, pulling new data for JPYUSD from TV......')
-        NewFXData = pd.DataFrame(DataFromTVGen('JPYUSD',exchange='FX_IDC',start_date=StartDate,end_date=EndDate))
-        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewFXData.index).date)
-        NewFXData.set_index(dtIndex,inplace=True)
-        NewFXData.index.rename('Date',inplace=True)
-        NewFXData = NewFXData[StartDate::]
-        NewFXData.fillna(method='ffill',inplace=True)
-        NewFXData.dropna(inplace=True)
-        FXData = NewFXData
-        FXData.index.rename('datetime',inplace=True)    
-        FXData.to_excel(dir+FDel+'GlobalReserves'+FDel+'FXData'+FDel+'JPYUSD'+'.xlsx')
-        #print('FXData to add: ',NewFXData)
-
-    try:
-        BOJAss = pd.read_excel(dir+FDel+'GlobalReserves'+FDel+'FRED_Data'+FDel+'JPNASSETS'+'.xlsx',sheet_name='Data')
-        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(BOJAss['Unnamed: 0']).date)
-        BOJAss.set_index(dtIndex,inplace=True); BOJAss.drop('Unnamed: 0',axis=1,inplace=True)
-    except:
-        DataPull = PullFredSeries("JPNASSETS",apiKey,start=Start,end=EndDateStr)
-        BOJAss  = pd.DataFrame(DataPull[1]) 
-        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(BOJAss.index).date)
-        BOJAss.set_index(dtIndex,inplace=True)
-
-    BOJAss = pd.Series(BOJAss.squeeze(),name='BOJ Assets')
-    BOJAss.fillna(method='ffill',inplace=True); BOJAss.dropna(inplace=True)
-    BOJLastDay = BOJAss.index[len(BOJAss)-1]; BOJLastDay = BOJLastDay.date()
-    BOJFirstDay = BOJAss.index[0]; BOJFirstDay = BOJFirstDay.date()
-
-    if BOJLastDay < datetime.date.today() or BOJFirstDay > StartDate:
-        DPStart = BOJLastDay.strftime('%Y-%m-%d')
-        ############# Pull data from FRED. ###########################################
-        DataPull = PullFredSeries("JPNASSETS",apiKey,start=Start,end=EndDateStr)
-        NewData = pd.DataFrame(DataPull[1])
-        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewData.index).date)
-        NewData.set_index(dtIndex,inplace=True)
-        LastPoint = NewData.index[len(NewData)-1]; LastPoint = LastPoint.date()
-        FirstPoint = NewData.index[0]; FirstPoint = FirstPoint.date()
-        if LastPoint > BOJLastDay: 
-            print('New data available for JPNASSETS from FRED')
-            BOJAss = pd.Series(pd.concat([BOJAss,NewData],axis=0))
-            BOJAss.to_excel(dir+FDel+'GlobalReserves'+FDel+'FRED_Data'+FDel+'JPNASSETS'+'.xlsx',sheet_name='Data')
-    BOJAss = BOJAss[StartDate:EndDate]
-    Index = FXData.index; SeriesInfo_US = {}
-    BOJAss_d = pd.Series(ReSampleToRefIndex(BOJAss,Index,freq='D'),name='BOJ bal. sheet (bil. USD)')
-    BOJAss_d *= 100000000. #Convert to Yen.
-    BOJAss_dUS = BOJAss_d*FXData['close'] #Convert to USD.
-    BOJAss_dUS /= 10**9 #Convert to bilper cats. 
-    BOJAss_dUS.fillna(method='ffill',inplace=True); BOJAss_dUS.dropna(inplace=True)
-    BOJAss_dUS = pd.Series(BOJAss_dUS,name='BoJ BS (bil. USD)')
-    SeriesInfo_US['units'] = 'Billions of U.S dollaridoos'
-    SeriesInfo_US['units_short'] = 'Billlions of USD'
-    SeriesInfo_US['title'] = 'Bank of Japan: Total Assets in USD worth'
-    SeriesInfo_US['id'] = 'BOJ Assets (USD)' 
-    return BOJAss_dUS, SeriesInfo_US, BOJAss, FXData
-
 ############### PullFX data to convert bal sheet data to USD  #############################################################################
 ### This gets data for a CB balance sheet from trading view. Returns a series of CB bal. sheet in USD as well as the raw data. 
 ## Needs FRED apikey. Doesn't need TV account. ## Data pulled from TV using TVDataFeed so need it as a tuple like input: Exchange,Symbol 
@@ -579,10 +501,11 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
         FXData.to_excel(FXDataPath); print('FXData for '+FXSymbol[1]+', pulled from TV.')
         dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(FXData.index).date)
         FXData.set_index(dtIndex,inplace=True)
+    
     try:
         FXData.drop("symbol",axis=1,inplace=True)
     except:
-        pass    
+        pass
     FXData.fillna(method='ffill',inplace=True)
     FXData.dropna(inplace=True); FXData.index.rename('datetime',inplace=True) 
     LastDay = FXData.index[len(FXData)-1]; LastDay = LastDay.date()
@@ -592,22 +515,26 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
     if LastDay < EndDate or FirstDay > StartDate:
         print('FXData not up to date, pulling new data for '+FXSymbol[1]+' from TV......')
         NewFXData = pd.DataFrame(DataFromTVGen(FXSymbol[1],exchange=FXSymbol[0],start_date=StartDate,end_date=EndDate))
-        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewFXData.index).date)
-        NewFXData.set_index(dtIndex,inplace=True)
-        NewFXData.index.rename('datetime',inplace=True)
-        NewFXData.fillna(method='ffill',inplace=True)
-        NewFXData.dropna(inplace=True)
-        try:
-            NewFXData.drop("symbol",axis=1,inplace=True)
-        except:
-            pass  
-        if FirstDay > StartDate:
-            FXData = NewFXData
+        if len(NewFXData) > 1:
+            NewFXData.drop(NewFXData.index[0],axis=0,inplace=True)
+            dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewFXData.index).date)
+            NewFXData.set_index(dtIndex,inplace=True)
+            NewFXData.index.rename('datetime',inplace=True)
+            NewFXData.fillna(method='ffill',inplace=True)
+            NewFXData.dropna(inplace=True) 
+            try:
+                NewFXData.drop("symbol",axis=1,inplace=True)
+            except:
+                pass
+            if FirstDay > StartDate:
+                FXData = NewFXData
+            else:
+                NewFXData = NewFXData[LastDay::]
+                print('FXData to add: ',NewFXData)      
+            FXData = pd.concat([FXData,NewFXData],axis=0)
+            FXData.to_excel(FXDataPath)
         else:
-            NewFXData = NewFXData[LastDay::]
-            print('FXData to add: ',NewFXData)  
-        FXData = pd.concat([FXData,NewFXData],axis=0)
-        FXData.to_excel(FXDataPath)
+            pass
     
     print('FX Data: ',FXData)
  
@@ -633,17 +560,22 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
     if LastDayBS < EndDate or FirstDayBS > StartDate:
         print('BSData not up to date, pulling new data for '+TV_Code[1]+' from TV......')
         NewBSData = pd.DataFrame(DataFromTVGen(TV_Code[1],exchange=TV_Code[0],start_date=StartDate,end_date=LastDayBS))
-        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewBSData.index).date)
-        NewBSData.set_index(dtIndex,inplace=True)
-        NewBSData.index.rename('datetime',inplace=True)
-        NewBSData.fillna(method='ffill',inplace=True); NewBSData.dropna(inplace=True) 
-        if FirstDayBS > StartDate:
-            BSData = NewBSData
+        if len(NewBSData) > 1:
+            NewBSData.drop(NewBSData.index[0],axis=0,inplace=True)
+            dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewBSData.index).date)
+            NewBSData.set_index(dtIndex,inplace=True)
+            NewBSData.index.rename('datetime',inplace=True)
+            NewBSData.fillna(method='ffill',inplace=True); NewBSData.dropna(inplace=True) 
+            if FirstDayBS > StartDate:
+                BSData = NewBSData
+            else:
+                NewBSData = NewBSData[LastDayBS::]
+                print('BS Data to add: ',NewBSData)  
+            print('Last date in new BS data: ',NewBSData.index[len(NewBSData)-1],'Last date in existing BS data: ',BSData.index[len(BSData)-1])
+            BSData = pd.concat([BSData,NewBSData],axis=0)
+            BSData.to_excel(BSDataPath)
         else:
-            NewBSData = NewBSData[LastDayBS::]
-            print('FXData to add: ',NewBSData)  
-        BSData = pd.concat([BSData,NewBSData],axis=0)
-        BSData.to_excel(BSDataPath)
+            pass    
 
     StartDay = pd.to_datetime(StartDate)
     #FXData.resample('D').mean(); FXData.fillna(method='ffill')
