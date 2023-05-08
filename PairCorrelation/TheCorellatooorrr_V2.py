@@ -85,6 +85,28 @@ def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate 
         Cor = Series1.rolling(period).corr(Series2) ##Using Pandas to calculate the correlation. 
     return Cor      
 
+def EqualSpacedTicks(data,numTicks,LogOrLin:str='linear',LabOffset=None,labPrefix:str=None,labSuffix:str=None):
+    Ymin = round(min(data),2); Ymax = round(max(data),2)    #Major ticks custom right axis. 
+    if LogOrLin == 'log':
+        Ticks = np.logspace(start = np.log10(Ymin), stop = np.log10(Ymax), num=numTicks, base=10); tickLabs = Ticks.copy()
+    elif LogOrLin == 'linear':    
+        Ticks = np.linspace(start = Ymin, stop = Ymax, num=numTicks); tickLabs = Ticks.copy()
+    else:
+        print('Must specify whether you want linear "linear" ticks or log10 ticks "log".')    
+        quit()
+    if LabOffset is not None:
+        tickLabs += LabOffset
+    Ticks.round(decimals=0,out=Ticks); tickLabs.round(decimals=0,out=tickLabs)
+    Ticks = np.ndarray.astype(Ticks,dtype=int,copy=False)
+    tickLabs = np.ndarray.astype(tickLabs,dtype=int,copy=False)
+    tickLabs = np.ndarray.astype(tickLabs,dtype=str,copy=False)
+    tickLabs = tickLabs.tolist()
+    if labPrefix is not None:
+        tickLabs = [labPrefix+char for char in tickLabs]
+    if labSuffix is not None:
+        tickLabs = [char+labSuffix for char in tickLabs]
+    return Ticks, tickLabs
+
  #You can change to manual coin and time length selection instead of auto selection based on what you've already saved in the input .csv file
 # by commenting out the relevant 6 lines below here and uncommenting lines 23 - 25. 
 #Auto input of coin selection and parameters:
@@ -213,56 +235,71 @@ midpoint = np.median(PriceRatio)
 points = len(PriceRatio)
 print('Median of the '+str(asset1)+'/'+str(asset2)+' data is: '+ str(midpoint),' length of: ',points)
 for i in range(int(points)):
-    Percentage.iloc[i] = ((Percentage.iloc[i] - midpoint)/midpoint)*100
+    Percentage.iloc[i] = ((Percentage.iloc[i] - midpoint)/midpoint)*100+100
 
 # # ################################### #Plot figures #############################################################
+Ticks, tickLabs = EqualSpacedTicks(Percentage,10,LogOrLin='log',LabOffset=-100,labSuffix='%')
+
 #Price ratio plot.
 fig = plt.figure(figsize=(10,9.5))
-gs1 = GridSpec(3, 1, top = 0.96, bottom=0.07, left=0.12, right=0.87, wspace=0.01, height_ratios=[2,2,1], hspace=0)
+gs1 = GridSpec(3, 1, top = 0.96, bottom=0.07, left=0.1, right=0.9, wspace=0.01, height_ratios=[2,2,1], hspace=0)
 ratString = str(asset1)+'/'+str(asset2)
 ax1 = fig.add_subplot(gs1[0])
-TitleString = 'Price ratio '+str(asset1)+'/'+str(asset2)+r', $\Delta$% from median'
+TitleString = 'Price ratio: '+str(asset1)+'/'+str(asset2)+r', $\Delta$% from median'
 ax1.set_title(TitleString, fontsize=12, fontweight = 'bold')
-trace3 = ax1.plot(PriceMatrix1.index,Percentage, c = 'black', label=ratString)
-ax1.invert_xaxis()
+trace3 = ax1.plot(Percentage, c = 'black', label=ratString)
+ax1.invert_xaxis(); ax1.minorticks_off(); ax1.set_yscale('log')
+ax1.tick_params(axis='both',which='both',length=0,width=0,labelsize=0,labelleft=False,left=False)
+ax1.set_yticks(Ticks)
+ax1.tick_params(axis='y',which='major',length=3,width=1,labelsize=9,left=True,right=True,labelright=True,labelleft=True)
+ax1.set_yticklabels(tickLabs)
+ax1.grid(axis='y',visible=True,which='major',linewidth=0.6,linestyle=':')
+ax1.grid(axis='x',visible=True,which='both',linewidth=0.6,linestyle=':')
 ax1.set_ylabel(r'$\Delta$ price from median (%)', fontsize=12, fontweight = 'bold')
-ax1b = ax1.twinx()
-ax1b.plot(PriceMatrix1.index,Percentage, c = 'black')
-ax1.yaxis.set_major_formatter(mtick.PercentFormatter())
-ax1b.yaxis.set_major_formatter(mtick.PercentFormatter())
-ax1.legend(loc=2)
+#ax1.yaxis.set_major_formatter('{x:1.0f}%')
+ax1.axhline(y=100,color='red',lw=0.75,ls=':')
+ax1.legend(loc=1,framealpha=1,fontsize=10)   
+ax1.tick_params(axis='x', labelsize=0,labelrotation=90)  
 for axis in ['top','bottom','left','right']:
         ax1.spines[axis].set_linewidth(1.5)  
 xleft = PriceMatrix1.index[0] - timedelta(days = 15); xright = PriceMatrix1.index[len(PriceMatrix1)-1] + timedelta(days = 15)
 ax1.set_xlim(xleft, xright)
-ax1.minorticks_on(); ax1b.minorticks_on(); ax1.grid(visible=True,which='both',linewidth=0.55,linestyle=':')   
-ax1.set_xticklabels([])
-ax1.tick_params(axis='x', labelsize=0,labelrotation=90)      
-
+    
 #Price of both assets on the one graph.
+Ticks2, tickLabs2 = EqualSpacedTicks(Series1,8,LogOrLin='log')
+Ticks3, tickLabs3 = EqualSpacedTicks(Series2,8,LogOrLin='log')
 
 ax2 = fig.add_subplot(gs1[1],sharex=ax1)
 TitleString = str(asset1)+' vs left axis, '+str(asset2)+' vs right axis'
 ax2.set_ylabel('Price (USD)', fontsize=12, fontweight = 'bold')
-#ax2.set_title(TitleString, fontsize=12)
 trace1 = ax2.plot(Series1, c='black',label =str(asset1)+'\n(left)')
 ax2b = ax2.twinx()
 trace2 = ax2b.plot(Series2, c='red',label =asset2+'\n(right)')
 ax2b.set_ylabel('Price (USD)', fontsize=12, fontweight = 'bold')
 ax2.legend(loc=2,fontsize='small'); ax2b.legend(loc=1,fontsize='small')
-for axis in ['top','bottom','left','right']:
-        ax2.spines[axis].set_linewidth(1.5)  
-ax2.minorticks_on(); ax2b.minorticks_on()        
-ax2.grid(visible=True,which='both',linewidth=0.55,linestyle=':')   
-ax2.set_xticklabels([])
-ax2.tick_params(axis='x', labelsize=0,labelrotation=90) 
 if plot2axii == 'log':    
     ax2.set_yscale('log'); ax2b.set_yscale('log')
+ax2.tick_params(axis='both',which='both',length=0,width=0,labelsize=0,labelleft=False,left=False,labelright=False,right=False)
+ax2.set_yticks(Ticks2); ax2.set_yticklabels(tickLabs2)
+ax2b.tick_params(axis='both',which='both',length=0,width=0,labelsize=0,labelleft=False,left=False,labelright=False,right=False)
+ax2b.set_yticks(Ticks3); ax2b.set_yticklabels(tickLabs3)
+ax2.tick_params(axis='y',which='major',length=3,width=1,labelsize=9,left=True,labelleft=True)
+ax2b.tick_params(axis='y',which='major',length=3,width=1,labelsize=9,right=True,labelright=True)
+ax2.yaxis.set_major_formatter('${x:1.0f}')
+ax2b.yaxis.set_major_formatter('${x:1.0f}')
+ax2.grid(visible=True,axis='y',which='major',linewidth=0.55,linestyle=':')   
+
+for axis in ['top','bottom','left','right']:
+        ax2.spines[axis].set_linewidth(1.5)       
+ax2.grid(visible=True,axis='x',which='both',linewidth=0.55,linestyle=':')   
+ax2.set_xticklabels([])
+ax2.tick_params(axis='x', labelsize=0,labelrotation=90) 
+
 
 # Correlation fig.:
 CorrString = 'Pair correlation over the whole period: '+str(round(float(NumpyCorr[1,0]), 4))
 ax3 = fig.add_subplot(gs1[2],sharex=ax1)
-ax3.set_title(CorrString, fontsize=9)
+ax3.set_title(CorrString, fontsize=10)
 ax3.set_ylabel('Correlation', fontsize=12, fontweight = 'bold')
 for i in range(numCCAvs):
     traceName = 'CC_'+str(int(CCAvs[i]))+'day'
@@ -272,7 +309,7 @@ for i in range(numCCAvs):
     LW = 1+(i*0.25)
     #ax3.plot(MasterDF[traceName], c =(r, g, b), label = tracelabel, linewidth = LW)
     ax3.plot(MasterDF['Pandas rolling corr ('+str(int(CCAvs[i]))+'d)'], c =(r, g, b), label = tracelabel, linewidth = LW)
-ax3.legend(loc=1, fontsize='small',bbox_to_anchor=(1.15, 0.9))
+ax3.legend(loc=1, fontsize=9,bbox_to_anchor=(1.12, 0.9))
 ax3.set_ylim(-1.1, 1.1)
 for axis in ['top','bottom','left','right']:
         ax3.spines[axis].set_linewidth(1.5)  
@@ -282,5 +319,6 @@ stepsize = (xmax - xmin) / tick_count
 ax3.xaxis.set_ticks(np.arange(xmin, xmax, stepsize))
 ax3.tick_params(axis='x', labelsize='small',labelrotation=45)
 ax3.minorticks_on(); ax3.grid(visible=True,which='both',axis='both')
+ax3.axhline(y=0,c='red',lw=1,ls=':')
 
 plt.show() # Show figure. Function will remain running until you close the figure. 
