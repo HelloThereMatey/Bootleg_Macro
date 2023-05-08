@@ -6,6 +6,7 @@ print(wd,dir)
 import sys; sys.path.append(dir)
 from MacroBackend import PriceImporter ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
 from MacroBackend import Charting    ##This script has all the matplotlib chart formatting code. That code is ugly, best to put it in a second file like this. 
+from MacroBackend import Utilities
 
 ## You may see: 'Import "MacroBackend" could not be resolved' & it looks like MacroBackend can't be found. However, it will be found when script is run. Disregard error. 
 #### The below packages need to be installed via pip/pip3 on command line. These are popular, well vetted packages all. Just use 'pip install -r requirements.txt'
@@ -17,6 +18,7 @@ from matplotlib.gridspec import GridSpec
 
 ### These are standard python packages included in the latest python distributions. No need to install them. 
 import datetime
+from datetime import timedelta
 import re 
 
 if sys.platform == "linux" or sys.platform == "linux2":        #This detects what operating system you're using so that the right folder delimiter can be use for paths. 
@@ -70,8 +72,9 @@ for i in range(1,6):
         source = Inputs.loc[i].at['Source']; Tipe = Inputs.loc[i].at['UnitsType']
         color = Inputs.loc[i].at['TraceColor']; label = Inputs.loc[i].at['Legend_Name']; name = Inputs.loc[i].at['Name']
         axis = Inputs.loc[i].at['Axis']; yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['Resample2D']
+        axlabel = Inputs.loc[i].at['Axis_Label']
         SeriesDict[name] = {'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name, 'Axis': axis,\
-                            'YScale': yscale,'Ymax': Ymax, 'Resample2D': resample} 
+                            'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax, 'Resample2D': resample} 
         SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList)  
         Axii = Inputs['Axis'].copy(); Axii.dropna(inplace=True); Axii = Axii.unique() ;numAxii = len(Axii)
 print('Number of data series: ',numSeries,'Number of axii on chart: ',numAxii)
@@ -170,10 +173,14 @@ for series in SeriesDict.keys():
     else:
         TheData2 = TheData['Close'].copy()
     SeriesInfo.index.rename('Property',inplace=True); #SeriesInfo = pd.Series(SeriesInfo,name="Value")
+    TheData2 = TheData2[StartDate:EndDate]
     TheSeries['Data'] = TheData2
     TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.   
     SeriesDict[series] = TheSeries
-    print(ticker,TheData)
+
+    print(ticker,TheData)  
+keys = list(SeriesDict.keys() )
+
 ########### Resample all series to daily frequency ###############################################################
 Index = pd.date_range(start=DataStart,end=EndDateStr,freq='D'); loadStr = 'load'; noStr = 'no'
 for series in SeriesDict.keys():
@@ -198,11 +205,11 @@ if TheSource.upper() != loadStr.upper() and TheSource.upper() != SpreadStr.upper
     data = data[StartDate:EndDate]; TheSeries['Data'] = data    
 
 ###################### Change series to YoY calculation if that option is chosen #################################
-normStr = 'normal'; YoYStr = 'yoy'
+normStr = 'normal'; YoYStr = 'yoy'; devStr = 'devtrend'
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]; data = pd.Series(TheSeries['Data']); TraceType = str(TheSeries['UnitsType'])
     idx = pd.DatetimeIndex(data.index)
-    Freq = str(idx); print(data.name,' Inferred frequency: ',Freq)
+    Freq = str(idx.inferred_freq); print(data.name,' Inferred frequency: ',Freq)
     if TraceType.upper() == YoYStr.upper():
         if Freq == 'D':
             data = pd.Series(PriceImporter.YoYCalcFromDaily(data))
@@ -212,126 +219,176 @@ for series in SeriesDict.keys():
         else:
             print("For series: ",data.name,", with frequency: ",Freq," is currently imcompatible with YoY % change calculation. Set Resample2D to 'yes' to use daily frequency.")    
             quit()
+        data.dropna(inplace=True)    
+    # elif  TraceType.upper() == devStr.upper():      
+    #     fitY, std_u, std_l, TrendDev = fitExpTrend(data)
     else:
         pass    
 
 ######### MATPLOTLIB SECTION #################################################################
 plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 200   ###Set the resolution of the displayed figs & saved fig respectively. 
-fig = plt.figure(num="Macro Data",figsize=(15,6.5), tight_layout=True); i = 0
-if numSeries < 4:
-    Top = 0.95
-else:
-    Top = 0.9
-gs = GridSpec(1, 1, top = Top, bottom=0.08,left=0.06,right=1-(numAxii*0.036))
-CheckAxis = []
-print(SeriesDict.keys())
-for series in SeriesDict.keys(): 
-    TheSeries = SeriesDict[series]; Data = pd.Series(TheSeries['Data']); TraceType = str(TheSeries['UnitsType']); Ymax = TheSeries['Ymax']
-    print(i,TheSeries['Name'],TheSeries['Axis'],Data)    ####Trying to figure out how to get plots on the right axis and have some on the same axis. 
-    print(CheckAxis,len(CheckAxis),TheSeries['Axis'] in CheckAxis) 
-    if len(CheckAxis) == 0:
-        print('Plotting new Axis.', TheSeries['Axis'],TheSeries['TraceColor'],TheSeries['Name'],i)
-        ax1 = fig.add_subplot(gs[0]); ax1.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'],lw=2.5)
-        ax1.spines['left'].set_linewidth(1.5); ax1.grid(visible=True,which='major',axis='y')
-        ax1.tick_params(axis='y',labelsize=8,color=TheSeries['TraceColor'],labelcolor=TheSeries['TraceColor'])
-        ax1.set_yscale(TheSeries['YScale']); ax1.set_xlim(StartDate,EndDate)
-        if pd.isna(Ymax):
-            pass
-        else:
-            ax1.set_ylim(TheSeries['Data'].min(),int(Ymax))
-        if TraceType.upper() == YoYStr.upper():
-            ax1.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
-        else:     
-            ax1.set_ylabel(TheSeries['SeriesInfo']['units_short'],fontweight='bold',color=TheSeries['TraceColor'])
+#### X Ticks for all charts #################################################################################
+Series1 = SeriesDict[keys[0]]; Data = pd.Series(Series1['Data'])
+Range = Data.index[len(Data)-1] - Data.index[0]
+margs = round((0.02*Range.days),0); print(Range.days,margs)
+Xmin = Data.index[0]-timedelta(days=margs); Xmax = Data.index[len(Data)-1]+timedelta(days=margs)
+Xmin = Xmin.to_pydatetime(); Xmax = Xmax.to_pydatetime()
+stepsize = (Xmax - Xmin) / 20
+XTickArr = np.arange(Xmin, Xmax, stepsize) 
+XTickArr = np.append(XTickArr, Xmax)
 
-    elif len(CheckAxis) > 0: 
-        if (TheSeries['Axis'] in CheckAxis) and (TheSeries['Axis'] == 'ax1'): 
-            print('Adding to plot ax1')
-            ax1.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
-        if (TheSeries['Axis'] in CheckAxis) is False and (TheSeries['Axis'] == 'ax2'):
-            print('Plotting new Axis.', TheSeries['Axis'],TheSeries['TraceColor'],TheSeries['Name'],i)
-            ax2 = ax1.twinx(); ax2.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
-            ax2.spines['right'].set_linewidth(1.5); ax2.spines['right'].set_color(TheSeries['TraceColor'])
-            ax2.tick_params(axis='y',labelsize=8,which='both',color=TheSeries['TraceColor'],labelcolor=TheSeries['TraceColor'])
-            ax2.set_yscale(TheSeries['YScale'])
-            if pd.isna(Ymax):
-                pass
-            else:
-                ax2.set_ylim(TheSeries['Data'].min(),int(Ymax))
-            if TraceType.upper() == YoYStr.upper():
-                ax2.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
-            else:     
-                ax2.set_ylabel(TheSeries['SeriesInfo']['units_short'],fontweight='bold',color=TheSeries['TraceColor'])
-        elif (TheSeries['Axis'] in CheckAxis) and (TheSeries['Axis'] == 'ax2'):
-            print('Adding to plot ax2')
-            ax2.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name']) 
-        if (TheSeries['Axis'] in CheckAxis) is False and (TheSeries['Axis'] == 'ax3'):
-            print('Plotting new Axis.', TheSeries['Axis'],TheSeries['TraceColor'],TheSeries['Name'],i)
-            ax3 = ax1.twinx(); ax3.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
-            ax3.legend(loc=2,bbox_to_anchor=(0.66,1.06),fontsize='small')
-            ax3.tick_params(axis='y',labelsize=8,which='both',color=TheSeries['TraceColor'],labelcolor=TheSeries['TraceColor'])
-            ax3.set_yscale(TheSeries['YScale']); ax3.spines.right.set_position(("axes", 1.06)); ax3.spines['right'].set_linewidth(1.5)
-            ax3.spines['right'].set_color(TheSeries['TraceColor'])  
-            if pd.isna(Ymax):
-                pass
-            else:
-                ax3.set_ylim(TheSeries['Data'].min(),int(Ymax))
-            if TraceType.upper() == YoYStr.upper():
-                ax3.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
-            else:     
-                ax3.set_ylabel(TheSeries['SeriesInfo']['units_short'],fontweight='bold',color=TheSeries['TraceColor'])    
-        elif (TheSeries['Axis'] in CheckAxis) and (TheSeries['Axis'] == 'ax3'): 
-            print('Adding to plot ax3')
-            ax3.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
-        if (TheSeries['Axis'] in CheckAxis) is False and (TheSeries['Axis'] == 'ax4'):
-            print('Plotting new Axis.', TheSeries['Axis'],TheSeries['TraceColor'],TheSeries['Name'],i)
-            ax4 = ax1.twinx(); ax4.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
-            ax4.tick_params(axis='y',labelsize=8,which='both',color=TheSeries['TraceColor'],labelcolor=TheSeries['TraceColor'])
-            ax4.set_yscale(TheSeries['YScale']); ax4.spines.right.set_position(("axes", 1.12)); ax4.spines['right'].set_linewidth(1.5)
-            ax4.spines['right'].set_color(TheSeries['TraceColor'])
-            if pd.isna(Ymax):
-                pass
-            else:
-                ax4.set_ylim(TheSeries['Data'].min(),int(Ymax))
-            if TraceType.upper() == YoYStr.upper():
-                ax4.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
-            else:     
-                ax4.set_ylabel(TheSeries['SeriesInfo']['units_short'],fontweight='bold',color=TheSeries['TraceColor'])  
-        elif (TheSeries['Axis'] in CheckAxis) and (TheSeries['Axis'] == 'ax4'):  
-            print('Adding to plot ax4')
-            ax4.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
-        if (TheSeries['Axis'] in CheckAxis) is False and (TheSeries['Axis'] == 'ax5'):
-            print('Plotting new Axis.', TheSeries['Axis'],TheSeries['TraceColor'],TheSeries['Name'],i)
-            ax5 = ax1.twinx(); ax5.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])  
-            ax5.tick_params(axis='y',labelsize=8,which='both',color=TheSeries['TraceColor'],labelcolor=TheSeries['TraceColor'])
-            ax5.set_yscale(TheSeries['YScale']); ax5.spines.right.set_position(("axes", 1.17)); ax5.spines['right'].set_linewidth(1.5)
-            ax5.spines['right'].set_color(TheSeries['TraceColor'])
-            if pd.isna(Ymax):
-                pass
-            else:
-                ax5.set_ylim(TheSeries['Data'].min(),int(Ymax))
-            if TraceType.upper() == YoYStr.upper():
-                ax5.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
-            else:     
-                ax5.set_ylabel(TheSeries['SeriesInfo']['units_short'],fontweight='bold',color=TheSeries['TraceColor'])  
-        elif (TheSeries['Axis'] in CheckAxis) and (TheSeries['Axis'] == 'ax5'):  
-            print('Adding to plot ax5')
-            ax5.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])   
+if len(SeriesDict.keys()) < 3:
+    Series1 = SeriesDict[keys[0]]; Series2 = SeriesDict[keys[1]]
+    for series in SeriesDict.keys(): 
+        TheSeries = SeriesDict[series]; TraceType = str(TheSeries['UnitsType']); Data = pd.Series(TheSeries['Data'])
+        if  TheSeries['YScale'] == 'log'and TraceType.upper() == YoYStr.upper():
+            Data += 100
+    LeftTraces = {Series1['Legend_Name']:(Series1['Data'],Series1['TraceColor'],1.5)}
+    RightTraces = {Series2['Legend_Name']:(Series2['Data'],Series2['TraceColor'],1.5)}
+    ticks, ticklabs = Utilities.EqualSpacedTicks(Series1['Data'],10,LogOrLin='log',LabOffset=-100,labSuffix='%')
+    ticks2, ticklabs2 = Utilities.EqualSpacedTicks(Series2['Data'],10,LogOrLin='log',LabOffset=-100,labSuffix='%')
+    smolFig = Charting.TwoAxisFig(LeftTraces,Series1['YScale'],Series1['axlabel'],"",XTicks=XTickArr,RightTraces=RightTraces,RightScale=Series2['YScale'],\
+                                  RYLabel=Series2['axlabel'],LeftTicks=(ticks,ticklabs),RightTicks=(ticks2,ticklabs2))
+    plot = smolFig.axes[0]; plotb = smolFig.axes[1]
+    plotb.tick_params(axis='y',which='both',color=Series2['TraceColor'],labelcolor=Series2['TraceColor'])
+    plotb.set_ylabel(Series2['axlabel'],fontweight='bold',color=Series2['TraceColor'])
+    plotb.spines['right'].set_color(Series2['TraceColor']) 
+    plot.axhline(y=0,color='red',lw=1,ls=':')
+    plotb.axhline(y=0,color='green',lw=1,ls=':')
+    maxY1 = Series1['Ymax']; maxY2 = Series2['Ymax']
+    print(maxY1,maxY2)
+    
+    # plot.tick_params(axis='y',which='both',length=0,labelsize=0,left=False,labelleft=False)
+    # plot.set_yticks(ticks); plot.set_yticklabels(ticklabs)
+    # plot.tick_params(axis='y',which='major',length=3,labelsize=9,left=True,labelleft=True)
+    if pd.isna(maxY1):
+        pass
     else:
-        print('1: What')        
-    CheckAxis.append(TheSeries['Axis']); i += 1
-plt.minorticks_on() 
-for axis in ['top','bottom','left','right']:
-            ax1.spines[axis].set_linewidth(1.5)   
-j = 0
-for axes in fig.axes:
-    axes.margins(0.03,0.03)
-    if j < 3:
-        axes.legend(loc=2,bbox_to_anchor=(0.4*j,1.06),fontsize='small')
-    else: 
-        axes.legend(loc=2,bbox_to_anchor=(0.4*(j-3),1.12),fontsize='small')
-    for line in axes.lines:
-        j += 1          
+        plot.set_ylim(Series1['Data'].min(),int(maxY1))
+    if pd.isna(maxY2):
+        pass
+    else:
+        plotb.set_ylim(Series2['Data'].min(),int(maxY2))
+
+else:
+    ################# Up to 5 axis figure ##########################################################################################################
+    fig = plt.figure(num="Macro Data",figsize=(13.5,6.5), tight_layout=True); i = 0
+    if numSeries < 4:
+        Top = 0.95
+    else:
+        Top = 0.9
+    gs = GridSpec(1, 1, top = Top, bottom=0.08,left=0.06,right=1-(numAxii*0.036))
+    CheckAxis = []
+    print(SeriesDict.keys())
+    for series in SeriesDict.keys(): 
+        TheSeries = SeriesDict[series]; Data = pd.Series(TheSeries['Data']); TraceType = str(TheSeries['UnitsType']); Ymax = TheSeries['Ymax']
+        print(i,TheSeries['Name'],TheSeries['Axis'],Data)    ####Trying to figure out how to get plots on the right axis and have some on the same axis. 
+        print(CheckAxis,len(CheckAxis),TheSeries['Axis'] in CheckAxis) 
+        if len(CheckAxis) == 0:
+            print('Plotting new Axis.', TheSeries['Axis'],TheSeries['TraceColor'],TheSeries['Name'],i)
+            ax1 = fig.add_subplot(gs[0]); ax1.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'],lw=2.5)
+            ax1.spines['left'].set_linewidth(1.5); ax1.grid(visible=True,which='major',axis='y')
+            ax1.tick_params(axis='y',labelsize=8,color=TheSeries['TraceColor'],labelcolor=TheSeries['TraceColor'])
+            ax1.set_yscale(TheSeries['YScale']); ax1.set_xlim(StartDate,EndDate)
+            if pd.isna(Ymax):
+                pass
+            else:
+                ax1.set_ylim(TheSeries['Data'].min(),int(Ymax))
+            if TraceType.upper() == YoYStr.upper():
+                ax1.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
+            elif TraceType.upper() == devStr.upper():
+                ax1.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
+            else:     
+                ax1.set_ylabel(TheSeries['SeriesInfo']['units_short'],fontweight='bold',color=TheSeries['TraceColor'])
+
+        elif len(CheckAxis) > 0: 
+            if (TheSeries['Axis'] in CheckAxis) and (TheSeries['Axis'] == 'ax1'): 
+                print('Adding to plot ax1')
+                ax1.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
+            if (TheSeries['Axis'] in CheckAxis) is False and (TheSeries['Axis'] == 'ax2'):
+                print('Plotting new Axis.', TheSeries['Axis'],TheSeries['TraceColor'],TheSeries['Name'],i)
+                ax2 = ax1.twinx(); ax2.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
+                ax2.spines['right'].set_linewidth(1.5); ax2.spines['right'].set_color(TheSeries['TraceColor'])
+                ax2.tick_params(axis='y',labelsize=8,which='both',color=TheSeries['TraceColor'],labelcolor=TheSeries['TraceColor'])
+                ax2.set_yscale(TheSeries['YScale'])
+                if pd.isna(Ymax):
+                    pass
+                else:
+                    ax2.set_ylim(TheSeries['Data'].min(),int(Ymax))
+                if TraceType.upper() == YoYStr.upper():
+                    ax2.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
+                else:     
+                    ax2.set_ylabel(TheSeries['SeriesInfo']['units_short'],fontweight='bold',color=TheSeries['TraceColor'])
+            elif (TheSeries['Axis'] in CheckAxis) and (TheSeries['Axis'] == 'ax2'):
+                print('Adding to plot ax2')
+                ax2.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name']) 
+            if (TheSeries['Axis'] in CheckAxis) is False and (TheSeries['Axis'] == 'ax3'):
+                print('Plotting new Axis.', TheSeries['Axis'],TheSeries['TraceColor'],TheSeries['Name'],i)
+                ax3 = ax1.twinx(); ax3.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
+                ax3.legend(loc=2,bbox_to_anchor=(0.66,1.06),fontsize='small')
+                ax3.tick_params(axis='y',labelsize=8,which='both',color=TheSeries['TraceColor'],labelcolor=TheSeries['TraceColor'])
+                ax3.set_yscale(TheSeries['YScale']); ax3.spines.right.set_position(("axes", 1.06)); ax3.spines['right'].set_linewidth(1.5)
+                ax3.spines['right'].set_color(TheSeries['TraceColor'])  
+                if pd.isna(Ymax):
+                    pass
+                else:
+                    ax3.set_ylim(TheSeries['Data'].min(),int(Ymax))
+                if TraceType.upper() == YoYStr.upper():
+                    ax3.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
+                else:     
+                    ax3.set_ylabel(TheSeries['SeriesInfo']['units_short'],fontweight='bold',color=TheSeries['TraceColor'])    
+            elif (TheSeries['Axis'] in CheckAxis) and (TheSeries['Axis'] == 'ax3'): 
+                print('Adding to plot ax3')
+                ax3.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
+            if (TheSeries['Axis'] in CheckAxis) is False and (TheSeries['Axis'] == 'ax4'):
+                print('Plotting new Axis.', TheSeries['Axis'],TheSeries['TraceColor'],TheSeries['Name'],i)
+                ax4 = ax1.twinx(); ax4.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
+                ax4.tick_params(axis='y',labelsize=8,which='both',color=TheSeries['TraceColor'],labelcolor=TheSeries['TraceColor'])
+                ax4.set_yscale(TheSeries['YScale']); ax4.spines.right.set_position(("axes", 1.12)); ax4.spines['right'].set_linewidth(1.5)
+                ax4.spines['right'].set_color(TheSeries['TraceColor'])
+                if pd.isna(Ymax):
+                    pass
+                else:
+                    ax4.set_ylim(TheSeries['Data'].min(),int(Ymax))
+                if TraceType.upper() == YoYStr.upper():
+                    ax4.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
+                else:     
+                    ax4.set_ylabel(TheSeries['SeriesInfo']['units_short'],fontweight='bold',color=TheSeries['TraceColor'])  
+            elif (TheSeries['Axis'] in CheckAxis) and (TheSeries['Axis'] == 'ax4'):  
+                print('Adding to plot ax4')
+                ax4.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])
+            if (TheSeries['Axis'] in CheckAxis) is False and (TheSeries['Axis'] == 'ax5'):
+                print('Plotting new Axis.', TheSeries['Axis'],TheSeries['TraceColor'],TheSeries['Name'],i)
+                ax5 = ax1.twinx(); ax5.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])  
+                ax5.tick_params(axis='y',labelsize=8,which='both',color=TheSeries['TraceColor'],labelcolor=TheSeries['TraceColor'])
+                ax5.set_yscale(TheSeries['YScale']); ax5.spines.right.set_position(("axes", 1.17)); ax5.spines['right'].set_linewidth(1.5)
+                ax5.spines['right'].set_color(TheSeries['TraceColor'])
+                if pd.isna(Ymax):
+                    pass
+                else:
+                    ax5.set_ylim(TheSeries['Data'].min(),int(Ymax))
+                if TraceType.upper() == YoYStr.upper():
+                    ax5.set_ylabel(r'YoY $\Delta$ %',fontweight='bold',color=TheSeries['TraceColor'])
+                else:     
+                    ax5.set_ylabel(TheSeries['SeriesInfo']['units_short'],fontweight='bold',color=TheSeries['TraceColor'])  
+            elif (TheSeries['Axis'] in CheckAxis) and (TheSeries['Axis'] == 'ax5'):  
+                print('Adding to plot ax5')
+                ax5.plot(TheSeries['Data'],color=TheSeries['TraceColor'],label=TheSeries['Legend_Name'])   
+        else:
+            print('1: What')        
+        CheckAxis.append(TheSeries['Axis']); i += 1
+    plt.minorticks_on() 
+    for axis in ['top','bottom','left','right']:
+                ax1.spines[axis].set_linewidth(1.5)   
+    j = 0
+    for axes in fig.axes:
+        axes.margins(0.03,0.03)
+        if j < 3:
+            axes.legend(loc=2,bbox_to_anchor=(0.4*j,1.06),fontsize='small')
+        else: 
+            axes.legend(loc=2,bbox_to_anchor=(0.4*(j-3),1.12),fontsize='small')
+        for line in axes.lines:
+            j += 1          
 plt.show()
 
 
