@@ -292,7 +292,7 @@ else:
 if pd.isna(LoadBOJ) or str(LoadBOJ).upper() == NoString.upper():     ###Note: some CB's give recent data while some (like PBoC) make you wait months for update
     pass
 else:
-    BOJData = PriceImporter.GetBOJ_USD(myFredAPI_key,DataStart,EndDateStr)       # so they can front run your ass and rek the west son. 
+    BOJData = PriceImporter.GetCBAssets_USD("ECONOMICS,JPCBBS","FX_IDC,JPYUSD",DataStart,SerName='BOJ')       # so they can front run your ass and rek the west son. 
     BOJ_USD = BOJData[0]; BOJ_USDInfo = BOJData[1]
     if len(Findex.difference(BOJ_USD.index)) > 0:
         BOJ_USD = PriceImporter.ReSampleToRefIndex(BOJ_USD,Findex,'D')   
