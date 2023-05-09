@@ -154,7 +154,8 @@ LatestDayFromTreasury = pd.Timestamp(CheckData.index[len(CheckData)-1].date()).d
 print('TGA data dates to compare, latest data available at treasury: ',LatestDayFromTreasury,'\nLatest data in excel file: ',LastDate,'\n',type(LatestDayFromTreasury),type(LastDay))
 
 if LatestDayFromTreasury > LastDay:    #This updates the excel file with TGA data, if more recent data is available from the treasury. 
-    New_TGA_Data = CheckData.copy(); print('New TGA Data: ',New_TGA_Data)
+    New_TGA_Data = CheckData.copy(); 
+    #print('New TGA Data: ',New_TGA_Data)
     print('TGA data on Treasury site, updated last on: ',LatestDayFromTreasury, type(LatestDayFromTreasury))
     if LatestDayFromTreasury <= LastDay:
         print("It looks like there is no new data available from treasury, we'll go with what we've got..")
