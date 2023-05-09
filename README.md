@@ -64,4 +64,10 @@ V1.4:
     - Added the generic chating tool and the aggregated global M2 toolz. 
 
      
+TROUBLESHOOTING:
+    - If you get an error message "UserWarning: Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.", you have a
+    version of python that does not inculde the tkinter package. 
+    - Install latest python with tkinter by entering into terminal:
+        sudo apt-get install python3-tk
+    - That should fix that issue.     
      
