@@ -122,7 +122,7 @@ def DataReaderAllSources(ticker,DataStart,DataEnd=datetime.date.today()):    ###
     return AssetData  
 
 def GetIndiciiSame(data1,data2):   # Takes only pandas dataframe or series and gets them same length with same datetime index, padding nans.
-    print('Running index resampler...',type(data1.index),type(data2.index),len(data1.index),len(data2.index))
+    #print('Running index resampler...',type(data1.index),type(data2.index),len(data1.index),len(data2.index))
     data1 = pd.DataFrame(data1); data2 = pd.DataFrame(data2)
     data1.reset_index(inplace=True); data2.reset_index(inplace=True)
     data1.drop_duplicates(subset=data1.columns[0],inplace=True); data2.drop_duplicates(subset=data2.columns[0],inplace=True)
@@ -350,7 +350,15 @@ def PullFredSeries(series:str,apikey:str,start="1776-07-04",filetype="&file_type
     series_header = "https://api.stlouisfed.org/fred/series?series_id="      ##This pulls data series from FRED API. 
     r = requests.get(series_header+series+"&observation_start="+start+"&api_key="+apikey+filetype)
     df = pd.json_normalize(r.json())
-    df2 = pd.DataFrame.from_dict(df['seriess'][0]); df2 = df2.T
+    try:
+        df2 = pd.DataFrame.from_dict(df['seriess'][0]); df2 = df2.T
+    except Exception as error:
+        print('Pulling data series: '+series+', from FRED has failed. Error: ',error)    
+        print(str(error))
+        if str(error) == "'seriess'":
+            print('Have you pasted your FRED API key into cell B8 in "NetLiquidity_InputParams.xlsx" (the control file)? \n\
+                  This error could be caused a non-valid API key. Paste in you key and try again. If error persists, contact @Tech_Pleb.')
+        quit()
     df2 = df2.squeeze()
     SeriesInfo = pd.Series(df2,name=series)
     
@@ -430,7 +438,7 @@ def PullTGA_Data(AccountName = 'Federal Reserve Account',start_date='2000-01-01'
             NextDSStart = LastDay + datetime.timedelta(days=1); NextDSStarT = str(NextDSStart) 
             EndDateStr = TheData.index[len(TheData)-1]; print('Will start next dataset pull at: ',NextDSStart)
             DateDiff = LastDay - DayOne
-            print('\nData from: ',DayOne,type(DayOne),' to ',LastDay,type(LastDay),'. DataLength: ',len(TheData),'TimeDelta (days): ',DateDiff.days)
+            #print('\nData from: ',DayOne,type(DayOne),' to ',LastDay,type(LastDay),'. DataLength: ',len(TheData),'TimeDelta (days): ',DateDiff.days)
             FullData= pd.concat([FullData,TheData],axis=0)
             if i > 0 and LastSetFinDay == LastDay:
                 break
