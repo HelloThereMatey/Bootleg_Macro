@@ -1,11 +1,13 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 import matplotlib.dates as mdates
 from matplotlib.gridspec import GridSpec
 ### These are standard python packages included in the latest python distributions. No need to install them. 
 import datetime
 from datetime import timedelta
+from . import Utilities
 
    #######. MatPlotLib Section. Making good figs with MPL takes many lines of code dagnammit.  ###################
 def FedFig(TheData:pd.Series,SeriesInfo:pd.Series,RightSeries:pd.Series=None,rightlab="",LYScale="linear",RYScale="linear",CustomXAxis=True):
@@ -307,4 +309,83 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
     if text1 is not None:
         ax1.text(text1)
     return fig   
-              
+
+class BMP_Fig(Figure):
+    
+    #LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
+               #LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None
+    def __init__(self,*args,margins:dict=None,numaxii:int=1,**kwargs):  #margins is a dict like {top = 0.95, bottom=0.14 ,left=0.06,right=0.92}
+        # figsize is a tuple like (width, height).
+        plt.rcParams['font.family'] = 'serif'
+        print(kwargs)
+        super().__init__(*args,**kwargs)
+        if margins is not None:
+            print('Using margin dict unpacking')
+            self.gs = GridSpec(1, 1, **margins)
+        else:
+            self.gs = GridSpec(1, 1, top = 0.95, bottom=0.14 ,left=0.06,right=0.92)    
+        self.add_subplot(self.gs[0])
+        self.ax1 = self.axes[0]; axDict = {}
+        for axis in ['top','bottom','left','right']:
+            self.ax1.spines[axis].set_linewidth(1.5)
+        for i in range(1,numaxii,1):
+            axDict['ax'+str(i)] = self.ax1.twinx()
+        self.ax1.minorticks_on()
+        self.ax1.grid(visible=True,which='major',axis='both',lw=0.75,color='gray',ls=':')    
+        self.ax1.tick_params(axis='x',which='both',labelsize=12)
+        print(axDict, self.axes)    
+    
+    def AddTraces(self,Traces:dict): #Traces is a nested dict with details of each trace such as color, linewidth etc. 
+        i = 0; AxList =  self.axes
+        locList = [(-0.025,-0.11),(0.375,-0.11),(0.7,-0.11),(-0.025,-0.16),(0.375,-0.16)]
+        for trace in Traces.keys():
+            print(i)
+            TheTrace = Traces[trace]
+            TheAx = AxList[i]; ymax = TheTrace['Ymax']
+            if pd.isna(ymax):
+                Ymax = None
+            else:
+                Ymax = ymax
+            print(trace,TheTrace,TheAx)
+        
+            if TheTrace['YScale'] == 'log':
+                TheAx.set_yscale('log')  
+            if i > 0:
+                TheAx.tick_params(axis='y',which='both', labelsize=8,color=TheTrace['TraceColor'],labelcolor=TheTrace['TraceColor']) 
+                TheAx.set_ylabel(TheTrace['axlabel'],fontsize=9,fontweight='bold',labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])
+            else:
+                TheAx.tick_params(axis='y',which='both',labelsize=10,color=TheTrace['TraceColor'],labelcolor=TheTrace['TraceColor'])
+                TheAx.set_ylabel(TheTrace['axlabel'],fontweight='bold')  
+            if TheTrace['YScale'] == 'log'and TheTrace['UnitsType'] != 'Unaltered':
+                TheTrace['Data'] += 100; TheAx.minorticks_off()
+                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'])
+                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax)
+                if Ymax is not None:
+                    TheAx.set_ylim(TheTrace['Data'].min(),round(Ymax))
+                TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
+                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs) 
+                if i > 0:
+                    TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=TheTrace['TraceColor'])
+                else:
+                     TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'])
+
+            else:    
+                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'])
+            if i > 1:
+                TheAx.spines.right.set_position(("axes", 1+((i-1)*0.055))); 
+            TheAx.margins(0.02,0.02)
+            TheAx.spines['right'].set_linewidth(1.5)
+            TheAx.spines['right'].set_color(TheTrace['TraceColor'])
+            TheAx.legend(fontsize=9,loc=locList[i])  # ,bbox_to_anchor=LedgeOff[i]
+            self.ax1.minorticks_on()
+            self.ax1.tick_params(axis='y',which='minor',left=False,labelleft=False,width=0,length=0)
+            self.ax1.grid(visible=True,which='major',axis='y',lw=0.75,color='gray',ls=':') 
+            self.ax1.grid(visible=True,which='both',axis='x',lw=0.75,color='gray',ls=':') 
+            i += 1       
+    
+    def set_Title(self,title:str):
+        self.ax1.set_title(title, fontweight='bold', pad = 5)
+        
+    def addLogo(self,path):
+        logo = plt.imread(path)
+        self.figimage(logo,xo=2600,yo=10,origin = 'upper')    
