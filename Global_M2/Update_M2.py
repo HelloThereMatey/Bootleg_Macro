@@ -3,6 +3,7 @@ import os
 wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
 dir = os.path.dirname(wd)
 print(wd,dir)
+
 import sys ; sys.path.append(dir)
 from MacroBackend.tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
 import pandas as pd
@@ -250,6 +251,15 @@ for country in Combos.keys():
     data.to_excel(wd+FDel+"TVDataFeed"+FDel+"FinalData"+FDel+country+".xlsx")
 FullDF = MakeMasterM2DF_2(DataComp,wd+FDel+"TVDataFeed"+FDel+"FinalData"+FDel) #Step #4: put all the data in a big master DF. 
 FullDF.to_excel(wd+FDel+des+'_M2_USD.xlsx')
+GM2_ffill = FullDF['Global M2 (USD, ffill)']
+FullDF.to_excel(wd+FDel+des+'_M2_USD.xlsx')
+savePath = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+des+'GM2.xlsx'
+GM2_ffill.dropna(inplace=True)
+SeriesInfo = pd.Series({'units':'US Dollars','units_short': 'USD','title':'Global M2 '+des,'id':'GM2'+des},name='SeriesInfo')
+GM2_ffill.to_excel(savePath,sheet_name='Closing_Price')
+with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
+    SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
 
 print("Alrighty. M2 & FX data have been updated successfully and the master dataframe of M2 (USD) data has been constructed and \
-    saved to: ",wd+FDel+des+'_M2_USD.xlsx',". Now run 'Plot_GM2.py' ") 
+    saved to: ",wd+FDel+des+'_M2_USD.xlsx'," The global M2 series by itself has also been exported to: ",savePath,". Now run 'Plot_GM2.py'\
+        or use GenericAnalyzer.py to plot GM2 series with other data.") 
