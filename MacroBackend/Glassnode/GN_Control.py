@@ -292,19 +292,19 @@ def plotPreview():
     ax.set_yscale(yScale); ax.set_title(name,fontweight='bold')
     ax.tick_params(axis='both',labelsize=9); ax.minorticks_on(); ax.margins(x=0.02,y=0.02)
     ax.grid(visible=True,axis='both',which='major',lw=0.5,color='gray',ls=':')
-    
+
     if plot_bitty:
         bitty = pd.read_excel(savePath2+FDel+'price_usd_close.xlsx')
         bitty.set_index('Date',inplace=True)
         bitty = pd.Series(bitty.squeeze(),name='BTC (USD)')
+        bitty = bitty[data.index[0]:data.index[len(data)-1]]
         axb = ax.twinx()
         axb.plot(bitty,color='orangered',label='BTC (USD)')
         axb.set_yscale(yScale)
         axb.set_ylabel('USD',fontweight='bold')
-        DateRange = (data.index[len(data)-1]-data.index[0]).days
-        ax.set_xlim(data.index[0]-datetime.timedelta(days=round(0.01*DateRange)),data.index[len(data)-1]+datetime.timedelta(days=round(0.01*DateRange)))
+        axb.set_ylim()
         print('BTC price will be added to plot preview. NOTE: You must manually update the BTC price by pulling and saving metric: "price_usd_close".')
-    
+    ax.margins(0.01,0.01)
     plt.show()        
 
 def SaveData():
@@ -342,18 +342,18 @@ top_frame.columnconfigure(0, weight=1); top_frame.columnconfigure(1, weight=1); 
 top_frame.rowconfigure(0, weight=1); top_frame.rowconfigure(1, weight=1); top_frame.rowconfigure(2, weight=1)
 
 ########### Load the excel file containing the dataframe with list of metrics from glassnode 
-Title = Label(top_frame,text='Glassnode Studios data downloader',font=('Arial',fontMax,'bold')); Title.grid(column=1,row=0,padx=60,pady=5,sticky='w',columnspan=2)
-btn=Button(top_frame, text="Load GN metrics list",fg='blue',command=LoadPathBtn,font=('Arial',round((14/16)*fontMax))); btn.grid(column=0,row=0,sticky='w',padx=10,pady=5)
-upd=Button(top_frame, text="Update GN metrics list",fg='fuchsia',command=UpdateMetricList,font=('Arial',round((14/16)*fontMax))); upd.grid(column=3,row=0,padx=10,pady=5)
+Title = Label(top_frame,text='Glassnode Studios data downloader',font=('Arial',round((13/16)*fontMax),'bold')); Title.grid(column=1,row=0,padx=60,pady=5,sticky='w',columnspan=2)
+btn=Button(top_frame, text="Load GN metrics list",fg='blue',command=LoadPathBtn,font=('Arial',round((12/16)*fontMax))); btn.grid(column=0,row=0,sticky='w',padx=10,pady=5)
+upd=Button(top_frame, text="Update GN metrics list",fg='fuchsia',command=UpdateMetricList,font=('Arial',round((12/16)*fontMax))); upd.grid(column=3,row=0,padx=10,pady=5)
 lb=Listbox(top_frame,listvariable=path, height=1, width=100); lb.grid(column=0,row=1,padx=10,pady=10,columnspan=4,sticky='ew')
 ######### Search term entry bar and search button. Search through the list of metrics. 
 searchStr = StringVar(); searchStr.set("")
 text_entry = Entry(top_frame); text_entry.grid(column=0,row=2,padx=15,pady=5)
-update_button = Button(top_frame, text="Search metrics", command=SearchBtn,font=('Arial',round((14/16)*fontMax),'bold'),border=2); update_button.grid(column=1,row=2,padx=15,pady=5,sticky='w')
-note = Label(top_frame,text='*Double click endpoint path to select metric.',font=('Arial',round((12/16)*fontMax))); note.grid(column=2,row=2,padx=15,pady=5)
+update_button = Button(top_frame, text="Search metrics", command=SearchBtn,font=('Arial',round((12/16)*fontMax),'bold'),border=2); update_button.grid(column=1,row=2,padx=15,pady=5,sticky='w')
+note = Label(top_frame,text='*Double click endpoint path to select metric.',font=('Arial',round((10/16)*fontMax))); note.grid(column=2,row=2,padx=15,pady=5)
 
 ############ Display results ##############################################################
-res=Listbox(mid_left,listvariable=SearchDisplay, height=16, width=58); res.bind('<Double-1>', MakeChoice)
+res=Listbox(mid_left,listvariable=SearchDisplay, height=15, width=58); res.bind('<Double-1>', MakeChoice)
 res.grid(column=0,row=1,sticky='w',padx=5)
 getMetric = Button(mid_left, text="Get data for selected metric", command=getGNData, font=('Arial',round((11/16)*fontMax),'bold'))
 getMetric.grid(column=0,row=2,sticky='ne',padx=1,pady=1)
