@@ -20,6 +20,7 @@ from matplotlib.gridspec import GridSpec
 import datetime
 from datetime import timedelta
 import re 
+import tkinter as tk
 
 if sys.platform == "linux" or sys.platform == "linux2":        #This detects what operating system you're using so that the right folder delimiter can be use for paths. 
     FDel = '/'; OpSys = 'linux'
@@ -260,13 +261,42 @@ else:
 margins = {'top':0.95, 'bottom':Bot ,'left':0.06,'right':1-(numAxii*0.035)}
 
 print('######################## PLOTTING ####################################################################')
-smolFig = plt.figure(FigureClass = Charting.BMP_Fig,margins=margins,numaxii=numAxii,figsize=(14,7))
+def get_curr_screen_geometry():
+    """
+    Workaround to get the size of the current screen in a multi-screen setup.
+    Returns:
+        geometry (str): The standard Tk geometry string.
+            [width]x[height]+[left]+[top]
+    """
+    root = tk.Tk()
+    root.update_idletasks()
+    root.attributes('-fullscreen', True)
+    root.state('iconic')
+    geometry = root.winfo_geometry()
+    root.destroy()
+    return geometry
+
+screen = get_curr_screen_geometry()   
+split = screen.split('+'); geo = split[0]
+split2 = geo.split("x"); cm = 2.54
+sw = int(split2[0]); sh = int(split2[1]) 
+px = (1/plt.rcParams['figure.dpi'])*25.4  ##Pixel size in mm. 
+print('Pixel size (mm):',px,'Screen width (pixels):',sw,'Screen height (pixels):',sh,'\n'\
+      ,'Screen width (mm):',sw*px,'Screen height (mm):',sh*px,'Screen width (cm):',(sw*px)/10,'Screen height (cm):',(sh*px)/10)
+fwid = ((14*cm)*10); fhght =  ((7*cm)*10) #Figsize in mm.
+figsize = (fwid/(cm*10), fhght/(cm*10))   #Figsize in inches.
+figsize_px = (round(fwid/px),round(fhght/px))
+print('figsize (cm):',figsize,'figsize (pixels):',figsize_px)
+
+smolFig = plt.figure(FigureClass = Charting.BMP_Fig,margins=margins,numaxii=numAxii,figsize=figsize)
 smolFig.set_Title(Title)
 smolFig.AddTraces(SeriesDict)
 path2image = wd+FDel+'Images'+FDel+'BMPleb2.png'; print(path2image)
-smolFig.addLogo(path2image)
+ex = figsize_px[0]-0.1*figsize_px[0]; why = figsize_px[1] - 0.9*figsize_px[1]
+#smolFig.addLogo(path2image,ex,why,0.66)
                  
 plt.show()
+
 
 
 
