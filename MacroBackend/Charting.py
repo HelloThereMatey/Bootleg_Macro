@@ -334,6 +334,7 @@ class BMP_Fig(Figure):
         self.ax1.grid(visible=True,which='major',axis='both',lw=0.75,color='gray',ls=':')    
         self.ax1.tick_params(axis='x',which='both',labelsize=12)
         print(axDict, self.axes)    
+        self.ax1.text(0, 1.05, 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
     
     def AddTraces(self,Traces:dict): #Traces is a nested dict with details of each trace such as color, linewidth etc. 
         i = 0; AxList =  self.axes
