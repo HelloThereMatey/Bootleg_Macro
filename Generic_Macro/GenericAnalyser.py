@@ -75,9 +75,9 @@ for i in range(1,6):
         source = Inputs.loc[i].at['Source']; Tipe = Inputs.loc[i].at['UnitsType']
         color = Inputs.loc[i].at['TraceColor']; label = Inputs.loc[i].at['Legend_Name']; name = Inputs.loc[i].at['Name']
         yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['Resample2D']
-        axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i]
+        axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i]; MA =  Inputs.loc[i].at['Sub_MA']
         SeriesDict[name] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name,\
-                            'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax, 'Resample2D': resample}      
+                            'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax, 'Resample2D': resample, 'useMA': MA}      
 SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
 numAxii = numSeries
 print('Number of data series: ',numSeries,'Number of axii on chart: ',numAxii)
@@ -243,6 +243,25 @@ for series in SeriesDict.keys():
         pass    
     TheSeries['Data'] = data
     print(data)
+
+#### Substitute a data series for an MA of that series if wanted. ##########################################################################################    
+for series in SeriesDict.keys():
+    TheSeries = SeriesDict[series]
+    if pd.isna(TheSeries["useMA"]):
+        pass
+    else:
+        try:
+            ma = int(TheSeries["useMA"])
+            data = pd.Series(TheSeries['Data'],name=data.name)
+            data = data.rolling(ma).mean()
+            TheSeries['Data'] = data
+            label = str(TheSeries['Legend_Name'])
+            label += " "+str(ma)+' day MA'
+            TheSeries['Legend_Name'] = label
+        except:
+            print('Sub_MA must be an integer if you want to use an MA.')    
+
+
 ######### MATPLOTLIB SECTION #################################################################
 plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 200   ###Set the resolution of the displayed figs & saved fig respectively. 
 #### X Ticks for all charts #################################################################################
@@ -258,7 +277,7 @@ if numSeries < 4:
     Bot = 0.1
 else:
     Bot = 0.14
-margins = {'top':0.95, 'bottom':Bot ,'left':0.06,'right':1-(numAxii*0.035)}
+margins = {'top':0.94, 'bottom':Bot ,'left':0.06,'right':1-(numAxii*0.035)}
 
 print('######################## PLOTTING ####################################################################')
 def get_curr_screen_geometry():
