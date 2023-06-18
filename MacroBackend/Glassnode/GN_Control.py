@@ -19,13 +19,15 @@ if platform == "linux" or platform == "linux2":
 elif platform == "darwin":
     FDel = '/' # OS X#
 elif platform == "win32":
-    FDel = '\\' #Windows...
+    FDel = '/' #Windows...
 
+print('System information: ',platform,', directory delimiter: ', FDel, ', working directory: ', wd)
 # Insert your glassnode API key here
 API_KEY = GlassNode_API.API_KEY
 defPath = wd+FDel+'Saved_Data'+FDel+'GN_MetricsList.xlsx'
-savePath = wd+FDel+'Saved_Data'
-savePath2 = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'Glassnode'
+defPath = defPath.replace('\\','/')
+savePath = wd+FDel+'Saved_Data'; savePath = savePath.replace('\\','/')
+savePath2 = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'Glassnode'; savePath2 = savePath2.replace('\\','/')
 plt.rcParams.update({'font.family':'serif'})   #Font family for the preview figure. 
 
 def get_curr_screen_geometry():
@@ -345,6 +347,7 @@ top_frame.rowconfigure(0, weight=1); top_frame.rowconfigure(1, weight=1); top_fr
 Title = Label(top_frame,text='Glassnode Studios data downloader',font=('Arial',round((13/16)*fontMax),'bold')); Title.grid(column=1,row=0,padx=60,pady=5,sticky='w',columnspan=2)
 btn=Button(top_frame, text="Load GN metrics list",fg='blue',command=LoadPathBtn,font=('Arial',round((12/16)*fontMax))); btn.grid(column=0,row=0,sticky='w',padx=10,pady=5)
 upd=Button(top_frame, text="Update GN metrics list",fg='fuchsia',command=UpdateMetricList,font=('Arial',round((12/16)*fontMax))); upd.grid(column=3,row=0,padx=10,pady=5)
+print(path.get())
 lb=Listbox(top_frame,listvariable=path, height=1, width=100); lb.grid(column=0,row=1,padx=10,pady=10,columnspan=4,sticky='ew')
 ######### Search term entry bar and search button. Search through the list of metrics. 
 searchStr = StringVar(); searchStr.set("")
@@ -353,7 +356,7 @@ update_button = Button(top_frame, text="Search metrics", command=SearchBtn,font=
 note = Label(top_frame,text='*Double click endpoint path to select metric.',font=('Arial',round((10/16)*fontMax))); note.grid(column=2,row=2,padx=15,pady=5)
 
 ############ Display results ##############################################################
-res=Listbox(mid_left,listvariable=SearchDisplay, height=15, width=58); res.bind('<Double-1>', MakeChoice)
+res=Listbox(mid_left,listvariable=SearchDisplay, height=15, width=85); res.bind('<Double-1>', MakeChoice)
 res.grid(column=0,row=1,sticky='w',padx=5)
 getMetric = Button(mid_left, text="Get data for selected metric", command=getGNData, font=('Arial',round((11/16)*fontMax),'bold'))
 getMetric.grid(column=0,row=2,sticky='ne',padx=1,pady=1)
