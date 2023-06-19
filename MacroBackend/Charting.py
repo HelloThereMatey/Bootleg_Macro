@@ -322,8 +322,11 @@ class BMP_Fig(Figure):
         if margins is not None:
             print('Using margin dict unpacking')
             self.gs = GridSpec(1, 1, **margins)
+            bot = margins["bottom"]
         else:
             self.gs = GridSpec(1, 1, top = 0.95, bottom=0.14 ,left=0.06,right=0.92)    
+            bot = 0.14
+        print("Chart bottom: ",bot)    
         self.add_subplot(self.gs[0])
         self.ax1 = self.axes[0]; axDict = {}
         for axis in ['top','bottom','left','right']:
@@ -333,8 +336,11 @@ class BMP_Fig(Figure):
         self.ax1.minorticks_on()
         self.ax1.grid(visible=True,which='major',axis='both',lw=0.75,color='gray',ls=':')    
         self.ax1.tick_params(axis='x',which='both',labelsize=12)
-        print(axDict, self.axes)    
-        self.ax1.text(0, 1.05, 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
+        print(axDict, self.axes)   
+        if bot < 0.14: 
+            self.ax1.text(1, -0.135 , 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
+        else:
+            self.ax1.text(1, -0.185 , 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='right', transform=self.ax1.transAxes)    
     
     def AddTraces(self,Traces:dict): #Traces is a nested dict with details of each trace such as color, linewidth etc. 
         i = 0; AxList =  self.axes
@@ -361,8 +367,6 @@ class BMP_Fig(Figure):
                 TheTrace['Data'] += 100; TheAx.minorticks_off()
                 TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'])
                 ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax)
-                if Ymax is not None:
-                    TheAx.set_ylim(TheTrace['Data'].min(),round(Ymax))
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
                 TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs) 
                 if i > 0:
@@ -372,6 +376,8 @@ class BMP_Fig(Figure):
 
             else:    
                 TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'])
+            if Ymax is not None:
+                    TheAx.set_ylim(TheTrace['Data'].min(),round(Ymax))    
             if i > 1:
                 TheAx.spines.right.set_position(("axes", 1+((i-1)*0.055))); 
             TheAx.margins(0.02,0.02)
@@ -381,8 +387,30 @@ class BMP_Fig(Figure):
             self.ax1.minorticks_on()
             self.ax1.tick_params(axis='y',which='minor',left=False,labelleft=False,width=0,length=0)
             self.ax1.grid(visible=True,which='major',axis='y',lw=0.75,color='gray',ls=':') 
-            self.ax1.grid(visible=True,which='both',axis='x',lw=0.75,color='gray',ls=':') 
-            i += 1       
+            i += 1      
+        self.ax1.grid(visible=True,which='both',axis='x',lw=0.75,color='gray',ls=':')      
+        
+        ####### All this below is to ensure that we get the minorticks in the correct locations. They can be out of sync with majors due to rounding. #############
+        majList = self.ax1.xaxis.get_majorticklocs(); dist = []; newMinTicks = []; majTicks = []
+        minTickLocs = self.ax1.xaxis.get_minorticklocs()
+        for i in range(len(majList)):
+            if i == len(majList)-1:
+                dist.append(dist[i-1])
+            else:    
+                dist.append(majList[i+1]-majList[i]) 
+            for j in range(1,4,1):
+                if j == 1:
+                    newMinTicks.append(majList[i]); majTicks.append(majList[i])
+                newMinTicks.append(majList[i]+j*(dist[i]/4))
+                majTicks.append(np.nan)
+        majList2 = [np.nan for i in range(len(newMinTicks)-len(majList))]; minTickLocs2 = [np.nan for i in range(len(newMinTicks)-len(minTickLocs))]
+        newMinTicks2 = [np.nan for i in range(len(newMinTicks)-len(newMinTicks))]
+        majList3 = [*majList2,*majList]; minTickLocs3 = [*minTickLocs2,*minTickLocs]; newMinTicks3 = [*newMinTicks2,*newMinTicks]
+        tickDict = {'MajTickLocs':majTicks,'NewMinTickLocs':newMinTicks3,"OldTickLocs":minTickLocs3}
+        tickDF = pd.DataFrame(tickDict) #;print(tickDF.head(50))
+        self.ax1.set_xticks(newMinTicks3,minor=True); self.ax1.set_xticks(majList)
+        self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        self.ax1.margins(0.02,0.05)
     
     def set_Title(self,title:str):
         self.ax1.set_title(title, fontweight='bold', pad = 5)
