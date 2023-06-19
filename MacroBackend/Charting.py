@@ -353,6 +353,10 @@ class BMP_Fig(Figure):
                 Ymax = None
             else:
                 Ymax = ymax
+            if pd.isna(TheTrace['LW']):
+                LW = 1.5
+            else:
+                LW = TheTrace['LW']    
             print(trace,TheTrace,TheAx)
         
             if TheTrace['YScale'] == 'log':
@@ -365,7 +369,7 @@ class BMP_Fig(Figure):
                 TheAx.set_ylabel(TheTrace['axlabel'],fontweight='bold')  
             if TheTrace['YScale'] == 'log'and TheTrace['UnitsType'] != 'Unaltered':
                 TheTrace['Data'] += 100; TheAx.minorticks_off()
-                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'])
+                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
                 ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax)
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
                 TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs) 
@@ -375,7 +379,7 @@ class BMP_Fig(Figure):
                      TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'])
 
             else:    
-                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'])
+                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
             if Ymax is not None:
                     TheAx.set_ylim(TheTrace['Data'].min(),round(Ymax))    
             if i > 1:
