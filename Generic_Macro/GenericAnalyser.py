@@ -274,10 +274,10 @@ stepsize = (Xmax - Xmin) / 20
 XTickArr = np.arange(Xmin, Xmax, stepsize) 
 XTickArr = np.append(XTickArr, Xmax)
 if numSeries < 4:
-    Bot = 0.1
+    Bot = 0.125
 else:
-    Bot = 0.14
-margins = {'top':0.94, 'bottom':Bot ,'left':0.06,'right':1-(numAxii*0.035)}
+    Bot = 0.165
+margins = {'top':0.95, 'bottom':Bot ,'left':0.06,'right':1-(numAxii*0.035)}
 
 print('######################## PLOTTING ####################################################################')
 def get_curr_screen_geometry():
@@ -312,6 +312,7 @@ smolFig.set_Title(Title)
 smolFig.AddTraces(SeriesDict)
 path2image = wd+FDel+'Images'+FDel+'BMPleb2.png'; print(path2image)
 ex = figsize_px[0]-0.1*figsize_px[0]; why = figsize_px[1] - 0.9*figsize_px[1]
+print(smolFig,type(smolFig))
 #smolFig.addLogo(path2image,ex,why,0.66)
                  
 plt.show()
