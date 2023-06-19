@@ -1,4 +1,5 @@
 import tkinter as tk
+import tkinter.ttk as ttk
 from tkinter import *
 from tkinter.ttk import Treeview
 from tkinter import filedialog
@@ -25,7 +26,9 @@ try:
     with open(wd+FDel+'system_settings.json') as f:      ##Load file containg display specific dimensions for the particular screen & OS. 
         system_set = f.read()
     system_set = json.loads(system_set); print(system_set)
-except:
+    print('Settings for result box dimensions loaded from: ',wd+FDel+'system_settings.json')
+except Exception as e:
+    print(e)
     system_set = {'os': 'undetermined', 'res_width': 58, 'res_height': 16}
 
 print('System information: ',platform,', directory delimiter: ', FDel, ', working directory: ', wd)
@@ -356,7 +359,7 @@ btn=Button(top_frame, text="Load GN metrics list",fg='blue',command=LoadPathBtn,
 upd=Button(top_frame, text="Update GN metrics list",fg='fuchsia',command=UpdateMetricList,font=('Arial',round((12/16)*fontMax))); upd.grid(column=3,row=0,padx=10,pady=5)
 print(path.get())
 lb=Listbox(top_frame,listvariable=path, height=1, width=100); lb.grid(column=0,row=1,padx=10,pady=10,columnspan=4,sticky='ew')
-######### Search term entry bar and search button. Search through the list of metrics. 
+######### Search term entry bar and search Button. Search through the list of metrics. 
 searchStr = StringVar(); searchStr.set("")
 text_entry = Entry(top_frame); text_entry.grid(column=0,row=2,padx=15,pady=5)
 update_button = Button(top_frame, text="Search metrics", command=SearchBtn,font=('Arial',round((12/16)*fontMax),'bold'),border=2); update_button.grid(column=1,row=2,padx=15,pady=5,sticky='w')
