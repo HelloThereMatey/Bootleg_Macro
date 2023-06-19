@@ -21,6 +21,13 @@ elif platform == "darwin":
 elif platform == "win32":
     FDel = '/' #Windows...
 
+try:
+    with open(wd+FDel+'system_settings.json') as f:      ##Load file containg display specific dimensions for the particular screen & OS. 
+        system_set = f.read()
+    system_set = json.loads(system_set); print(system_set)
+except:
+    system_set = {'os': 'undetermined', 'res_width': 58, 'res_height': 16}
+
 print('System information: ',platform,', directory delimiter: ', FDel, ', working directory: ', wd)
 # Insert your glassnode API key here
 API_KEY = GlassNode_API.API_KEY
@@ -356,7 +363,7 @@ update_button = Button(top_frame, text="Search metrics", command=SearchBtn,font=
 note = Label(top_frame,text='*Double click endpoint path to select metric.',font=('Arial',round((10/16)*fontMax))); note.grid(column=2,row=2,padx=15,pady=5)
 
 ############ Display results ##############################################################
-res=Listbox(mid_left,listvariable=SearchDisplay, height=15, width=85); res.bind('<Double-1>', MakeChoice)
+res=Listbox(mid_left,listvariable=SearchDisplay, height=system_set['res_height'], width=system_set['res_width']); res.bind('<Double-1>', MakeChoice)
 res.grid(column=0,row=1,sticky='w',padx=5)
 getMetric = Button(mid_left, text="Get data for selected metric", command=getGNData, font=('Arial',round((11/16)*fontMax),'bold'))
 getMetric.grid(column=0,row=2,sticky='ne',padx=1,pady=1)
