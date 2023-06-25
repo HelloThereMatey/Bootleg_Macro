@@ -110,6 +110,7 @@ for series in SeriesDict.keys():
     elif Source == 'fred':
         SeriesInfo, TheData = PriceImporter.PullFredSeries(ticker,myFredAPI_key,start=DataStart,filetype="&file_type=json",end=EndDateStr)
         AssetName = SeriesInfo['id']
+        TheSeries['axlabel'] = SeriesInfo['units_short']
     elif Source == 'yfinance':
         try:
             asset = PriceImporter.pullyfseries(ticker=ticker,start=StartDate,interval="1d")
@@ -190,6 +191,11 @@ for series in SeriesDict.keys():
     TheSeries['Data'] = TheData2
     TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.   
     SeriesDict[series] = TheSeries
+    if pd.isna(TheSeries['axlabel']):
+        try:
+            TheSeries['axlabel'] = SeriesInfo['units_short']
+        except:
+            pass  
 
     ########################## SAVE DATA ####################################################################################
     if Source.upper() != loadStr.upper() and Source.upper() != SpreadStr.upper() and Source.upper() != GNstr.upper():
