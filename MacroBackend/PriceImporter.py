@@ -346,7 +346,8 @@ def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate 
         #print('Correlation sub-function, data series: ',Cor, type(Cor))
     return Cor 
 
-def PullFredSeries(series:str,apikey:str,start="1776-07-04",filetype="&file_type=json",outputDataName:str=None,end=datetime.date.today().strftime('%Y-%m-%d')): 
+def PullFredSeries(series:str,apikey:str,start="1776-07-04",filetype="&file_type=json",outputDataName:str=None,end=datetime.date.today().strftime('%Y-%m-%d'),
+                   Con2Bil:bool = False): 
     series_header = "https://api.stlouisfed.org/fred/series?series_id="      ##This pulls data series from FRED API. 
     r = requests.get(series_header+series+"&observation_start="+start+"&api_key="+apikey+filetype)
     df = pd.json_normalize(r.json())
@@ -372,20 +373,23 @@ def PullFredSeries(series:str,apikey:str,start="1776-07-04",filetype="&file_type
     #print('Units info for series: ',TheData.name,'Units:',SeriesInfo['units'],'#')
     units = SeriesInfo['units']
     
-    if re.search('Millions',units) is not None:
-        TheData /= 1000 
-        #print(series+' pulled from FRED. Data divided by 1000 to make units of Billions $ from original units of ',units)
-    elif re.search('Billions',units) is not None:
-        #print(series+' pulled from FRED. Data divided by 1 to make units of Billions $ from original units of ',units)
-        pass
-    elif re.search('Thousands',units) is not None:
-        TheData /= 1000000
-        #print(series+' pulled from FRED. Data divided by 100000 to make units of Billions $ from original units of ',units)
-    elif re.search('Trillions',units) is not None: 
-        TheData *= 1000
-        #print(series+' pulled from FRED. Data multiplied by 1000 to make units of Billions $ from original units of ',units)
-    else: 
-        print('CAUTION: Data units: ',SeriesInfo['units'],'are not standard for this calc, units may be incorrect.')
+    if Con2Bil is True:            #Convert units of series to Billions of US dollars if desired. 
+        if re.search('Millions',units) is not None:
+            TheData /= 1000 
+            #print(series+' pulled from FRED. Data divided by 1000 to make units of Billions $ from original units of ',units)
+        elif re.search('Billions',units) is not None:
+            #print(series+' pulled from FRED. Data divided by 1 to make units of Billions $ from original units of ',units)
+            pass
+        elif re.search('Thousands',units) is not None:
+            TheData /= 1000000
+            #print(series+' pulled from FRED. Data divided by 100000 to make units of Billions $ from original units of ',units)
+        elif re.search('Trillions',units) is not None: 
+            TheData *= 1000
+            #print(series+' pulled from FRED. Data multiplied by 1000 to make units of Billions $ from original units of ',units)
+        else: 
+            print('CAUTION: Data units: ',SeriesInfo['units'],'are not standard for this calc, units may be incorrect.')
+        SeriesInfo['units'] =  'Billions of U.S. Dollars'; SeriesInfo['units_short'] =  'Bil. of U.S. $' 
+   
     if outputDataName is not None:
         df2.to_excel(wd+FDel+outputDataName+".xlsx")
         #dfraw.to_excel(wd+FDel+outputDataName+"_raw.xlsx")
