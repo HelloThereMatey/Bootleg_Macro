@@ -88,13 +88,13 @@ if pd.isna(DayOne) is True:
     print('You must specify the starting date to pull data for in the inputs .xlsx file.')
     quit()
 else:
-    DataStart = str(DayOne)
+    DataStart = str(DayOne); split = DataStart.split(' '); DataStart = split[0]
     StartDate = datetime.datetime.strptime(DataStart,'%Y-%m-%d').date()
 
 if pd.isna(LastDay) is True:
-    EndDate = datetime.date.today(); EndDateStr = EndDate.strftime("%Y-%m-%d")
+    EndDate = datetime.date.today(); EndDateStr = EndDate.strftime('%Y-%m-%d')
 else:
-    EndDateStr = str(LastDay)
+    EndDateStr = str(LastDay); split = EndDateStr.split(' '); EndDateStr = split[0]
     EndDate = datetime.datetime.strptime(EndDateStr,'%Y-%m-%d').date()
 TimeLength=(EndDate-StartDate).days
 print('Pulling data for date range: ',DataStart,' to ',EndDateStr,', number of days: ',TimeLength)
@@ -103,11 +103,11 @@ print('Start date:',StartDate,', end date: ',EndDate)
 ############# Pull data from FRED. ###########################################
 for seriesName in SeriesList:
     if isinstance(seriesName,tuple):
-        DataPull = PriceImporter.PullFredSeries(seriesName[0],myFredAPI_key,start=DataStart,end=EndDateStr)
+        DataPull = PriceImporter.PullFredSeries(seriesName[0],myFredAPI_key,start=DataStart,end=EndDateStr,Con2Bil=True)
         ls = list(DataPull); ls.append(seriesName[1])
         SeriesDict[seriesName[0]] = (tuple(ls))
     else:
-        DataPull = PriceImporter.PullFredSeries(seriesName,myFredAPI_key,start=DataStart,end=EndDateStr)
+        DataPull = PriceImporter.PullFredSeries(seriesName,myFredAPI_key,start=DataStart,end=EndDateStr,Con2Bil=True)
         ls = list(DataPull); ls.append('no')
         SeriesDict[seriesName] = (tuple(ls))
 if SaveFredData is True:       ###Save data series pulled from FRED to disk.
@@ -347,7 +347,7 @@ else:
 #################  Chuck on a moving average of NLQ if requested by user. ############################################
 NLQ_MA = Inputs.loc['NLQ_MA (days)'].at['Additional FRED Data']; FaceColor = Inputs.loc['MainFig FaceColor'].at['Additional FRED Data']
 Smooth = Inputs.loc['Use_Smoothed'].at['Additional FRED Data']
-if pd.isna(Smooth):
+if pd.isna(Smooth) or Smooth == 'no':
     Use_Smoothed = False
 else:
     Use_Smoothed = True
