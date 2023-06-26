@@ -314,7 +314,7 @@ class BMP_Fig(Figure):
     
     #LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
                #LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None
-    def __init__(self,*args,margins:dict=None,numaxii:int=1,**kwargs):  #margins is a dict like {top = 0.95, bottom=0.14 ,left=0.06,right=0.92}
+    def __init__(self,*args,margins:dict=None,numaxii:int=1,DataSourceStr:str="",**kwargs):  #margins is a dict like {top = 0.95, bottom=0.14 ,left=0.06,right=0.92}
         # figsize is a tuple like (width, height).
         plt.rcParams['font.family'] = 'serif'
         print(kwargs)
@@ -336,11 +336,13 @@ class BMP_Fig(Figure):
         self.ax1.minorticks_on()
         self.ax1.grid(visible=True,which='major',axis='both',lw=0.75,color='gray',ls=':')    
         self.ax1.tick_params(axis='x',which='both',labelsize=12)
-        print(axDict, self.axes)   
+          
         if bot < 0.14: 
-            self.ax1.text(1, -0.135 , 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
+            self.ax1.text(0, -0.135 , 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
+            self.ax1.text(1, -0.135 , DataSourceStr,fontsize=9,fontweight='bold',color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
         else:
-            self.ax1.text(1, -0.185 , 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='right', transform=self.ax1.transAxes)    
+            self.ax1.text(0, -0.195, 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)  
+            self.ax1.text(1, -0.195 , DataSourceStr,fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)       
     
     def AddTraces(self,Traces:dict): #Traces is a nested dict with details of each trace such as color, linewidth etc. 
         i = 0; AxList =  self.axes
@@ -366,7 +368,13 @@ class BMP_Fig(Figure):
                 TheAx.set_ylabel(TheTrace['axlabel'],fontsize=9,fontweight='bold',labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])
             else:
                 TheAx.tick_params(axis='y',which='both',labelsize=10,color=TheTrace['TraceColor'],labelcolor=TheTrace['TraceColor'])
-                TheAx.set_ylabel(TheTrace['axlabel'],fontweight='bold')  
+                TheAx.set_ylabel(TheTrace['axlabel'],fontweight='bold') 
+
+                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin=TheTrace['YScale'],Ymax=Ymax)
+                self.ax1.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
+                self.ax1.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)  
+                self.ax1.tick_params(axis='y',which='major',length=3,width=1,right=False,labelright=False,labelsize=9)  
+
             if TheTrace['YScale'] == 'log'and TheTrace['UnitsType'] != 'Unaltered':
                 TheTrace['Data'] += 100; TheAx.minorticks_off()
                 TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
