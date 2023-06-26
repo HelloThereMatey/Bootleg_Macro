@@ -110,7 +110,8 @@ for series in SeriesDict.keys():
     elif Source == 'fred':
         SeriesInfo, TheData = PriceImporter.PullFredSeries(ticker,myFredAPI_key,start=DataStart,filetype="&file_type=json",end=EndDateStr)
         AssetName = SeriesInfo['id']
-        TheSeries['axlabel'] = SeriesInfo['units_short']
+        if pd.isna(TheSeries['axlabel']):
+            TheSeries['axlabel'] = SeriesInfo['units_short']
     elif Source == 'yfinance':
         try:
             asset = PriceImporter.pullyfseries(ticker=ticker,start=StartDate,interval="1d")
@@ -342,6 +343,8 @@ for word in Replaces.keys():
 
 smolFig = plt.figure(FigureClass = Charting.BMP_Fig,margins=margins,numaxii=numAxii,DataSourceStr=DataSourceStr,figsize=figsize)
 smolFig.set_Title(Title)
+print(SeriesDict)
+
 smolFig.AddTraces(SeriesDict)
 path2image = wd+FDel+'Images'+FDel+'BMPleb2.png'; print(path2image)
 ex = figsize_px[0]-0.1*figsize_px[0]; why = figsize_px[1] - 0.9*figsize_px[1]
@@ -349,3 +352,7 @@ print(smolFig,type(smolFig))
 #smolFig.addLogo(path2image,ex,why,0.66)
                  
 plt.show()
+
+
+
+
