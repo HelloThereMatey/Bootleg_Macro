@@ -77,7 +77,7 @@ for i in range(1,6):
         yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['Resample2D']
         axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i]; MA =  Inputs.loc[i].at['Sub_MA']; LW = Inputs.loc[i].at['LineWidth']
         SeriesDict[name] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name,\
-                            'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax, 'Resample2D': resample, 'useMA': MA, 'LW': LW}      
+                            'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax, 'Resample2D': resample, 'useMA': MA, 'LW': LW, 'Ticker_Source':ticker}      
 SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
 numAxii = numSeries
 print('Number of data series: ',numSeries,'Number of axii on chart: ',numAxii)
@@ -313,7 +313,34 @@ figsize = (fwid/(cm*10), fhght/(cm*10))   #Figsize in inches.
 figsize_px = (round(fwid/px),round(fhght/px))
 print('figsize (cm):',figsize,'figsize (pixels):',figsize_px)
 
-smolFig = plt.figure(FigureClass = Charting.BMP_Fig,margins=margins,numaxii=numAxii,figsize=figsize)
+############ This organises a list of data sources to add at bottom of chart. 
+DS_List = []
+for series in SeriesDict.keys():
+    TheSeries = SeriesDict[series]; source = TheSeries['Source']; ticker = str(TheSeries['Ticker_Source'])
+    split = ticker.split(','); tickName = split[0]
+    if len(split) > 1:
+        exchange = split[1]
+    if source == 'tv':
+        if exchange == 'INDEX':
+            pass
+        else:
+            source = exchange   
+    DS_List.append(source)
+DataSource = np.unique(DS_List); strList = ""; i = 0
+for source in DataSource:
+    if i == 0:
+        strList += source
+    elif i == len(DataSource)-1:
+        strList += ", "+source+"."
+    else:    
+        strList += ", "+source; 
+    i +=1 
+DataSourceStr = 'Source: '+strList
+Replaces = {"GNload":"Glassnode","fred":"Federal reserve","yfinance":"Yahoo","yfinance":"Yahoo","tv":"Trading view","coingecko":"Coin gecko"}
+for word in Replaces.keys():
+    DataSourceStr = DataSourceStr.replace(word,Replaces[word])
+
+smolFig = plt.figure(FigureClass = Charting.BMP_Fig,margins=margins,numaxii=numAxii,DataSourceStr=DataSourceStr,figsize=figsize)
 smolFig.set_Title(Title)
 smolFig.AddTraces(SeriesDict)
 path2image = wd+FDel+'Images'+FDel+'BMPleb2.png'; print(path2image)
@@ -322,8 +349,3 @@ print(smolFig,type(smolFig))
 #smolFig.addLogo(path2image,ex,why,0.66)
                  
 plt.show()
-
-
-
-
-
