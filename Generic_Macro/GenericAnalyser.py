@@ -76,8 +76,11 @@ for i in range(1,6):
         color = Inputs.loc[i].at['TraceColor']; label = Inputs.loc[i].at['Legend_Name']; name = Inputs.loc[i].at['Name']
         yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['Resample2D']
         axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i]; MA =  Inputs.loc[i].at['Sub_MA']; LW = Inputs.loc[i].at['LineWidth']
+        convert = Inputs.loc[i].at['ConvertUnits']
         SeriesDict[name] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name,\
-                            'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax, 'Resample2D': resample, 'useMA': MA, 'LW': LW, 'Ticker_Source':ticker}      
+                            'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax, 'Resample2D': resample, 'useMA': MA, 'LW': LW, 'Ticker_Source':ticker,
+                            'ConvertUnits':convert}      
+
 SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
 numAxii = numSeries
 print('Number of data series: ',numSeries,'Number of axii on chart: ',numAxii)
@@ -102,6 +105,7 @@ for series in SeriesDict.keys():
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
         TheData.drop(TheData.columns[0],axis=1,inplace=True)
         TheData = pd.Series(TheData.squeeze(),name=ticker)
+        SeriesInfo['Source'] = TheSeries['Source'] 
     elif Source == 'GNload':
         TheData = pd.read_excel(GNPath+FDel+ticker+'.xlsx')
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
@@ -176,11 +180,13 @@ for series in SeriesDict.keys():
             quit()      
     else:
         print("Can't find data for: ",series)    
-    if len(SeriesInfo) > 0:
+    if len(SeriesInfo) > 0 and Source != 'load':
+        SeriesInfo['Source'] = Source
         pass
     else:
         SeriesInfo['units'] = 'US Dollars'; SeriesInfo['units_short'] = 'USD'
-        SeriesInfo['title'] = TheSeries['Legend_Name']; SeriesInfo['id'] = TheSeries['Name'] 
+        SeriesInfo['title'] = TheSeries['Legend_Name']; SeriesInfo['id'] = TheSeries['Name']
+        SeriesInfo['Source'] = Source
     TheData.index.rename('date',inplace=True)
     print(type(TheData))
     if str(type(TheData)) == "<class 'pandas.core.series.Series'>":
@@ -208,16 +214,21 @@ for series in SeriesDict.keys():
  
 keys = list(SeriesDict.keys())
 
-########### Resample all series to daily frequency ###############################################################
+########### Resample all series to daily frequency and/or convert units ###############################################################
 Index = pd.date_range(start=DataStart,end=EndDateStr,freq='D')
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]
-    data = TheSeries['Data']; Name = TheSeries['Name']; Ticker = TheSeries['Ticker']; Info = TheSeries['SeriesInfo']
-    resamp = TheSeries['Resample2D']; TheSource = TheSeries['Source']
+    data = pd.Series(TheSeries['Data']); Name = TheSeries['Name']; Ticker = TheSeries['Ticker']; Info = TheSeries['SeriesInfo']
+    convert = TheSeries['ConvertUnits']; resamp = TheSeries['Resample2D']; TheSource = TheSeries['Source']
     if pd.isna(resamp) or str(resamp).upper() == noStr.upper():
         pass 
     else:   
-        data = PriceImporter.ReSampleToRefIndex(data,Index,'D'); TheSeries['Data'] = data
+        data = PriceImporter.ReSampleToRefIndex(data,Index,'D')
+    if pd.isna(convert):
+        pass
+    else:
+        data /= convert
+    TheSeries['Data'] = data    
 
 ###################### Change series to YoY or other annualized rate calcs if that option is chosen #################################
 normStr = 'Unaltered'; YoYStr = 'Year on year % change'; devStr = '% deviation from fitted trendline'; ann3mStr = 'Annualised 3-month % change'
