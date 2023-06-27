@@ -351,7 +351,8 @@ class BMP_Fig(Figure):
             print(i)
             TheTrace = Traces[trace]
             TheAx = AxList[i]; ymax = TheTrace['Ymax']
-            if pd.isna(ymax):
+            
+            if pd.isna(ymax) or ymax == '':
                 Ymax = None
             else:
                 Ymax = ymax
@@ -359,47 +360,51 @@ class BMP_Fig(Figure):
                 LW = 1.5
             else:
                 LW = TheTrace['LW']    
-            print(trace,TheTrace,TheAx)
-        
-            if TheTrace['YScale'] == 'log':
-                TheAx.set_yscale('log')  
+
+            TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
+            scales = ['linear', 'log', 'symlog', 'asinh', 'logit', 'function', 'functionlog']
+            if TheTrace['YScale'] in scales:
+                TheAx.set_yscale(TheTrace['YScale'])
+                print(trace,TheAx, 'Use scale: ', TheTrace['YScale'], 'Scale is: ',TheAx.get_yscale)
+
             if i > 0:
                 TheAx.tick_params(axis='y',which='both', labelsize=8,color=TheTrace['TraceColor'],labelcolor=TheTrace['TraceColor']) 
                 TheAx.set_ylabel(TheTrace['axlabel'],fontsize=9,fontweight='bold',labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])
+                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin=TheTrace['YScale'],Ymax=Ymax)
+                TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
+                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)  
+                TheAx.tick_params(axis='y',which='major',length=3,width=1,right=True,labelright=True,labelsize=9) 
             else:
                 TheAx.tick_params(axis='y',which='both',labelsize=10,color=TheTrace['TraceColor'],labelcolor=TheTrace['TraceColor'])
-                TheAx.set_ylabel(TheTrace['axlabel'],fontweight='bold') 
-
+                TheAx.set_ylabel(TheTrace['axlabel'],fontweight='bold')  
                 ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin=TheTrace['YScale'],Ymax=Ymax)
-                self.ax1.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
-                self.ax1.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)  
-                self.ax1.tick_params(axis='y',which='major',length=3,width=1,right=False,labelright=False,labelsize=9)  
+                TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
+                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)  
+                TheAx.tick_params(axis='y',which='major',length=3,width=1,left=True,labelleft=True,labelsize=9)  
 
             if TheTrace['YScale'] == 'log'and TheTrace['UnitsType'] != 'Unaltered':
                 TheTrace['Data'] += 100; TheAx.minorticks_off()
-                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
                 ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax)
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
                 TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs) 
                 if i > 0:
                     TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=TheTrace['TraceColor'])
                 else:
-                     TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'])
+                    TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'])
 
-            else:    
-                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
             if Ymax is not None:
-                    TheAx.set_ylim(TheTrace['Data'].min(),round(Ymax))    
+                TheAx.set_ylim(TheTrace['Data'].min(),Ymax)    
             if i > 1:
                 TheAx.spines.right.set_position(("axes", 1+((i-1)*0.055))); 
             TheAx.margins(0.02,0.02)
             TheAx.spines['right'].set_linewidth(1.5)
             TheAx.spines['right'].set_color(TheTrace['TraceColor'])
-            TheAx.legend(fontsize=9,loc=locList[i])  # ,bbox_to_anchor=LedgeOff[i]
-            self.ax1.minorticks_on()
-            self.ax1.tick_params(axis='y',which='minor',left=False,labelleft=False,width=0,length=0)
-            self.ax1.grid(visible=True,which='major',axis='y',lw=0.75,color='gray',ls=':') 
+            TheAx.legend(fontsize=9,loc=locList[i]) 
             i += 1      
+
+        self.ax1.minorticks_on()
+        self.ax1.tick_params(axis='y',which='minor',left=False,labelleft=False,width=0,length=0)
+        self.ax1.grid(visible=True,which='major',axis='y',lw=0.75,color='gray',ls=':')     
         self.ax1.grid(visible=True,which='both',axis='x',lw=0.75,color='gray',ls=':')      
         
         ####### All this below is to ensure that we get the minorticks in the correct locations. They can be out of sync with majors due to rounding. #############
