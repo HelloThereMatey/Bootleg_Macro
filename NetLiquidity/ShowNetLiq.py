@@ -168,7 +168,6 @@ if LatestDayFromTreasury > LastDay:    #This updates the excel file with TGA dat
 else:
     print('The excel file containing TGA data is up to date.\n')  
 
-
 Index = pd.date_range(TGA_Past.index[0],TGA_Past.index[len(TGA_Past)-1],freq='D')
 Index = pd.DatetimeIndex(Index)
 
@@ -270,17 +269,39 @@ with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:
     NetLiquidity2.to_excel(writer, sheet_name='Resampled2Daily')
     NetLiquidity3.to_excel(writer, sheet_name='Daily_TGAData')
 
+################ Add the weekly remittances from Fed to TGA to the NLQ series if desired ##################################################   
+AddFedBills = Inputs.loc['Include_Remit'].at['Additional FRED Data'] 
+ChartFedBills = Inputs.loc['FED remittances'].at['Additional FRED Data'] 
+filePath = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'RESPPLLOPNWW.xlsx'
+
+if AddFedBills == 'yes':
+    print("Adding weekly Fed TGA remittances to NLQ.")
+    if ChartFedBills == 'yes':
+        FedBills, plot = PriceImporter.GetFedBillData(filePath,StartDate,SepPlot=True)
+    else:
+        FedBills = PriceImporter.GetFedBillData(filePath,StartDate)
+    FedBills = pd.Series(FedBills,name='Weekly remittances FED -> TGA')
+    FedBills /= 7
+    lastVal = FedBills[len(FedBills)-1]
+    FedBills[EndDate] = lastVal
+    FedBills = FedBills.resample('D').mean()
+    FedBills.fillna(method='ffill', inplace=True)
+    NetLiquidity3 -= FedBills
+    MainLabel += ' + Fed remittances '
+
 ########## Load data for other CB balance sheets to calculate a global liquidity index in USD terms ###########################
 LoadECB = Inputs.loc['Include_ECB'].at['Additional FRED Data']
 LoadBOJ = Inputs.loc['Include_BOJ'].at['Additional FRED Data']
 LoadPBOC = Inputs.loc['Include_PboC'].at['Additional FRED Data']
 LoadBOE = Inputs.loc['Include_BoE'].at['Additional FRED Data']
+LoadSNB = Inputs.loc['Include_SNB'].at['Additional FRED Data']      ####Add Swiss National bank CB - not yet added. 
 
+OtherBalSheets = 0
 if pd.isna(LoadECB) or str(LoadECB).upper() == NoString.upper():  
     pass
 else:  
     ECBData = PriceImporter.GetCBAssets_USD(",ECBASSETSW","FX,EURUSD",DataStart,SerName='ECB')        ##This gets the CB bal. sheet for all of the major
-    ECB_USD = ECBData[0]; ECB_USD_Info = ECBData[1]                                     ## central banks of the world to clalculate a 'global liquidity' index.
+    ECB_USD = ECBData[0]; ECB_USD_Info = ECBData[1]; OtherBalSheets += 1     ## central banks of the world to clalculate a 'global liquidity' index.
     if len(Findex.difference(ECB_USD.index)) > 0:
         ECB_USD = PriceImporter.ReSampleToRefIndex(ECB_USD,Findex,'D')
     NetLiquidity = pd.Series((NetLiquidity+ECB_USD),name='NLQ'); NetLiquidity2 = pd.Series((NetLiquidity2+ECB_USD),name='NLQ')
@@ -294,7 +315,7 @@ if pd.isna(LoadBOJ) or str(LoadBOJ).upper() == NoString.upper():     ###Note: so
     pass
 else:
     BOJData = PriceImporter.GetCBAssets_USD("ECONOMICS,JPCBBS","FX_IDC,JPYUSD",DataStart,SerName='BOJ')       # so they can front run your ass and rek the west son. 
-    BOJ_USD = BOJData[0]; BOJ_USDInfo = BOJData[1]
+    BOJ_USD = BOJData[0]; BOJ_USDInfo = BOJData[1]; OtherBalSheets += 1 
     if len(Findex.difference(BOJ_USD.index)) > 0:
         BOJ_USD = PriceImporter.ReSampleToRefIndex(BOJ_USD,Findex,'D')   
     NetLiquidity = pd.Series((NetLiquidity+BOJ_USD),name='NLQ + BOJ'); NetLiquidity2 = pd.Series((NetLiquidity2+BOJ_USD),name='NLQ + BOJ')
@@ -308,7 +329,7 @@ if pd.isna(LoadPBOC) or str(LoadPBOC).upper() == NoString.upper():
     pass
 else: 
     PBoCData = PriceImporter.GetCBAssets_USD("ECONOMICS,CNCBBS","FX_IDC,CNYUSD",DataStart,SerName='PBoC')
-    PBoC_USD = PBoCData[0]; PBoC_USD_Info = PBoCData[1]
+    PBoC_USD = PBoCData[0]; PBoC_USD_Info = PBoCData[1]; OtherBalSheets += 1 
     if len(Findex.difference(PBoC_USD.index)) > 0:
         PBoC_USD = PriceImporter.ReSampleToRefIndex(PBoC_USD,Findex,'D')
     NetLiquidity = pd.Series((NetLiquidity+PBoC_USD),name='NLQ'); NetLiquidity2 = pd.Series((NetLiquidity2+PBoC_USD),name='NLQ')
@@ -322,7 +343,7 @@ if pd.isna(LoadBOE) or str(LoadBOE).upper() == NoString.upper():
     pass
 else:  
     BoEData = PriceImporter.GetCBAssets_USD(",GBCBBS","FX,GBPUSD",DataStart,SerName='BoE')
-    BoE_USD = BoEData[0]; BoE_USD_Info = BoEData[1]
+    BoE_USD = BoEData[0]; BoE_USD_Info = BoEData[1]; OtherBalSheets += 1 
     if len(Findex.difference(BoE_USD.index)) > 0:
         BoE_USD = PriceImporter.ReSampleToRefIndex(BoE_USD,Findex,'D')
     NetLiquidity = pd.Series((NetLiquidity+BoE_USD),name='NLQ'); NetLiquidity2 = pd.Series((NetLiquidity2+BoE_USD),name='NLQ')
@@ -332,7 +353,8 @@ else:
         NetLiquidity.to_excel(writer, sheet_name='Weekly_plusBoE')
         NetLiquidity2.to_excel(writer, sheet_name='Resamp_plusBoE')
         NetLiquidity3.to_excel(writer, sheet_name='TGAData_PlusBoE') 
-MainLabel += " bal. sheets (left axis)"   
+if OtherBalSheets > 0:
+    MainLabel += " bal. sheets (left axis)"   
 
 Get_DXY = Inputs.loc['Get_DXY'].at['Additional FRED Data']  #Get DXY and divide the foreign CB bal sheets by DXY to norm. for dollar strength. 
 if pd.isna(Get_DXY) or str(Get_DXY).upper() == NoString.upper():
