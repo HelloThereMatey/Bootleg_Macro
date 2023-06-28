@@ -105,7 +105,7 @@ for series in SeriesDict.keys():
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
         TheData.drop(TheData.columns[0],axis=1,inplace=True)
         TheData = pd.Series(TheData.squeeze(),name=ticker)
-        SeriesInfo['Source'] = TheSeries['Source'] 
+        TheSeries['Source'] = SeriesInfo['Source']
     elif Source == 'GNload':
         TheData = pd.read_excel(GNPath+FDel+ticker+'.xlsx')
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
@@ -332,7 +332,7 @@ for series in SeriesDict.keys():
     split = ticker.split(','); tickName = split[0]
     if len(split) > 1:
         exchange = split[1]
-    if source == 'tv':
+    if source == 'tv' and len(split) > 1:
         if exchange == 'INDEX':
             pass
         else:
