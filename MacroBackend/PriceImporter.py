@@ -4,6 +4,8 @@ import pandas as pd
 import requests
 import io
 from datetime import timedelta
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 import datetime
 import pandas_datareader.data as web
 import yfinance as yf
@@ -604,6 +606,92 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
 
     return BSData_dUS, CB_SeriesInfo, BSData, FXData
 
+def GetFedBillData(filePath, startDate:datetime.date,endDate:datetime.date=datetime.date.today(),SepPlot:bool=False):
+    try:
+        SeriesInfo = pd.read_excel(filePath,sheet_name='SeriesInfo')
+        SeriesInfo.set_index(SeriesInfo[SeriesInfo.columns[0]],inplace=True)
+        SeriesInfo.drop(SeriesInfo.columns[0],axis=1,inplace=True); SeriesInfo.index.rename('Property',inplace=True)
+        SeriesInfo = pd.Series(SeriesInfo.squeeze(),name='Value')
+        TheData = pd.read_excel(filePath,sheet_name='Closing_Price')
+        TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
+        TheData.drop(TheData.columns[0],axis=1,inplace=True)
+        TheData = pd.Series(TheData.squeeze(),name="Remittances to TGA (original series)")
+        FirstDay = TheData.index[0]; lastDay = TheData.index[len(TheData)-1]
+    except:
+        SeriesInfo, TheData = PullFredSeries("RESPPLLOPNWW","f632119c4e0599a3229fec5a9ac83b1c",Con2Bil=True)
+        print('NewData pulled from FRED: ',TheData)
+        SeriesInfo['units'] = 'Billions of USD'
+        SeriesInfo['units_short'] = 'Bil, of US $'
+        TheData.to_excel(filePath,sheet_name='Closing_Price')
+        with pd.ExcelWriter(filePath, engine='openpyxl', mode='a') as writer:  
+            SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+        FirstDay = TheData.index[0]; lastDay = TheData.index[len(TheData)-1]    
+    
+    if FirstDay.date() > startDate or lastDay.date() < endDate:
+        SeriesInfo, TheData = PullFredSeries("RESPPLLOPNWW","f632119c4e0599a3229fec5a9ac83b1c",Con2Bil=True)
+        print('NewData pulled from FRED: ',TheData)
+        SeriesInfo['units'] = 'Billions of USD'
+        SeriesInfo['units_short'] = 'Bil, of US $'
+        TheData.to_excel(filePath,sheet_name='Closing_Price')
+        with pd.ExcelWriter(filePath, engine='openpyxl', mode='a') as writer:  
+            SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+
+    Adj_ser = TheData.copy(); Adj_ser.rename('Weekly remitances to TGA',inplace=True)
+    cum_series = TheData.copy(); cum_series.rename('Remittances to TGA (cumulative)',inplace=True)
+
+    for i in range(len(TheData)-1):
+        date = TheData.index[i]; nextWeek = TheData.index[i+1]
+        val = TheData[date]; nextVal = TheData[nextWeek]
+        if val == 0:
+            Adj_ser.drop(date,inplace=True)
+        if val < 0:
+            adjVal = nextVal - val
+            Adj_ser[nextWeek] = adjVal
+    start = Adj_ser.index[0]
+    TheData = TheData[start::]; cum_series = cum_series[start::]
+    print(TheData)
+
+    sum = 0
+    for i in range(len(Adj_ser)):
+        date = Adj_ser.index[i]
+        val = Adj_ser[date]
+        sum += val
+        cum_series[date] = sum
+
+    fig = plt.figure(figsize=(12,7))
+    gs = GridSpec(2, 1, top = 0.96, bottom=0.06 ,left=0.06, right=0.94)
+    ax = fig.add_subplot(gs[0])
+    ax.set_title('Fed: weekly remittances to TGA',fontweight='bold')
+    ax.plot(TheData, color='black',label = TheData.name)
+    ax.set_ylabel('Mil. of US $',fontweight='bold',fontsize=9)
+    ax.tick_params(axis='y',labelsize=8)
+    ax.margins(0.02,0.02)
+    for axis in ['top','bottom','left','right']:
+        ax.spines[axis].set_linewidth(1.5)
+
+    ax2 = fig.add_subplot(gs[1],sharex=ax)
+    ax2.bar(Adj_ser.index,Adj_ser,width=10,color='blue',label=Adj_ser.name)
+    ax2b = ax2.twinx()
+    ax2b.plot(cum_series,color='green',label=cum_series.name)
+    ax2.set_ylabel('Mil. of US $',fontweight='bold',fontsize=9)
+    ax2b.set_ylabel('Mil. of US $',fontweight='bold',fontsize=9)
+    ax2.tick_params(axis='y',labelsize=8); ax2b.tick_params(axis='y',labelsize=8)
+    ax2.margins(0.01,0.02); ax2b.margins(0.01,0.02)
+    ax.minorticks_on(); ax2.minorticks_on(); ax2b.minorticks_on()
+    for axis in ['top','bottom','left','right']:
+        ax2.spines[axis].set_linewidth(1.5)
+
+    ax.legend(loc=3,fontsize='small')
+    ax2.legend(loc=2,fontsize='small')
+    ax2b.legend(loc=2,fontsize='small',bbox_to_anchor=(0.4,1))
+    ax.grid(visible=True,axis='both',which='both',lw=0.5,color='gray',ls=":")
+    ax2.grid(visible=True,axis='both',which='both',lw=0.5,color='gray',ls=":")
+    ax.set_axisbelow(True); ax2.set_axisbelow(True)
+
+    if SepPlot is True:
+        return Adj_ser, fig
+    else:
+        return Adj_ser
 
 """WORLD BANK API DATA STUFF. """
 # print(wb.series.info(id="FM.LBL.BMNY.ZG"))
