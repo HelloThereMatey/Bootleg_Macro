@@ -283,7 +283,7 @@ if AddFedBills == 'yes':
     FedBills = pd.Series(FedBills,name='Weekly remittances FED -> TGA')
     FedBills /= 7
     lastVal = FedBills[len(FedBills)-1]
-    FedBills[EndDate] = lastVal
+    FedBills[pd.Timestamp(EndDate)] = lastVal
     FedBills = FedBills.resample('D').mean()
     FedBills.fillna(method='ffill', inplace=True)
     NetLiquidity3 -= FedBills
