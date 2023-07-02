@@ -692,6 +692,31 @@ def GetFedBillData(filePath, startDate:datetime.date,endDate:datetime.date=datet
         return Adj_ser, fig
     else:
         return Adj_ser
+    
+def GetRecessionDates(startDate:datetime.date)-> pd.Series:
+    Path = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'USRECDM.xlsx'
+    try:
+        dates = pd.read_excel(Path,sheet_name='Series')
+        dates.set_index('date',inplace=True)
+        dates = pd.Series(dates.squeeze(),name='Recessions_NBER')
+        #print('NBER recession data loaded.', dates)
+    except:
+        print('Pulling recession dates (NBER) from FRED.')
+        SeriesInfo, dates = PullFredSeries('USRECDM','f632119c4e0599a3229fec5a9ac83b1c')
+        dates = pd.Series(dates.squeeze(),name='Recessions_NBER')
+        dates.to_excel(Path,sheet_name='Series')
+        with pd.ExcelWriter(Path, engine='openpyxl', mode='a') as writer:  
+            SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+            
+    FirstDate =  dates.index[0]; print(FirstDate)  
+    if FirstDate.date() > startDate:
+        SeriesInfo, dates = PullFredSeries('USRECDM','f632119c4e0599a3229fec5a9ac83b1c')
+        dates = pd.Series(dates,name='Recessions_NBER')
+        #print('Updated NBER recession data from FRED.',dates, SeriesInfo)
+        dates.to_excel(Path,sheet_name='Series')
+        with pd.ExcelWriter(Path, engine='openpyxl', mode='a') as writer:  
+            SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+    return dates       
 
 """WORLD BANK API DATA STUFF. """
 # print(wb.series.info(id="FM.LBL.BMNY.ZG"))
