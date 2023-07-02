@@ -67,6 +67,8 @@ print('Start date:',StartDate,', end date: ',EndDate)
 
 SeriesDict = {}; SpreadStr = "spread"; GNstr = 'GNload'; loadStr = 'load'; noStr = 'no'
 Title = Inputs.loc['CHART TITLE'].at['Series_Ticker']
+recession_bars = Inputs.loc['RECESSION_BARS'].at['Series_Ticker']
+
 for i in range(1,6):
     ticker = Inputs.loc[i].at['Series_Ticker']
     if pd.isna(ticker):
@@ -281,7 +283,7 @@ for series in SeriesDict.keys():
 
 
 ######### MATPLOTLIB SECTION #################################################################
-plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 200   ###Set the resolution of the displayed figs & saved fig respectively. 
+plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 300   ###Set the resolution of the displayed figs & saved fig respectively. 
 #### X Ticks for all charts #################################################################################
 Series1 = SeriesDict[keys[0]]; Data = pd.Series(Series1['Data'])
 Range = Data.index[len(Data)-1] - Data.index[0]
@@ -361,7 +363,29 @@ path2image = wd+FDel+'Images'+FDel+'BMPleb2.png'; print(path2image)
 ex = figsize_px[0]-0.1*figsize_px[0]; why = figsize_px[1] - 0.9*figsize_px[1]
 print(smolFig,type(smolFig))
 #smolFig.addLogo(path2image,ex,why,0.66)
-                 
+
+############## Add recession bars on chart if desired ###################################################################
+if recession_bars == 'yes':
+    bar_dates = PriceImporter.GetRecessionDates(StartDate)
+    bar_dates = pd.Series(bar_dates)
+    bar_dates = bar_dates[pd.Timestamp(StartDate)::]
+    vals = bar_dates.to_list(); dates = bar_dates.index.to_list()
+    start_dates = []; end_dates = []
+    for i in range(1,len(dates),1):
+        val = vals[i]
+        lastVal = vals[i-1]
+        if val == 1 and lastVal == 0:
+            start_dates.append(dates[i])
+        elif val == 0 and lastVal == 1:   
+            end_dates.append(dates[i-1])      
+    ax1 = smolFig.axes[0]; lims = ax1.get_ylim()
+    for i in range(len(start_dates)):
+        ax1.axvspan(start_dates[i],end_dates[i],color='blue',alpha=0.25,label="Recessions (NBER)")
+    if Bot < 0.14: 
+        ax1.text(0.4,-0.135 ,"Shaded vertcial bars indicate recession periods (NBER).",fontsize='small',color='blue',horizontalalignment='left', transform=ax1.transAxes)
+    else:
+        ax1.text(0.4,-0.195,"Shaded vertcial bars indicate recession periods (NBER).",fontsize='small',color='blue',horizontalalignment='left', transform=ax1.transAxes)
+
 plt.show()
 
 
