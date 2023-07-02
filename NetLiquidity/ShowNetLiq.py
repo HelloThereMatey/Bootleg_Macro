@@ -400,7 +400,7 @@ NLQSimp = Inputs.loc['NLQ Simple chart'].at['Additional FRED Data']
 TGA_D = Inputs.loc['TGA Daily'].at['Additional FRED Data']
 G_Ele = Inputs.loc['Global NLQ Elements'].at['Additional FRED Data']
 
-plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 200   ###Set the resolution of the displayed figs & saved fig respectively. 
+plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 300   ###Set the resolution of the displayed figs & saved fig respectively. 
 if pd.isna(FontFamily) is False:     ###Set font family for the figures. 
     print('Using font family: ',FontFamily)
     plt.rcParams.update({'font.family':FontFamily})   
