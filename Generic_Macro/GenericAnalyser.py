@@ -232,6 +232,23 @@ for series in SeriesDict.keys():
         data /= convert
     TheSeries['Data'] = data    
 
+#### Substitute a data series for an MA of that series if wanted. ##########################################################################################    
+for series in SeriesDict.keys():
+    TheSeries = SeriesDict[series]
+    if pd.isna(TheSeries["useMA"]):
+        pass
+    else:
+        try:
+            ma = int(TheSeries["useMA"])
+            data = pd.Series(TheSeries['Data'],name=data.name)
+            data = data.rolling(ma).mean()
+            TheSeries['Data'] = data
+            label = str(TheSeries['Legend_Name'])
+            label += " "+str(ma)+' day MA'
+            TheSeries['Legend_Name'] = label
+        except:
+            print('Sub_MA must be an integer if you want to use an MA.')    
+
 ###################### Change series to YoY or other annualized rate calcs if that option is chosen #################################
 normStr = 'Unaltered'; YoYStr = 'Year on year % change'; devStr = '% deviation from fitted trendline'; ann3mStr = 'Annualised 3-month % change'
 ann6mStr = 'Annualised 6-month % change'; momStr = 'Month on month % change'
@@ -263,24 +280,6 @@ for series in SeriesDict.keys():
         pass    
     TheSeries['Data'] = data
     print(data)
-
-#### Substitute a data series for an MA of that series if wanted. ##########################################################################################    
-for series in SeriesDict.keys():
-    TheSeries = SeriesDict[series]
-    if pd.isna(TheSeries["useMA"]):
-        pass
-    else:
-        try:
-            ma = int(TheSeries["useMA"])
-            data = pd.Series(TheSeries['Data'],name=data.name)
-            data = data.rolling(ma).mean()
-            TheSeries['Data'] = data
-            label = str(TheSeries['Legend_Name'])
-            label += " "+str(ma)+' day MA'
-            TheSeries['Legend_Name'] = label
-        except:
-            print('Sub_MA must be an integer if you want to use an MA.')    
-
 
 ######### MATPLOTLIB SECTION #################################################################
 plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 300   ###Set the resolution of the displayed figs & saved fig respectively. 
@@ -371,6 +370,8 @@ if recession_bars == 'yes':
     bar_dates = bar_dates[pd.Timestamp(StartDate)::]
     vals = bar_dates.to_list(); dates = bar_dates.index.to_list()
     start_dates = []; end_dates = []
+    if vals[0] == 1:
+            start_dates.append(dates[0])
     for i in range(1,len(dates),1):
         val = vals[i]
         lastVal = vals[i-1]
