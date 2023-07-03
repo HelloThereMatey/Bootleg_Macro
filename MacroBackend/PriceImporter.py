@@ -6,6 +6,7 @@ import io
 from datetime import timedelta
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+import matplotlib.dates as mdates
 import datetime
 import pandas_datareader.data as web
 import yfinance as yf
@@ -619,9 +620,9 @@ def GetFedBillData(filePath, startDate:datetime.date,endDate:datetime.date=datet
         FirstDay = TheData.index[0]; lastDay = TheData.index[len(TheData)-1]
     except:
         SeriesInfo, TheData = PullFredSeries("RESPPLLOPNWW","f632119c4e0599a3229fec5a9ac83b1c",Con2Bil=True)
-        print('NewData pulled from FRED: ',TheData)
+        print('New RESPPLLOPNWW Data pulled from FRED.')
         SeriesInfo['units'] = 'Billions of USD'
-        SeriesInfo['units_short'] = 'Bil, of US $'
+        SeriesInfo['units_short'] = 'Bil. of US $'
         TheData.to_excel(filePath,sheet_name='Closing_Price')
         with pd.ExcelWriter(filePath, engine='openpyxl', mode='a') as writer:  
             SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
@@ -629,9 +630,9 @@ def GetFedBillData(filePath, startDate:datetime.date,endDate:datetime.date=datet
     
     if FirstDay.date() > startDate or lastDay.date() < endDate:
         SeriesInfo, TheData = PullFredSeries("RESPPLLOPNWW","f632119c4e0599a3229fec5a9ac83b1c",Con2Bil=True)
-        print('NewData pulled from FRED: ',TheData)
+        print('New RESPPLLOPNWW Data pulled from FRED.')
         SeriesInfo['units'] = 'Billions of USD'
-        SeriesInfo['units_short'] = 'Bil, of US $'
+        SeriesInfo['units_short'] = 'Bil. of US $'
         TheData.to_excel(filePath,sheet_name='Closing_Price')
         with pd.ExcelWriter(filePath, engine='openpyxl', mode='a') as writer:  
             SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
@@ -649,7 +650,6 @@ def GetFedBillData(filePath, startDate:datetime.date,endDate:datetime.date=datet
             Adj_ser[nextWeek] = adjVal
     start = Adj_ser.index[0]
     TheData = TheData[start::]; cum_series = cum_series[start::]
-    print(TheData)
 
     sum = 0
     for i in range(len(Adj_ser)):
@@ -658,23 +658,27 @@ def GetFedBillData(filePath, startDate:datetime.date,endDate:datetime.date=datet
         sum += val
         cum_series[date] = sum
 
+    Xmax = max(TheData.index); Xmin = min(TheData.index)
+    stepsize = (Xmax - Xmin) / 15
+    XTicks = np.arange(Xmin, Xmax, stepsize); XTicks = np.append(XTicks,Xmax)   
+
     fig = plt.figure(figsize=(12,7))
-    gs = GridSpec(2, 1, top = 0.96, bottom=0.06 ,left=0.06, right=0.94)
+    gs = GridSpec(2, 1, top = 0.96, bottom=0.09 ,left=0.06, right=0.94, hspace=0.01)
     ax = fig.add_subplot(gs[0])
     ax.set_title('Fed: weekly remittances to TGA',fontweight='bold')
-    ax.plot(TheData, color='black',label = TheData.name)
-    ax.set_ylabel('Mil. of US $',fontweight='bold',fontsize=9)
+    ax.plot(TheData, color='black',label = SeriesInfo['title'])
+    ax.set_ylabel(SeriesInfo['units_short'],fontweight='bold',fontsize=9)
     ax.tick_params(axis='y',labelsize=8)
     ax.margins(0.02,0.02)
     for axis in ['top','bottom','left','right']:
         ax.spines[axis].set_linewidth(1.5)
 
     ax2 = fig.add_subplot(gs[1],sharex=ax)
-    ax2.bar(Adj_ser.index,Adj_ser,width=10,color='blue',label=Adj_ser.name)
+    ax2.bar(Adj_ser.index,Adj_ser,width=10,color='xkcd:bright blue',label=Adj_ser.name)
     ax2b = ax2.twinx()
-    ax2b.plot(cum_series,color='green',label=cum_series.name)
-    ax2.set_ylabel('Mil. of US $',fontweight='bold',fontsize=9)
-    ax2b.set_ylabel('Mil. of US $',fontweight='bold',fontsize=9)
+    ax2b.plot(cum_series,color='orangered',label="Cumulative remittance to TGA (right axis)")
+    ax2.set_ylabel(SeriesInfo['units_short'],fontweight='bold',fontsize=9)
+    ax2b.set_ylabel(SeriesInfo['units_short'],fontweight='bold',fontsize=9)
     ax2.tick_params(axis='y',labelsize=8); ax2b.tick_params(axis='y',labelsize=8)
     ax2.margins(0.01,0.02); ax2b.margins(0.01,0.02)
     ax.minorticks_on(); ax2.minorticks_on(); ax2b.minorticks_on()
@@ -687,6 +691,11 @@ def GetFedBillData(filePath, startDate:datetime.date,endDate:datetime.date=datet
     ax.grid(visible=True,axis='both',which='both',lw=0.5,color='gray',ls=":")
     ax2.grid(visible=True,axis='both',which='both',lw=0.5,color='gray',ls=":")
     ax.set_axisbelow(True); ax2.set_axisbelow(True)
+
+    ax.tick_params(axis="x",which='both',length=0,width=0,labelsize=0)
+    ax2.xaxis.set_ticks(XTicks); ax.set_xlim(Xmin-datetime.timedelta(days=15),Xmax+datetime.timedelta(days=15))
+    ax2.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b')) 
+    ax2.tick_params(axis='x',which='major',length=3.5,width=1.5,labelsize=9,labelrotation=45)
 
     if SepPlot is True:
         return Adj_ser, fig

@@ -361,36 +361,35 @@ class BMP_Fig(Figure):
             else:
                 LW = TheTrace['LW']    
 
-            TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
             scales = ['linear', 'log', 'symlog', 'asinh', 'logit', 'function', 'functionlog']
             if TheTrace['YScale'] in scales:
                 TheAx.set_yscale(TheTrace['YScale'])
                 print(trace,TheAx, 'Use scale: ', TheTrace['YScale'], 'Scale is: ',TheAx.get_yscale)
 
-            if i > 0:
-                TheAx.tick_params(axis='y',which='both', labelsize=8,color=TheTrace['TraceColor'],labelcolor=TheTrace['TraceColor']) 
-                TheAx.set_ylabel(TheTrace['axlabel'],fontsize=9,fontweight='bold',labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])
-                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin=TheTrace['YScale'],Ymax=Ymax)
-                TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
-                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)  
-                TheAx.tick_params(axis='y',which='major',length=3,width=1,right=True,labelright=True,labelsize=9) 
-            else:
-                TheAx.tick_params(axis='y',which='both',labelsize=10,color=TheTrace['TraceColor'],labelcolor=TheTrace['TraceColor'])
-                TheAx.set_ylabel(TheTrace['axlabel'],fontweight='bold')  
-                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin=TheTrace['YScale'],Ymax=Ymax)
-                TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
-                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)  
-                TheAx.tick_params(axis='y',which='major',length=3,width=1,left=True,labelleft=True,labelsize=9)  
-
             if TheTrace['YScale'] == 'log'and TheTrace['UnitsType'] != 'Unaltered':
-                TheTrace['Data'] += 100; TheAx.minorticks_off()
+                print('Using offset log axis for series: ',TheTrace['Name'])
+                TheTrace['Data'] += 100 
+                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
+                TheAx.minorticks_off()
                 ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax)
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
                 TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs) 
                 if i > 0:
-                    TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=TheTrace['TraceColor'])
+                    TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])
+                    TheAx.set_ylabel(TheTrace['UnitsType'],fontweight='bold',fontsize=9,labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])  
                 else:
-                    TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'])
+                    self.ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])   
+                    self.ax1.set_ylabel(TheTrace['UnitsType'],fontweight='bold')      
+            else:
+                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
+                if i == 0: 
+                    self.ax1.set_ylabel(TheTrace['axlabel'],fontweight='bold') 
+                else:
+                    TheAx.set_ylabel(TheTrace['axlabel'],fontsize=9,fontweight='bold',labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])
+                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin=TheTrace['YScale'],Ymax=Ymax)
+                TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
+                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)  
+                TheAx.tick_params(axis='y',which='major',length=3,width=1,left=True,labelleft=True,labelsize=9,color=TheTrace['TraceColor'],labelcolor=TheTrace['TraceColor'])   
 
             if Ymax is not None:
                 TheAx.set_ylim(TheTrace['Data'].min(),Ymax)    
@@ -427,7 +426,7 @@ class BMP_Fig(Figure):
         tickDF = pd.DataFrame(tickDict) #;print(tickDF.head(50))
         self.ax1.set_xticks(newMinTicks3,minor=True); self.ax1.set_xticks(majList)
         self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-        self.ax1.margins(0.02,0.05)
+        self.ax1.margins(0.01,0.05)
     
     def set_Title(self,title:str):
         self.ax1.set_title(title, fontweight='bold', pad = 5)
