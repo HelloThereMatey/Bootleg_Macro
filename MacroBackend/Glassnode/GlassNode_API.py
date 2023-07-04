@@ -20,7 +20,7 @@ elif platform == "darwin":
 elif platform == "win32":
     FDel = '\\' #Windows...
 
-# Insert your glassnode API key here
+# Insert your glassnode API key here, this old key won't work for you. 
 API_KEY = '2Pv1NrXFSj1H7aUjwIyJelYccUr' 
 
 def search_series(search_string, series:pd.Series):  ##This unction will be used to search throuigh the list of glassnode metrics.
