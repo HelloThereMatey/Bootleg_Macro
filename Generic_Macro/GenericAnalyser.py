@@ -77,7 +77,7 @@ for i in range(1,6):
         source = Inputs.loc[i].at['Source']; Tipe = Inputs.loc[i].at['UnitsType']
         color = Inputs.loc[i].at['TraceColor']; label = Inputs.loc[i].at['Legend_Name']; name = Inputs.loc[i].at['Name']
         yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['Resample2D']
-        axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i]; MA =  Inputs.loc[i].at['Sub_MA']; LW = Inputs.loc[i].at['LineWidth']
+        axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i-1]; MA =  Inputs.loc[i].at['Sub_MA']; LW = Inputs.loc[i].at['LineWidth']
         convert = Inputs.loc[i].at['ConvertUnits']
         SeriesDict[name] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name,\
                             'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax, 'Resample2D': resample, 'useMA': MA, 'LW': LW, 'Ticker_Source':ticker,
