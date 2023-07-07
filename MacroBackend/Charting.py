@@ -348,14 +348,22 @@ class BMP_Fig(Figure):
         i = 0; AxList =  self.axes
         locList = [(-0.025,-0.105),(0.375,-0.105),(0.7,-0.105),(-0.025,-0.16),(0.375,-0.16)]
         for trace in Traces.keys():
-            print(i)
             TheTrace = Traces[trace]
-            TheAx = AxList[i]; ymax = TheTrace['Ymax']
+            data = TheTrace['Data']; name = TheTrace['Name']; Ylabel = TheTrace['axlabel']
+            if Ylabel == 'nan':
+                TheTrace['axlabel'] = TheTrace['UnitsType']
+            print('Charting function, data: ',name,type(data))
+
+            TheAx = AxList[i]; ymax = TheTrace['Ymax']; ymin = TheTrace['Ymin']
             
             if pd.isna(ymax) or ymax == '':
                 Ymax = None
             else:
                 Ymax = ymax
+            if pd.isna(ymin) or ymin == '':
+                Ymin = None
+            else:
+                Ymin = ymin  
             if pd.isna(TheTrace['LW']):
                 LW = 1.5
             else:
@@ -364,14 +372,22 @@ class BMP_Fig(Figure):
             scales = ['linear', 'log', 'symlog', 'asinh', 'logit', 'function', 'functionlog']
             if TheTrace['YScale'] in scales:
                 TheAx.set_yscale(TheTrace['YScale'])
-                print(trace,TheAx, 'Use scale: ', TheTrace['YScale'], 'Scale is: ',TheAx.get_yscale)
+                print(trace,TheAx, 'Use scale: ', TheTrace['YScale'])
 
             if TheTrace['YScale'] == 'log'and TheTrace['UnitsType'] != 'Unaltered':
                 print('Using offset log axis for series: ',TheTrace['Name'])
-                TheTrace['Data'] += 100 
-                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
+                TheTrace['Data'] += 100
+                if Ymin is not None:
+                    Ymin += 100
+                if Ymax is not None:
+                    Ymax += 100    
+                if type(data) == pd.DataFrame:
+                    for col in data.columns:
+                        TheAx.plot(data[col],label = data[col].name,lw=LW)
+                else:        
+                    TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
                 TheAx.minorticks_off()
-                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax)
+                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax,Ymin=Ymin)
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
                 TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs) 
                 if i > 0:
@@ -381,24 +397,38 @@ class BMP_Fig(Figure):
                     self.ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])   
                     self.ax1.set_ylabel(TheTrace['UnitsType'],fontweight='bold')      
             else:
-                TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
-                if i == 0: 
-                    self.ax1.set_ylabel(TheTrace['axlabel'],fontweight='bold') 
-                else:
-                    TheAx.set_ylabel(TheTrace['axlabel'],fontsize=9,fontweight='bold',labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])
-                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin=TheTrace['YScale'],Ymax=Ymax)
+                if type(data) == pd.DataFrame:
+                    for col in data.columns:
+                        TheAx.plot(data[col],label = data[col].name,lw=LW)
+                else:        
+                    TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
+                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin=TheTrace['YScale'],Ymax=Ymax,Ymin=Ymin)
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
-                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)  
-                TheAx.tick_params(axis='y',which='major',length=3,width=1,left=True,labelleft=True,labelsize=9,color=TheTrace['TraceColor'],labelcolor=TheTrace['TraceColor'])   
+                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)   
+                if i > 0:
+                    TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])
+                    TheAx.set_ylabel(TheTrace['axlabel'],fontweight='bold',fontsize=9,labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])  
+                else:
+                    self.ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])   
+                    self.ax1.set_ylabel(TheTrace['axlabel'],fontweight='bold')   
 
-            if Ymax is not None:
+            if Ymax is not None and Ymin is not None:
+                TheAx.set_ylim(Ymin,Ymax)
+            elif Ymax is not None and Ymin is None:  
                 TheAx.set_ylim(TheTrace['Data'].min(),Ymax)    
+            elif Ymax is None and Ymin is not None:  
+                TheAx.set_ylim(Ymin,TheTrace['Data'].max())     
             if i > 1:
                 TheAx.spines.right.set_position(("axes", 1+((i-1)*0.055))); 
             TheAx.margins(0.02,0.02)
             TheAx.spines['right'].set_linewidth(1.5)
             TheAx.spines['right'].set_color(TheTrace['TraceColor'])
-            TheAx.legend(fontsize=9,loc=locList[i]) 
+            if type(data) == pd.DataFrame:
+                title = TheTrace['Legend_Name']
+                l = TheAx.legend(title=title,title_fontsize=9,loc='best')
+                Title = l.get_title(); Title.set_color(TheTrace['TraceColor'])
+            else:    
+                TheAx.legend(fontsize=9,loc=locList[i]) 
             i += 1      
 
         self.ax1.minorticks_on()
