@@ -255,7 +255,7 @@ GM2_ffill = FullDF['Global M2 (USD, ffill)']
 FullDF.to_excel(wd+FDel+des+'_M2_USD.xlsx')
 savePath = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+des+'GM2.xlsx'
 GM2_ffill.dropna(inplace=True)
-SeriesInfo = pd.Series({'units':'US Dollars','units_short': 'USD','title':'Global M2 '+des,'id':'GM2'+des},name='SeriesInfo')
+SeriesInfo = pd.Series({'units':'US Dollars','units_short': 'USD','title':'Global M2 '+des,'id':'GM2'+des,"Source":"tv"},name='SeriesInfo')
 GM2_ffill.to_excel(savePath,sheet_name='Closing_Price')
 with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
     SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
