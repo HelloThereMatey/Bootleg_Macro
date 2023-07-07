@@ -280,16 +280,16 @@ def PullDailyAssetData(ticker:str,PriceAPI:str,startDate:str,endDate:str=None): 
         AssetData = AssetData[StartDate:EndDate]         
         return AssetData     
 
-def YoYCalcFromDaily(series:pd.Series): 
-    print('\nYoY calcuation on series: ',series.name,', data frequency: ',pd.infer_freq(series.index))
+def YoYCalcFromDaily(series): 
+    print('\nYoY calcuation on series: , data frequency: ',pd.infer_freq(series.index))
     if series.index.inferred_freq != 'D':
         print('Resampling',series.name,'to daily frequency for YoY calculation....')
         series = series.resample('D').mean()
         series.fillna(method='ffill',inplace=True) #This'l make it daily data even if weekly data is input. 
     YoYCalc = [np.nan for i in range(len(series))]
-    YoYSeries = pd.Series(YoYCalc,index=series.index,name=series.name+' YoY % change')
+    YoYSeries = pd.Series(YoYCalc,index=series.index)
     for i in range(365,len(series),1):
-        YoYSeries.iloc[i] = (((series[i]-series[i-365])/series[i-365])*100)
+        YoYSeries.iloc[i] = (((series[series.index[i]]-series[series.index[i-365]])/series[series.index[i-365]])*100)
     #print('After YoY calc: ',YoYSeries.tail(54),len(YoYSeries))        
     return YoYSeries   
 
