@@ -14,7 +14,7 @@ import matplotlib.dates as mdates
 from datetime import timedelta
 from tkinter import Tk     # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askopenfilename
-
+True
 Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
 
 CURR_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -77,10 +77,10 @@ def CovCorrMA(period: int, AssetPrice1: np.ndarray, AssetPrice2: np.ndarray, ind
     CovCorrDF = pd.DataFrame(CovCorrDict, index=index)
     return CovCorrDF       #Dataframe containing the MA for the given period, 1st column co-variance, second column correlation co-efficient. 
 
-def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate Pearson COrrelation co-efficient between two series with time frame: period. 
+def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate Pearson Correlation co-efficient between two series with time frame: period. 
     if (period=='Full'):
-        Cor = round(Series1.corr(other=Series2,method='pearson', min_periods=len(Series1)),3)
-        print('The correlation over the entire length between the two series: '+Series1.name+' and '+Series1.name+' is: '+str(round(Cor,3))+'.')
+        Cor = round(Series1.corr(Series2),3)
+        print('The correlation over the entire length between the two series: '+Series1.name+' and '+Series2.name+' is: '+str(round(Cor,3))+'.')
     else:
         Cor = Series1.rolling(period).corr(Series2) ##Using Pandas to calculate the correlation. 
     return Cor      
@@ -111,6 +111,16 @@ def EqualSpacedTicks(data,numTicks,LogOrLin:str='linear',LabOffset=None,labPrefi
 # by commenting out the relevant 6 lines below here and uncommenting lines 23 - 25. 
 #Auto input of coin selection and parameters:
 dfIn = pd.read_excel(CURR_DIR+"/PairCorrInput.xlsx")  #We need to make sure the little r is there next to the path string to make it a raw string.
+print(dfIn)
+
+scamFimode = bool(dfIn.loc[6].at["api1"])
+if scamFimode is True:
+    print("Are you some kind of degen fuck? Stop playing with silly cricular numbers and learn what money is.")
+    LP_Entry_Date = str(dfIn.loc[7].at["api1"])
+    LP_Exit_Date = str(dfIn.loc[8].at["api1"])
+    LP_Entry = datetime.datetime.strptime(LP_Entry_Date.split(' ')[0],'%Y-%m-%d').date()
+    LP_Exit = datetime.datetime.strptime(LP_Exit_Date.split(' ')[0],'%Y-%m-%d').date()
+
 api1 = str(dfIn.loc[0].at["api1"]); api2 = str(dfIn.loc[0].at["api2"])
 type1 = str(dfIn.loc[1].at["api1"]); type2 = str(dfIn.loc[1].at["api2"])
 mode = str(dfIn.loc[3].at["api1"])
@@ -262,7 +272,24 @@ ax1.legend(loc=1,framealpha=1,fontsize=10)
 ax1.tick_params(axis='x', labelsize=0,labelrotation=90)  
 for axis in ['top','bottom','left','right']:
         ax1.spines[axis].set_linewidth(1.5)  
-xleft = PriceMatrix1.index[0] - timedelta(days = 15); xright = PriceMatrix1.index[len(PriceMatrix1)-1] + timedelta(days = 15)
+
+if scamFimode is True:     
+    entry = ax1.axvline(LP_Entry,ls=":",lw=1.25,color='green')     
+    exit = ax1.axvline(LP_Exit,ls=":",lw=1.25,color='red') 
+    ent = pd.Timestamp(LP_Entry); ex = pd.Timestamp(LP_Exit); mid = Percentage.index[round((len(Percentage)-1)/3)] 
+    entryPratio = Series1[ent]/Series2[ent]; exitPratio = Series1[ex]/Series2[ex]
+    PratioDelta = round(((exitPratio-entryPratio)/entryPratio)*100,2)
+    ax1.axhline(Percentage[ent],ls=":",lw=1.5,color='green')
+    ax1.axhline(Percentage[ex],ls=":",lw=1.5,color='red')
+    ax1.annotate("",xy=(mid,Percentage[ent]),xytext=(mid,Percentage[ex]),xycoords='data',textcoords="data",arrowprops={'arrowstyle':'<->'})
+    ax1.text(0.25,0.5,"LP ratio delta: "+str(PratioDelta)+"%",horizontalalignment='left', transform=ax1.transAxes,backgroundcolor='white',alpha=1,fontsize=9)
+    ax1.text(ent,Percentage[ent],"LP entry",horizontalalignment='left', backgroundcolor='white',alpha=1,fontsize=9,c='green')
+    ax1.text(ex,Percentage[ex],"LP exit",horizontalalignment='right', backgroundcolor='white',alpha=1,fontsize=9,c='red')
+    il = round((2*((PratioDelta/100)+1)**0.5/(2+(PratioDelta/100))-1)*100,2)             #IL(k) = (2*SQRT((k/100)+1)/(2+(k/100))-1)*100, k = delta price ratio in %. 
+    ax1.text(0.35,0.15,"IL: "+str(il)+"%",horizontalalignment='left', transform=ax1.transAxes, backgroundcolor='white',alpha=1,fontsize=10,c='black')
+
+XMargin = round(0.01*TimeLength)
+xleft = PriceMatrix1.index[0] - timedelta(days = XMargin); xright = PriceMatrix1.index[len(PriceMatrix1)-1] + timedelta(days = XMargin)
 ax1.set_xlim(xleft, xright)
     
 #Price of both assets on the one graph.
