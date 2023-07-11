@@ -129,8 +129,6 @@ TimeLength = int(dfIn.loc[0].at["NumDays"])
 end = datetime.date.today()
 Start_Date = dfIn.loc[4].at["api1"].date()
 End_Date = dfIn.loc[5].at["api1"].date()
-# Start_Date = datetime.datetime.strptime(dfIn.loc[4].at["api1"], "%Y-%m-%d").date()
-# End_Date = datetime.datetime.strptime(dfIn.loc[5].at["api1"], "%Y-%m-%d").date()
 
 start = Start_Date.strftime("%Y-%m-%d")
 
