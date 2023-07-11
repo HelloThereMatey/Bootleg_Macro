@@ -4,6 +4,7 @@ dir = os.path.dirname(wd)
 print(wd,dir)
 import sys ; sys.path.append(dir)
 from MacroBackend import PriceImporter ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it yet, it will be found when run. 
+from MacroBackend import Utilities
 import numpy as np
 import pandas as pd
 import datetime
@@ -85,29 +86,7 @@ def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate 
         Cor = Series1.rolling(period).corr(Series2) ##Using Pandas to calculate the correlation. 
     return Cor      
 
-def EqualSpacedTicks(data,numTicks,LogOrLin:str='linear',LabOffset=None,labPrefix:str=None,labSuffix:str=None):
-    Ymin = round(min(data),2); Ymax = round(max(data),2)    #Major ticks custom right axis. 
-    if LogOrLin == 'log':
-        Ticks = np.logspace(start = np.log10(Ymin), stop = np.log10(Ymax), num=numTicks, base=10); tickLabs = Ticks.copy()
-    elif LogOrLin == 'linear':    
-        Ticks = np.linspace(start = Ymin, stop = Ymax, num=numTicks); tickLabs = Ticks.copy()
-    else:
-        print('Must specify whether you want linear "linear" ticks or log10 ticks "log".')    
-        quit()
-    if LabOffset is not None:
-        tickLabs += LabOffset
-    Ticks.round(decimals=0,out=Ticks); tickLabs.round(decimals=0,out=tickLabs)
-    Ticks = np.ndarray.astype(Ticks,dtype=int,copy=False)
-    tickLabs = np.ndarray.astype(tickLabs,dtype=int,copy=False)
-    tickLabs = np.ndarray.astype(tickLabs,dtype=str,copy=False)
-    tickLabs = tickLabs.tolist()
-    if labPrefix is not None:
-        tickLabs = [labPrefix+char for char in tickLabs]
-    if labSuffix is not None:
-        tickLabs = [char+labSuffix for char in tickLabs]
-    return Ticks, tickLabs
-
- #You can change to manual coin and time length selection instead of auto selection based on what you've already saved in the input .csv file
+#You can change to manual coin and time length selection instead of auto selection based on what you've already saved in the input .csv file
 # by commenting out the relevant 6 lines below here and uncommenting lines 23 - 25. 
 #Auto input of coin selection and parameters:
 dfIn = pd.read_excel(CURR_DIR+"/PairCorrInput.xlsx")  #We need to make sure the little r is there next to the path string to make it a raw string.
@@ -148,9 +127,12 @@ print("Correlation averages to calculate: \n",CCAvs,numCCAvs)
 
 TimeLength = int(dfIn.loc[0].at["NumDays"])
 end = datetime.date.today()
-start = end-timedelta(days=TimeLength)
-print(TimeLength,start,end)
-DataStart = start.strftime("%Y-%m-%d")
+Start_Date = dfIn.loc[4].at["api1"].date()
+End_Date = dfIn.loc[5].at["api1"].date()
+# Start_Date = datetime.datetime.strptime(dfIn.loc[4].at["api1"], "%Y-%m-%d").date()
+# End_Date = datetime.datetime.strptime(dfIn.loc[5].at["api1"], "%Y-%m-%d").date()
+
+start = Start_Date.strftime("%Y-%m-%d")
 
 if mode == 'disk':
     filename = askopenfilename(title='Choose excel file (.xlsx only) to load data for asset 1.',defaultextension='.xlsx') 
@@ -172,8 +154,8 @@ if mode == 'disk':
 else:    
     #Pull data from APIs:
     print('Asset 1 is: '+str(asset1)); print('Asset 2 is: '+str(asset2))
-    df = PriceImporter.PullDailyAssetData(strAss1,api1,DataStart,endDate=None)
-    df2 = PriceImporter.PullDailyAssetData(strAss2,api2,DataStart,endDate=None)
+    df = PriceImporter.PullDailyAssetData(strAss1,api1,start,endDate=None)
+    df2 = PriceImporter.PullDailyAssetData(strAss2,api2,start,endDate=None)
     df = df[start:end]; df2 = df2[start:end]
 
 length = len(df); length2 = len(df2)
@@ -186,12 +168,15 @@ print('asset1 length: '+str(length)+ ', asset2 length: '+str(length2)+'.')
 df, df2 = PriceImporter.GetIndiciiSame(df,df2) 
 print(df,df2)    
 
-print("Number of days into the past before today tracked here: "+str(TimeLength)+'\r')
+print("Start & end dates: ",Start_Date.strftime("%Y-%m-%d"), End_Date.strftime("%Y-%m-%d"), Start_Date, End_Date, type(Start_Date))
+print("Number of days the period covers: "+str(TimeLength)+'\r')
+
 PriceMatrix1 = pd.DataFrame(df); PriceMatrix2 = pd.DataFrame(df2)
 PriceMatrix1.fillna(method='ffill',inplace=True); PriceMatrix2.fillna(method='ffill',inplace=True)
+PriceMatrix1 = PriceMatrix1[Start_Date:End_Date]; PriceMatrix2 = PriceMatrix2[Start_Date:End_Date]
 PriceMatrix1.to_excel(CURR_DIR+"/Asset1Data.xlsx")
 PriceMatrix2.to_excel(CURR_DIR+"/Asset2Data.xlsx")
-print(PriceMatrix1.columns,PriceMatrix2.columns)
+
 if len(PriceMatrix1.columns) < 2:
     Series1 = pd.Series(PriceMatrix1.squeeze(),name=strAss1)
     Price1 = pd.Series.to_numpy(Series1)
@@ -204,11 +189,12 @@ if len(PriceMatrix2.columns) < 2:
 else:    
     Series2 = pd.Series(PriceMatrix2['Close'],name=strAss2)
     Price2 = pd.Series.to_numpy(Series2)
-#Use my covariance, correlation function: 
-CovCorr = CovCorrCalc(Price1, Price2)
-CovString = 'Asset pair co-variance over the whole \ntime period (manual): '+str(round(CovCorr[0], 4))
-CorrString = 'Asset pair correlation over the whole \ntime period (manual): '+str(round(CovCorr[1], 4))
-print(CovString); print(CorrString)
+
+# Use my covariance, correlation function: 
+#CovCorr = CovCorrCalc(Price1, Price2)
+# CovString = 'Asset pair co-variance over the whole \ntime period (manual): '+str(round(CovCorr[0], 4))
+# CorrString = 'Asset pair correlation over the whole \ntime period (manual): '+str(round(CovCorr[1], 4))
+# print(CovString); print(CorrString)
 
 #Check it with numpy and pandas correlation calculations:
 print('Standard deviation (numpy) asset1, asset2: ',np.std(Price1),np.std(Price2))
@@ -238,7 +224,9 @@ MasterDF.to_excel(CURR_DIR+"/PairCorrOutput.xlsx", index = False)
 print('Data output to: '+CURR_DIR+"/PairCorrOutput.csv") 
 
 #Calculate normalised price ratio wave and normalized percentage changed from median wave.
+print(Series1,Series2)
 PriceRatio = Series1/Series2
+print(PriceRatio)
 Ratio_norm = (PriceRatio - PriceRatio.min())/ (PriceRatio.max() - PriceRatio.min())
 Percentage = PriceRatio
 midpoint = np.median(PriceRatio)
@@ -248,7 +236,8 @@ for i in range(int(points)):
     Percentage.iloc[i] = ((Percentage.iloc[i] - midpoint)/midpoint)*100+100
 
 # # ################################### #Plot figures #############################################################
-Ticks, tickLabs = EqualSpacedTicks(Percentage,10,LogOrLin='log',LabOffset=-100,labSuffix='%')
+
+Ticks, tickLabs = Utilities.EqualSpacedTicks(Percentage,10,LogOrLin='log',LabOffset=-100,labSuffix='%')
 
 #Price ratio plot.
 fig = plt.figure(figsize=(10,9.5))
@@ -293,8 +282,8 @@ xleft = PriceMatrix1.index[0] - timedelta(days = XMargin); xright = PriceMatrix1
 ax1.set_xlim(xleft, xright)
     
 #Price of both assets on the one graph.
-Ticks2, tickLabs2 = EqualSpacedTicks(Series1,8,LogOrLin='log')
-Ticks3, tickLabs3 = EqualSpacedTicks(Series2,8,LogOrLin='log')
+Ticks2, tickLabs2 = Utilities.EqualSpacedTicks(Series1,8,LogOrLin='log')
+Ticks3, tickLabs3 = Utilities.EqualSpacedTicks(Series2,8,LogOrLin='log')
 
 ax2 = fig.add_subplot(gs1[1],sharex=ax1)
 TitleString = str(asset1)+' vs left axis, '+str(asset2)+' vs right axis'
