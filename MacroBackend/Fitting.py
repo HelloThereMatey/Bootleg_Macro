@@ -69,7 +69,7 @@ def YoYCalcFromDaily(series:pd.Series):
     #print('After YoY calc: ',YoYSeries.tail(54),len(YoYSeries))        
     return YoYSeries  
 
-def FitData(f,data:pd.Series,LogOrLin:str='lin',funcName:str=''):
+def FitData(f,data:pd.Series,LogOrLin:str='lin',funcName:str=''):  #Fit trend to data. 
     x = np.linspace(1,len(data),len(data)); y = data.to_numpy(); yLog = np.log(y)
     if LogOrLin == 'log':
         popt, pcov = curve_fit(f,x,y)
