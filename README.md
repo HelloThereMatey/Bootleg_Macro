@@ -3,7 +3,9 @@ Open sourcing financial data that is generally hidden behind high paywalls.
 
 Multiple tools for obtaining and then charting and comparing economic data with asset price data. Has two aggregated liquidity indexes that you won't find elsewhere for free. Tools:
 - Generic Charting tool:
-    - Chart up to 5 traces on the same chart for comparison.
+    - Chart up to 5 traces on the same chart on up to 5 different axes.Transform data to first order derivatives, year on year % change, 6 month annualized etc.
+    - Smooth data with MA's. Add bars for recessions.
+    - Decent generic charting tool for display of macrioeconomic data. 
 - Correlation tool:
     - Look at correlation between any two datasets. 
 - Central bank global money index.
