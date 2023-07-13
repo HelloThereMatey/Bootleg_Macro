@@ -89,7 +89,6 @@ for i in range(1,6):
 SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
 numAxii = numSeries
 print('Number of data series: ',numSeries,'Number of axii on chart: ',numAxii)
-print(SeriesDict)
 
 DataPath = wd+FDel+'SavedData'; GNPath = DataPath+FDel+'Glassnode'
 for series in SeriesDict.keys():
@@ -141,10 +140,14 @@ for series in SeriesDict.keys():
             TheData = PriceImporter.Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)   
             TheData = pd.Series(TheData['Close'],name=TheSeries['Name'])     
     elif  Source == 'tv': 
-        TheData = pd.DataFrame(PriceImporter.DataFromTVDaily(symbol,exchange,start_date=StartDate,end_date=EndDate))
+        TheData = pd.DataFrame(PriceImporter.DataFromTVGen(symbol,exchange,start_date=StartDate,end_date=EndDate,BarTimeFrame='daily'))
         dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(TheData.index).date)
+        print(TheData)
         TheData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
-        TheData.drop('Symbol',axis=1,inplace=True)
+        try:
+            TheData.drop('Symbol',axis=1,inplace=True)
+        except:
+            pass    
         TheData.set_index(dtIndex,inplace=True); TheData = TheData[StartDate:EndDate]
         TheData = pd.Series(TheData['Close'],name=TheSeries['Name'])  ##### Just take the closing price for this application. 
         TheData = TheData.resample('D').mean(); TheData.fillna(method='ffill',inplace=True)
