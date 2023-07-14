@@ -321,6 +321,8 @@ def DataFromTVDaily(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end
 
 def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_date=datetime.date.today(),BarTimeFrame='daily'): 
     numDays = (end_date-start_date).days; print('Number of days of data for ',symbol,': ',numDays)
+    if numDays > 5000:
+        BarTimeFrame='weekly'
     tv = TvDatafeed()
     if BarTimeFrame == 'daily':
         TimeFrame = Interval.in_daily; numBars = numDays
