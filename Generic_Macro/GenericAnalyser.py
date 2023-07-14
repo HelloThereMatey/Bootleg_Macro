@@ -142,7 +142,6 @@ for series in SeriesDict.keys():
     elif  Source == 'tv': 
         TheData = pd.DataFrame(PriceImporter.DataFromTVGen(symbol,exchange,start_date=StartDate,end_date=EndDate,BarTimeFrame='daily'))
         dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(TheData.index).date)
-        print(TheData)
         TheData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
         try:
             TheData.drop('Symbol',axis=1,inplace=True)
@@ -192,8 +191,9 @@ for series in SeriesDict.keys():
             quit()      
     else:
         print("Can't find data for: ",series)    
-    if len(SeriesInfo) > 0 and Source != 'load':
-        SeriesInfo['Source'] = Source
+    if Source != 'load':    
+        SeriesInfo['Source'] = Source    
+    if len(SeriesInfo) > 0:
         pass
     else:
         SeriesInfo['units'] = 'US Dollars'; SeriesInfo['units_short'] = 'USD'
@@ -219,11 +219,8 @@ for series in SeriesDict.keys():
     TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.   
     SeriesDict[series] = TheSeries
     if pd.isna(TheSeries['axlabel']):
-        try:
-            TheSeries['axlabel'] = SeriesInfo['units_short']
-        except:
-            pass  
-
+       TheSeries['axlabel'] = SeriesInfo['units_short']
+      
     ########################## SAVE DATA ####################################################################################
     if Source.upper() != loadStr.upper() and Source.upper() != SpreadStr.upper() and Source.upper() != GNstr.upper():
         savePath = DataPath+FDel+ticker+'.xlsx'
@@ -273,7 +270,6 @@ ann6mStr = 'Annualised 6-month % change'; momStr = 'Month on month % change'
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]; 
     data = TheSeries['Data']; name = TheSeries['Name']
-    print('Before first deriv calc.: ',data)
     TraceType = str(TheSeries['UnitsType'])
     idx = pd.DatetimeIndex(data.index)
     Freq = str(idx.inferred_freq); print(name,' Inferred frequency: ',Freq)
@@ -307,7 +303,6 @@ for series in SeriesDict.keys():
     #     fitY, std_u, std_l, TrendDev = fitExpTrend(data)
     else:
         pass    
-    print('After first deriv calc.: ',data)
     TheSeries['Data'] = data
 
 ######## Look at the Y-range of each series and adjust Y-axis so that the 0-position of each chart will align if chosen. #######################
@@ -340,14 +335,11 @@ if alignZeros == 'yes':
 ######### MATPLOTLIB SECTION #################################################################
 plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 300   ###Set the resolution of the displayed figs & saved fig respectively. 
 #### X Ticks for all charts #################################################################################
-print(SeriesDict, keys[0])
 Series1 = SeriesDict[keys[0]]; Data = Series1['Data']
-print(Series1,Data, len(Data)) 
 if type(Data) == pd.DataFrame:
     Data = pd.DataFrame(Data)
 else:
-    Data = pd.Series(Data) 
-print(Data, len(Data))    
+    Data = pd.Series(Data)  
 Range = Data.index[len(Data)-1] - Data.index[0]
 margs = round((0.02*Range.days),0); print(Range.days,margs)
 Xmin = Data.index[0]-timedelta(days=margs); Xmax = Data.index[len(Data)-1]+timedelta(days=margs)

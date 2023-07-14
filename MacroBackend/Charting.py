@@ -350,6 +350,7 @@ class BMP_Fig(Figure):
         for trace in Traces.keys():
             TheTrace = Traces[trace]
             data = TheTrace['Data']; name = TheTrace['Name']; Ylabel = TheTrace['axlabel']
+            print(name,Ylabel)
             if Ylabel == 'nan':
                 TheTrace['axlabel'] = TheTrace['UnitsType']
             print('Charting function, data: ',name,type(data))
