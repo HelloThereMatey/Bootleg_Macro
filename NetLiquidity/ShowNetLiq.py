@@ -171,16 +171,14 @@ else:
 Index = pd.date_range(TGA_Past.index[0],TGA_Past.index[len(TGA_Past)-1],freq='D')
 Index = pd.DatetimeIndex(Index)
 
-if len(Index.difference(TGA_Past.index)) > 0:
-    TGA_PastRS = PriceImporter.ReSampleToRefIndex(TGA_Past.copy(),Index,'D')  
 #TGA_Past.set_index('record_date',inplace=True)      
 TGA_Past = TGA_Past[['open_today_bal','close_today_bal','open_month_bal','month_close_bal_ifToday']]
 #print('TGA data after update: ',TGA_Past)
 TGA_Past.to_excel(wd+FDel+'TreasuryData'+FDel+'TGA_Since2005.xlsx',index_label=TGA_Past.index.name)
-TGA_PastRS.drop('month_close_bal_ifToday',axis=1,inplace=True)
-TGA_PastRS.to_excel(wd+FDel+'TreasuryData'+FDel+'TGA_Since2005_RS.xlsx',index_label=TGA_Past.index.name)
 
-TGA_Daily_Series = pd.Series(TGA_PastRS['close_today_bal'],name='TGA Bal. (Bil. $)')
+TGA_Daily_Series = pd.Series(TGA_Past['close_today_bal'],name='TGA Bal. (Bil. $)')
+if len(Index.difference(TGA_Daily_Series.index)) > 0:
+    TGA_PastRS = PriceImporter.ReSampleToRefIndex(TGA_Daily_Series.copy(),Index,'D') 
 TGA_Daily_Series /= 1000 # TGA account balance is in millions $ from the Treasury, convert to Billions $.  
 TGA_Daily_Series = TGA_Daily_Series[StartDate:EndDate]
 print('TGA series, start & end dates: ',TGA_Daily_Series.index[0],TGA_Daily_Series.index[len(TGA_Daily_Series)-1])
