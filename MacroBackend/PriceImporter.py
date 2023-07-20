@@ -186,6 +186,8 @@ def ReSampleToRefIndex(data,index,freq:str):   #This function will resample and 
     data.set_index(pd.DatetimeIndex(data.iloc[:,0]),inplace=True)
     data.drop(data.columns[0],axis=1,inplace=True)
     data = data.reindex(index=index)
+    data.fillna(method='ffill',inplace=True)
+    print('Resampling this one: ',data)
     data = data.resample(freq).mean()
     data.fillna(method='ffill',inplace=True)
     data.fillna(method='bfill',inplace=True)
