@@ -5,7 +5,8 @@ dir = os.path.dirname(wd)
 print(wd,dir)
 
 import sys ; sys.path.append(dir)
-from MacroBackend.tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
+print(sys.path)
+import TvDatafeedz #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
 import pandas as pd
 from matplotlib import colors as mcolors
 import matplotlib.pylab as pl

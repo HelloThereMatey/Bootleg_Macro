@@ -22,13 +22,8 @@ from datetime import timedelta
 import re 
 import tkinter as tk
 
-if sys.platform == "linux" or sys.platform == "linux2":        #This detects what operating system you're using so that the right folder delimiter can be use for paths. 
-    FDel = '/'; OpSys = 'linux'
-elif sys.platform == "darwin":
-    FDel = '/'; OpSys = 'mac'
-elif sys.platform == "win32":
-    FDel = '\\' ; OpSys = 'windows'
-print('System information: ',sys.platform, OpSys,', directory delimiter: ', FDel, ', working directory: ', wd)
+FDel = os.path.sep
+print('System information: ',sys.platform,', directory delimiter: ', FDel, ', working directory: ', wd)
 
 try:
     Inputs = pd.read_excel(wd+'/Control.xlsx')     ##Pull input parameters from the input parameters excel file. 
