@@ -1,3 +1,9 @@
+import os
+wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
+dir = os.path.dirname(wd); parent = os.path.dirname(dir)
+print('Working directory: ',wd,', parent folder',dir, 'level above that: ',parent)
+import sys; sys.path.append(parent)
+from MacroBackend import Tkinter_Utilities 
 import customtkinter as ctk
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -5,52 +11,41 @@ from tkinter import filedialog
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 import json
 import datetime
-import os
-import sys
-wd = os.path.dirname(__file__)
-from BEA_API_backend import BEA_Data
 import BEA_API_backend
-from fontTools.ttLib import TTFont
-
-######### Set default font and fontsize ##################### Make this automatic and hide in utility files later on. 
-font = TTFont('/System/Library/Fonts/Supplemental/Arial Unicode.ttf')
-DefaultFontSize = 12
-
-cmap = font['cmap']
-t = cmap.getcmap(3,1).cmap
-s = font.getGlyphSet()
-units_per_em = font['head'].unitsPerEm
-
-def getTextWidth(text,pointSize):  #Width of a displayed string in points.
-    total = 0
-    for c in text:
-        if ord(c) in t and t[ord(c)] in s:
-            total += s[t[ord(c)]].width
-        else:
-            total += s['.notdef'].width
-    total = total*float(pointSize)/units_per_em
-    return total
-
-string = 'abcdefghijklmnopqrstuvwxyz'; text = string+string.upper()
-width = getTextWidth(text,DefaultFontSize); defCharWid = round(width/len(text))
-# print('Text: "%s"' % text)
-# print('Number of characters ',len(text))
-# print('Width in points: %f' % width)
-# print('Average character width in points:',defCharWid)
 
 ###### Determine what OS this is running on and get appropriate path delimiter. #########
 FDel = os.path.sep
 print("Operating system: ",sys.platform, "Path separator character: ", FDel)
-wd = os.path.dirname(os.path.realpath(__file__))    #Get working directory.
-dir = os.path.dirname(wd); parent = os.path.dirname(dir)
+
+######### Set default font and fontsize ##################### Make this automatic and hide in utility files later on. 
+try:
+    ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
+    ScreenSettings = dict(json.load(ScreenSetFile))
+    print(ScreenSettings)
+except:
+    Tkinter_Utilities.SetScreenInfoFile(dir+FDel+'SystemInfo')  
+    ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
+    ScreenSettings = dict(json.load(ScreenSetFile))
+
+OldSesh = {'SESSION_MANAGER': ScreenSettings['SESSION_MANAGER'],
+           'USER': ScreenSettings['USER'],
+           'SHELL': ScreenSettings['SHELL']}
+SessionCheck = {'SESSION_MANAGER': os.environ['SESSION_MANAGER'], 
+                'USER': os.environ['USER'], 
+                'SHELL': os.environ['SHELL']}
+
+if SessionCheck != OldSesh:
+    Tkinter_Utilities.SetScreenInfoFile(dir+FDel+'SystemInfo') 
+
+defCharWid = ScreenSettings['Char_width']
+defCharH = ScreenSettings['Char_height']
 
 # Initalize the new BEA client.
 api_key='779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC'
 defPath = wd+FDel+'Datasets'+FDel+'BEAAPI_Info.xlsx'
-bea = BEA_Data(api_key=api_key,BEA_Info_filePath=defPath)
+bea = BEA_API_backend.BEA_Data(api_key=api_key,BEA_Info_filePath=defPath)
 
 ######## Tkinter initialization #########################################
 root = ctk.CTk()
@@ -203,7 +198,7 @@ freqs = ctk.CTkOptionMenu(root,values=[""],variable=freq); freqs.grid(column=0,r
 flabel = ctk.CTkLabel(root,text='Data frequency',font=('Arial',11,'bold')) ; flabel.grid(column=0,row=1,sticky='e',padx=170,pady=5)
 
 # Create a text box to display the results
-result_box = tk.Listbox(root,listvariable=SearchResults, height=round(140/defCharWid), width=defCharWid_window); result_box.bind('<Double-1>', MakeChoice)
+result_box = tk.Listbox(root,listvariable=SearchResults, height=round(140/defCharH), width=defCharWid_window); result_box.bind('<Double-1>', MakeChoice)
 result_box.grid(column=0,row=2,padx=10,pady=10)
 GetDataBtn = ctk.CTkButton(root, text="Get data series",command=PullBEASeries,font=('Arial',12))
 GetDataBtn.grid(column=0,row=3,sticky='sw',padx=10,pady=30)
