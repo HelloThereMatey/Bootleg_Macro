@@ -3,7 +3,8 @@ wd = os.path.dirname(__file__)  ## This gets the working directory which is the 
 dir = os.path.dirname(wd); parent = os.path.dirname(dir)
 print('Working directory: ',wd,', parent folder',dir, 'level above that: ',parent)
 import sys; sys.path.append(parent)
-from MacroBackend import Tkinter_Utilities 
+from MacroBackend import Tkinter_Utilities ## Don't worry if your IDE shows that this module can't be found, it should stil work. 
+
 import customtkinter as ctk
 import tkinter as tk
 import tkinter.ttk as ttk
@@ -14,33 +15,41 @@ import matplotlib.pyplot as plt
 import json
 import datetime
 import BEA_API_backend
+import tkinter.font as tkFont
+
+def get_char_dimensions(root):
+    default_font = tkFont.nametofont("TkDefaultFont")
+    char_width = default_font.measure('M')
+    char_height = default_font.metrics("linespace")
+    return char_width, char_height
 
 ###### Determine what OS this is running on and get appropriate path delimiter. #########
 FDel = os.path.sep
 print("Operating system: ",sys.platform, "Path separator character: ", FDel)
-
+print(os.environ)
+quit()
 ######### Set default font and fontsize ##################### Make this automatic and hide in utility files later on. 
-try:
-    ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
-    ScreenSettings = dict(json.load(ScreenSetFile))
-    print(ScreenSettings)
-except:
-    Tkinter_Utilities.SetScreenInfoFile(dir+FDel+'SystemInfo')  
-    ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
-    ScreenSettings = dict(json.load(ScreenSetFile))
+# try:
+#     ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
+#     ScreenSettings = dict(json.load(ScreenSetFile))
+#     print(ScreenSettings)
+# except:
+#     Tkinter_Utilities.SetScreenInfoFile(dir+FDel+'SystemInfo')  
+#     ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
+#     ScreenSettings = dict(json.load(ScreenSetFile))
 
-OldSesh = {'SESSION_MANAGER': ScreenSettings['SESSION_MANAGER'],
-           'USER': ScreenSettings['USER'],
-           'SHELL': ScreenSettings['SHELL']}
-SessionCheck = {'SESSION_MANAGER': os.environ['SESSION_MANAGER'], 
-                'USER': os.environ['USER'], 
-                'SHELL': os.environ['SHELL']}
+# OldSesh = {'SESSION_MANAGER': ScreenSettings['SESSION_MANAGER'],
+#            'USER': ScreenSettings['USER'],
+#            'SHELL': ScreenSettings['SHELL']}
+# SessionCheck = {'SESSION_MANAGER': os.environ['SESSION_MANAGER'], 
+#                 'USER': os.environ['USER'], 
+#                 'SHELL': os.environ['SHELL']}
 
-if SessionCheck != OldSesh:
-    Tkinter_Utilities.SetScreenInfoFile(dir+FDel+'SystemInfo') 
+# if SessionCheck != OldSesh:
+#     Tkinter_Utilities.SetScreenInfoFile(dir+FDel+'SystemInfo') 
 
-defCharWid = ScreenSettings['Char_width']
-defCharH = ScreenSettings['Char_height']
+# defCharWid = ScreenSettings['Char_width']
+# defCharH = ScreenSettings['Char_height']
 
 # Initalize the new BEA client.
 api_key='779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC'
@@ -50,8 +59,15 @@ bea = BEA_API_backend.BEA_Data(api_key=api_key,BEA_Info_filePath=defPath)
 ######## Tkinter initialization #########################################
 root = ctk.CTk()
 root.title('Bureau of Economic Analysis Data Downloader')
-WindowWidthTarget = 800 #points
+defCharWid, defCharH = get_char_dimensions(root)
+print(f"The approximate width of a character is: {defCharWid} pixels")
+print(f"The approximate height of a character is: {defCharH} pixels")
+WindowWidthTarget = 800 #pixels
 defCharWid_window = round(WindowWidthTarget/defCharWid); print(defCharWid_window)
+
+char_width, char_height = get_char_dimensions(root)
+print(f"The approximate width of a character is: {char_width} pixels")
+print(f"The approximate height of a character is: {char_height} pixels")
 
 def SearchBtn():
     loadPath = path.get(); term = searchTerm.get()
@@ -198,7 +214,7 @@ freqs = ctk.CTkOptionMenu(root,values=[""],variable=freq); freqs.grid(column=0,r
 flabel = ctk.CTkLabel(root,text='Data frequency',font=('Arial',11,'bold')) ; flabel.grid(column=0,row=1,sticky='e',padx=170,pady=5)
 
 # Create a text box to display the results
-result_box = tk.Listbox(root,listvariable=SearchResults, height=round(140/defCharH), width=defCharWid_window); result_box.bind('<Double-1>', MakeChoice)
+result_box = tk.Listbox(root,listvariable=SearchResults, height=round(250/defCharH), width=round(1504/defCharWid)); result_box.bind('<Double-1>', MakeChoice)
 result_box.grid(column=0,row=2,padx=10,pady=10)
 GetDataBtn = ctk.CTkButton(root, text="Get data series",command=PullBEASeries,font=('Arial',12))
 GetDataBtn.grid(column=0,row=3,sticky='sw',padx=10,pady=30)
