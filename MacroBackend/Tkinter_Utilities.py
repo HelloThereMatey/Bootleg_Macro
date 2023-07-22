@@ -1,12 +1,21 @@
 import tkinter as tk
 import os
+import sys
 import json
 
 def SetScreenInfoFile(InfoFolder:str):
     root = tk.Tk()
-    ScreenData = {'SESSION_MANAGER':os.environ['SESSION_MANAGER'], 
-                'USER':os.environ['USER'],
-                'SHELL':os.environ['SHELL']}
+    ###### Determine what OS this is running on and get appropriate path delimiter. #########
+    FDel = os.path.sep
+    print("Operating system: ",sys.platform, "Path separator character: ", FDel)
+    if sys.platform == 'win32':
+        username = os.environ['USERNAME']
+    else:
+        username = os.environ['USER']
+
+    ScreenData = {'OS': sys.platform,
+                  "USER": username}
+
     # Get screen size
     root.update_idletasks()
     root.attributes('-fullscreen', True)
@@ -27,12 +36,17 @@ def SetScreenInfoFile(InfoFolder:str):
     ScreenData['Char_width'] = char_width
     ScreenData['Char_height'] = char_height
 
-    print(ScreenData)
-    filePath = InfoFolder + "/ScreenData.json"
+    filePath = InfoFolder+FDel+"ScreenData.json"
     with open(filePath, 'w') as f:
         json.dump(ScreenData, f, indent=4)
 
     root.destroy()
+
+def get_char_dimensions(root):
+    default_font = tkFont.nametofont("TkDefaultFont")
+    char_width = default_font.measure('M')
+    char_height = default_font.metrics("linespace")
+    return char_width, char_height
 
 if __name__ == "__main__":
     wd = os.path.dirname(os.path.realpath(__file__))

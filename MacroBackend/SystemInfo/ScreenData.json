@@ -1,9 +1,6 @@
 {
-    "SESSION_MANAGER": "local/billy-R:@/tmp/.ICE-unix/2009,unix/billy-R:/tmp/.ICE-unix/2009",
-    "USER": "billy",
-    "SHELL": "/bin/bash",
-    "Screen_width": 3840,
+    "Screen_width": 1920,
     "Screen_height": 1080,
-    "Char_width": 16,
+    "Char_width": 17,
     "Char_height": 21
 }
