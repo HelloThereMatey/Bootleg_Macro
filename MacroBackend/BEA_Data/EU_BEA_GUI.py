@@ -2,8 +2,8 @@ import os
 wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
 dir = os.path.dirname(wd); parent = os.path.dirname(dir)
 print('Working directory: ',wd,', parent folder',dir, 'level above that: ',parent)
-import sys; sys.path.append(parent)
-from MacroBackend import Tkinter_Utilities ## Don't worry if your IDE shows that this module can't be found, it should stil work. 
+import sys; sys.path.append(parent); sys.path.append(dir); print(sys.path)
+import Tkinter_Utilities ## Don't worry if your IDE shows that this module can't be found, it should stil work. 
 
 import customtkinter as ctk
 import tkinter as tk
@@ -15,41 +15,40 @@ import matplotlib.pyplot as plt
 import json
 import datetime
 import BEA_API_backend
-import tkinter.font as tkFont
-
-def get_char_dimensions(root):
-    default_font = tkFont.nametofont("TkDefaultFont")
-    char_width = default_font.measure('M')
-    char_height = default_font.metrics("linespace")
-    return char_width, char_height
 
 ###### Determine what OS this is running on and get appropriate path delimiter. #########
 FDel = os.path.sep
 print("Operating system: ",sys.platform, "Path separator character: ", FDel)
-print(os.environ)
-quit()
+
 ######### Set default font and fontsize ##################### Make this automatic and hide in utility files later on. 
-# try:
-#     ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
-#     ScreenSettings = dict(json.load(ScreenSetFile))
-#     print(ScreenSettings)
-# except:
-#     Tkinter_Utilities.SetScreenInfoFile(dir+FDel+'SystemInfo')  
-#     ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
-#     ScreenSettings = dict(json.load(ScreenSetFile))
+try:
+    ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
+    ScreenSettings = dict(json.load(ScreenSetFile))
+    print(ScreenSettings)
+except:
+    tkVars = Tkinter_Utilities.TkinterSizingVars()
+    tkVars.SetScreenInfoFile()
+    tkVars.ExportVars(dir+FDel+'SystemInfo')
+    ScreenSettings = tkVars.ScreenData
 
-# OldSesh = {'SESSION_MANAGER': ScreenSettings['SESSION_MANAGER'],
-#            'USER': ScreenSettings['USER'],
-#            'SHELL': ScreenSettings['SHELL']}
-# SessionCheck = {'SESSION_MANAGER': os.environ['SESSION_MANAGER'], 
-#                 'USER': os.environ['USER'], 
-#                 'SHELL': os.environ['SHELL']}
+OldSesh = {'OS': ScreenSettings['OS'], 'USER': ScreenSettings['USER']}
+if sys.platform == 'win32':
+    username = os.environ['USERNAME']
+else:
+    username = os.environ['USER']
+SessionCheck = {'OS': sys.platform, 'USER': username}
+if SessionCheck != OldSesh:
+    tkVars = Tkinter_Utilities.TkinterSizingVars()
+    tkVars.SetScreenInfoFile()
+    tkVars.ExportVars(dir+FDel+'SystemInfo')
+    ScreenSettings = tkVars.ScreenData
 
-# if SessionCheck != OldSesh:
-#     Tkinter_Utilities.SetScreenInfoFile(dir+FDel+'SystemInfo') 
+defCharWid = 0.79*ScreenSettings['Def_font']['char_width (pixels)']; defCharH = 0.79*ScreenSettings['Def_font']['char_height (pixels)']
+screen_width = ScreenSettings['Screen_width']; screen_height = ScreenSettings['Screen_height']
+win_widthT = round(0.6*screen_width); win_heightT = round(0.5*screen_height)
+win_widChars = round(win_widthT/defCharWid); win_HChars = round(win_heightT/defCharH)
 
-# defCharWid = ScreenSettings['Char_width']
-# defCharH = ScreenSettings['Char_height']
+print(ScreenSettings,win_widthT,win_heightT,win_widChars,win_HChars)
 
 # Initalize the new BEA client.
 api_key='779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC'
@@ -59,15 +58,12 @@ bea = BEA_API_backend.BEA_Data(api_key=api_key,BEA_Info_filePath=defPath)
 ######## Tkinter initialization #########################################
 root = ctk.CTk()
 root.title('Bureau of Economic Analysis Data Downloader')
-defCharWid, defCharH = get_char_dimensions(root)
-print(f"The approximate width of a character is: {defCharWid} pixels")
-print(f"The approximate height of a character is: {defCharH} pixels")
-WindowWidthTarget = 800 #pixels
-defCharWid_window = round(WindowWidthTarget/defCharWid); print(defCharWid_window)
+root.columnconfigure(0,weight=1)
+root.rowconfigure(0,weight=3); root.rowconfigure(1,weight=4); root.rowconfigure(0,weight=3)
 
-char_width, char_height = get_char_dimensions(root)
-print(f"The approximate width of a character is: {char_width} pixels")
-print(f"The approximate height of a character is: {char_height} pixels")
+top = ctk.CTkFrame(root,width=win_widthT,height=round(0.3*win_heightT)); top.grid(column=0,row=0,padx=10,pady=5)
+middle = ctk.CTkFrame(root,width=win_widthT,height=round(0.4*win_heightT)); middle.grid(column=0,row=1,padx=10,pady=5)
+bottom = ctk.CTkFrame(root,width=win_widthT,height=round(0.3*win_heightT)); bottom.grid(column=0,row=2,padx=10,pady=5)
 
 def SearchBtn():
     loadPath = path.get(); term = searchTerm.get()
@@ -156,7 +152,7 @@ def PullBEASeries():
         cols.set(allCols) 
         tree["columns"] = allCols
         for col in tree['columns']:
-            tree.column(col,width=round((1000/defCharWid)))
+            tree.column(col,width=50)
             tree.heading(col,text=col)
         for i in range(len(table)):
             values = table.iloc[i].tolist(); values.insert(0,dates[i])
@@ -174,7 +170,6 @@ def plotPreview():
     dataStr = dict(json.loads(dataStr))
     yScale = YAxis.get()
     figure = bea.BEAPreviewPlot(yScale)
-
     plt.show()       
 
 def SetSavingPath():
@@ -202,39 +197,34 @@ Date = ctk.StringVar(master=root,value="",name='DataDateColumn')
 Data = ctk.StringVar(master=root,value="",name='DataColumn')
 cols = ctk.StringVar(master=root,value="",name='DataColumns')
 YAxis = ctk.StringVar(master=root,value='linear',name="Yaxis_Scale")
-
 savePath = wd+FDel+'Datasets'
 save = ctk.StringVar(master=root,value=savePath,name='DataSavePath')
 
 ########### Load the excel file containing the dataframe with list of metrics from glassnode 
-pathBar = ctk.CTkEntry(root,width=600,textvariable=path); pathBar.grid(column=0,row=0,sticky='nsew',padx=10,pady=10)
-searchTerm = ctk.CTkEntry(root); searchTerm.grid(column=0,row=1,sticky='w',padx=10,pady=5)
-btn=ctk.CTkButton(root, text="Search for data",command=SearchBtn,font=('Arial',12)); btn.grid(column=0,row=1,padx=10,pady=5)
-freqs = ctk.CTkOptionMenu(root,values=[""],variable=freq); freqs.grid(column=0,row=1,sticky='e',padx=20,pady=5)
-flabel = ctk.CTkLabel(root,text='Data frequency',font=('Arial',11,'bold')) ; flabel.grid(column=0,row=1,sticky='e',padx=170,pady=5)
+pathBar = ctk.CTkEntry(top,width=round(0.95*win_widthT),textvariable=path); pathBar.grid(column=0,row=0,columnspan=4,padx=10,pady=5)
+searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=0,row=1,padx=5,pady=5)
+btn=ctk.CTkButton(top, text="Search for data",command=SearchBtn,font=('Arial',12)); btn.grid(column=1,row=1,padx=5,pady=10)
+flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',11,'bold')) ; flabel.grid(column=2,row=1,padx=5,pady=10)
+freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=3,row=1,padx=5,pady=10)
 
 # Create a text box to display the results
-result_box = tk.Listbox(root,listvariable=SearchResults, height=round(250/defCharH), width=round(1504/defCharWid)); result_box.bind('<Double-1>', MakeChoice)
-result_box.grid(column=0,row=2,padx=10,pady=10)
-GetDataBtn = ctk.CTkButton(root, text="Get data series",command=PullBEASeries,font=('Arial',12))
-GetDataBtn.grid(column=0,row=3,sticky='sw',padx=10,pady=30)
+result_box = tk.Listbox(middle,listvariable=SearchResults, height=round(250/defCharH), width=win_widChars); result_box.bind('<Double-1>', MakeChoice)
+result_box.pack(padx=15,pady=15)
 
-########### Start and end dates #################################
-start = ctk.CTkEntry(root,textvariable=StartDate); start.grid(column=0,row=4,sticky='sw',padx=10,pady=30)
-sLabel = ctk.CTkLabel(root,text='Starting year, blank = "All years"',font=('Arial',10)) ; sLabel.grid(column=0,row=4,sticky='nw',padx=10)
-end = ctk.CTkEntry(root,textvariable=EndDate); end.grid(column=0,row=4,sticky='s',padx=200,pady=30)
-eLabel = ctk.CTkLabel(root,text='End year, blank = latest data',font=('Arial',10)); eLabel.grid(column=0,row=4,sticky='n',padx=5)
+# ########### Start and end dates #################################
+GetDataBtn = ctk.CTkButton(bottom, text="Get data series",command=PullBEASeries,font=('Arial',12)); GetDataBtn.grid(column=0,row=0,sticky='n',padx=10,pady=10)
+start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=2,row=0,sticky='n',padx=10,pady=10)
+sLabel = ctk.CTkLabel(bottom,text='Starting year, blank = "All years"',font=('Arial',10)) ; sLabel.grid(column=2,row=0,padx=10,pady=40)
+end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=3,row=0,sticky='n',padx=10,pady=10)
+eLabel = ctk.CTkLabel(bottom,text='End year, blank = latest data',font=('Arial',10)); eLabel.grid(column=3,row=0,padx=5,pady=40)
 
 options = ['linear','log']
-drop = ctk.CTkOptionMenu(root,variable=YAxis,values=options); drop.grid(column=0,row=3,sticky='se',padx=10,pady=30)
-dLabel = ctk.CTkLabel(root,text='Y-scaling for chart.',font=('Arial',12)); dLabel.grid(column=0,row=3,sticky='ne',padx=40,pady=0)
-plot_button = ctk.CTkButton(root, text="Preview data",font=('Arial',12,'bold'), command=plotPreview); plot_button.grid(column=0,row=4,sticky='e',padx=10,pady=15)
+drop = ctk.CTkOptionMenu(bottom,variable=YAxis,values=options); drop.grid(column=2,row=1,padx=10,pady=30)
+dLabel = ctk.CTkLabel(bottom,text='Y-scaling for chart.',font=('Arial',11)); dLabel.grid(column=2,row=1,sticky='n',padx=10)
+plot_button = ctk.CTkButton(bottom, text="Preview data",font=('Arial',12,'bold'), command=plotPreview); plot_button.grid(column=3,row=1,padx=10,pady=30)
 
-SaveBtn=ctk.CTkButton(root, text="Export data",command=SaveData,font=('Arial',14,'bold')); SaveBtn.grid(column=0,row=3,padx=30,pady=5)
-savePathDisplay =ctk.CTkEntry(root,textvariable=save,width=700); savePathDisplay.grid(column=0,row=6,sticky='w',padx=10,pady=5)
-SetSavePath = ctk.CTkButton(root, text="Set save path",font=('Arial',12,'bold'),command=SetSavingPath); SetSavePath.grid(column=0,row=6,sticky='e',padx=20,pady=5)
-
-#lb=ctk.CTkComboBox(top_frame,listvariable=path, height=1, width=100); lb.grid(column=0,row=1,padx=10,pady=10,columnspan=4,sticky='ew')
-######### Search term entry bar and search Button. Search through the list of metrics. 
+SaveBtn=ctk.CTkButton(bottom, text="Export data",command=SaveData,font=('Arial',14,'bold')); SaveBtn.grid(column=0,row=1,padx=10,pady=30)
+savePathDisplay =ctk.CTkEntry(bottom,textvariable=save,width=round(0.79*win_widthT)); savePathDisplay.grid(column=0,row=3,columnspan=3,padx=10,pady=5)
+SetSavePath = ctk.CTkButton(bottom, text="Set save path",font=('Arial',12,'bold'),command=SetSavingPath); SetSavePath.grid(column=3,row=3,padx=10,pady=10)
 
 root.mainloop()
