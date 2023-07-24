@@ -9,7 +9,7 @@
         "name": "TkDefaultFont",
         "family": ".AppleSystemUIFont",
         "size": 13,
-        "char_width (pixels)": 12,
+        "char_width (pixels)": 10,
         "char_height (pixels)": 16
     }
 }

@@ -8,6 +8,7 @@ import Tkinter_Utilities ## Don't worry if your IDE shows that this module can't
 import customtkinter as ctk
 import tkinter as tk
 import tkinter.ttk as ttk
+import tkinter.font as tkFont
 from tkinter import filedialog
 import pandas as pd
 import numpy as np
@@ -24,7 +25,6 @@ print("Operating system: ",sys.platform, "Path separator character: ", FDel)
 try:
     ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
     ScreenSettings = dict(json.load(ScreenSetFile))
-    print(ScreenSettings)
 except:
     tkVars = Tkinter_Utilities.TkinterSizingVars()
     tkVars.SetScreenInfoFile()
@@ -43,7 +43,8 @@ if SessionCheck != OldSesh:
     tkVars.ExportVars(dir+FDel+'SystemInfo')
     ScreenSettings = tkVars.ScreenData
 
-defCharWid = 0.79*ScreenSettings['Def_font']['char_width (pixels)']; defCharH = 0.79*ScreenSettings['Def_font']['char_height (pixels)']
+defCharWid = ScreenSettings['Def_font']['char_width (pixels)']; 
+defCharH = ScreenSettings['Def_font']['char_height (pixels)']
 screen_width = ScreenSettings['Screen_width']; screen_height = ScreenSettings['Screen_height']
 win_widthT = round(0.6*screen_width); win_heightT = round(0.5*screen_height)
 win_widChars = round(win_widthT/defCharWid); win_HChars = round(win_heightT/defCharH)
@@ -57,13 +58,17 @@ bea = BEA_API_backend.BEA_Data(api_key=api_key,BEA_Info_filePath=defPath)
 
 ######## Tkinter initialization #########################################
 root = ctk.CTk()
+default_font = tkFont.nametofont("TkDefaultFont")
 root.title('Bureau of Economic Analysis Data Downloader')
-root.columnconfigure(0,weight=1)
-root.rowconfigure(0,weight=3); root.rowconfigure(1,weight=4); root.rowconfigure(0,weight=3)
+root.columnconfigure(0,weight=1,minsize=win_widthT)
+root.rowconfigure(0,weight=3); root.rowconfigure(1,weight=4); root.rowconfigure(2,weight=3)
+root.rowconfigure(3,weight=3); root.rowconfigure(4,weight=3)
 
-top = ctk.CTkFrame(root,width=win_widthT,height=round(0.3*win_heightT)); top.grid(column=0,row=0,padx=10,pady=5)
-middle = ctk.CTkFrame(root,width=win_widthT,height=round(0.4*win_heightT)); middle.grid(column=0,row=1,padx=10,pady=5)
-bottom = ctk.CTkFrame(root,width=win_widthT,height=round(0.3*win_heightT)); bottom.grid(column=0,row=2,padx=10,pady=5)
+top = ctk.CTkFrame(root,width=win_widthT); top.grid(column=0,row=0,padx=10,pady=5)
+middle = ctk.CTkFrame(root,width=win_widthT); middle.grid(column=0,row=1,padx=10,pady=5)
+bottom = ctk.CTkFrame(root,width=win_widthT); bottom.grid(column=0,row=2,padx=10,pady=5)
+bottom2 = ctk.CTkFrame(root,width=win_widthT); bottom2.grid(column=0,row=3,padx=10,pady=5)
+bottom3 = ctk.CTkFrame(root,width=win_widthT); bottom3.grid(column=0,row=4,padx=10,pady=5)
 
 def SearchBtn():
     loadPath = path.get(); term = searchTerm.get()
@@ -208,23 +213,28 @@ flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',11,'bold')) ; flab
 freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=3,row=1,padx=5,pady=10)
 
 # Create a text box to display the results
-result_box = tk.Listbox(middle,listvariable=SearchResults, height=round(250/defCharH), width=win_widChars); result_box.bind('<Double-1>', MakeChoice)
-result_box.pack(padx=15,pady=15)
+result_box = tk.Listbox(middle,listvariable=SearchResults, font = default_font, height=round(250/defCharH), width=win_widChars); result_box.bind('<Double-1>', MakeChoice)
+print(result_box.config)
+result_box.pack(padx=30,pady=15)
 
 # ########### Start and end dates #################################
-GetDataBtn = ctk.CTkButton(bottom, text="Get data series",command=PullBEASeries,font=('Arial',12)); GetDataBtn.grid(column=0,row=0,sticky='n',padx=10,pady=10)
-start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=2,row=0,sticky='n',padx=10,pady=10)
-sLabel = ctk.CTkLabel(bottom,text='Starting year, blank = "All years"',font=('Arial',10)) ; sLabel.grid(column=2,row=0,padx=10,pady=40)
-end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=3,row=0,sticky='n',padx=10,pady=10)
-eLabel = ctk.CTkLabel(bottom,text='End year, blank = latest data',font=('Arial',10)); eLabel.grid(column=3,row=0,padx=5,pady=40)
+bottom.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
+bottom.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(3,weight=1,minsize=np.floor(win_widthT/4)*0.97)
+GetDataBtn = ctk.CTkButton(bottom, text="Get data series",command=PullBEASeries,font=('Arial',12)); GetDataBtn.grid(column=2,row=0,pady=5)
+start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=0,row=0,sticky='n',pady=5)
+sLabel = ctk.CTkLabel(bottom,text='Starting year, blank = "All years"',font=('Arial',10)) ; sLabel.grid(column=0,row=0,sticky='s',pady=35)
+end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=1,row=0,sticky='n',pady=5)
+eLabel = ctk.CTkLabel(bottom,text='End year, blank = latest data',font=('Arial',10)); eLabel.grid(column=1,row=0,sticky='s',pady=35)
 
 options = ['linear','log']
-drop = ctk.CTkOptionMenu(bottom,variable=YAxis,values=options); drop.grid(column=2,row=1,padx=10,pady=30)
-dLabel = ctk.CTkLabel(bottom,text='Y-scaling for chart.',font=('Arial',11)); dLabel.grid(column=2,row=1,sticky='n',padx=10)
-plot_button = ctk.CTkButton(bottom, text="Preview data",font=('Arial',12,'bold'), command=plotPreview); plot_button.grid(column=3,row=1,padx=10,pady=30)
+bottom2.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom2.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
+bottom2.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom2.columnconfigure(3,weight=1,minsize=np.floor(win_widthT/4)*0.97)
+drop = ctk.CTkOptionMenu(bottom2,variable=YAxis,values=options); drop.grid(column=0,sticky='n',row=0,pady=10)
+dLabel = ctk.CTkLabel(bottom2,text='Y-scaling for chart.',font=('Arial',11)); dLabel.grid(column=0,row=0,sticky='s',pady=40)
+plot_button = ctk.CTkButton(bottom2, text="Preview data",font=('Arial',12,'bold'), command=plotPreview); plot_button.grid(column=1,row=0,pady=10)
+SaveBtn=ctk.CTkButton(bottom2, text="Export data",command=SaveData,font=('Arial',14,'bold')); SaveBtn.grid(column=2,row=0,pady=10)
 
-SaveBtn=ctk.CTkButton(bottom, text="Export data",command=SaveData,font=('Arial',14,'bold')); SaveBtn.grid(column=0,row=1,padx=10,pady=30)
-savePathDisplay =ctk.CTkEntry(bottom,textvariable=save,width=round(0.79*win_widthT)); savePathDisplay.grid(column=0,row=3,columnspan=3,padx=10,pady=5)
-SetSavePath = ctk.CTkButton(bottom, text="Set save path",font=('Arial',12,'bold'),command=SetSavingPath); SetSavePath.grid(column=3,row=3,padx=10,pady=10)
+savePathDisplay =ctk.CTkEntry(bottom3,textvariable=save,width=round(0.79*win_widthT)); savePathDisplay.grid(column=0,row=0,columnspan=3,padx=10,pady=5)
+SetSavePath = ctk.CTkButton(bottom3, text="Set save path",font=('Arial',12,'bold'),command=SetSavingPath); SetSavePath.grid(column=3,row=0,padx=10,pady=5)
 
 root.mainloop()
