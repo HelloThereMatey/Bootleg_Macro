@@ -9,7 +9,7 @@ import customtkinter as ctk
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.font as tkFont
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,10 +26,15 @@ try:
     ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
     ScreenSettings = dict(json.load(ScreenSetFile))
 except:
-    tkVars = Tkinter_Utilities.TkinterSizingVars()
-    tkVars.SetScreenInfoFile()
-    tkVars.ExportVars(dir+FDel+'SystemInfo')
-    ScreenSettings = tkVars.ScreenData
+    SingleDisplay = messagebox.askyesno(title='GUI sizing steup',message='Script has detected that this is the first time this script has been run on this system.\
+        Script will now measure screen size to correctly size GUI. You must run this process with only a single display running on the system. \
+            Make sure that you set system to single display mode first and then run script. You can go back to multiple screens after running the script once.\
+                Is system set to single display mode?')
+    if SingleDisplay is True:
+        tkVars = Tkinter_Utilities.TkinterSizingVars()
+        tkVars.SetScreenInfoFile()
+        tkVars.ExportVars(dir+FDel+'SystemInfo')
+        ScreenSettings = tkVars.ScreenData
 
 OldSesh = {'OS': ScreenSettings['OS'], 'USER': ScreenSettings['USER']}
 if sys.platform == 'win32':
@@ -38,10 +43,15 @@ else:
     username = os.environ['USER']
 SessionCheck = {'OS': sys.platform, 'USER': username}
 if SessionCheck != OldSesh:
-    tkVars = Tkinter_Utilities.TkinterSizingVars()
-    tkVars.SetScreenInfoFile()
-    tkVars.ExportVars(dir+FDel+'SystemInfo')
-    ScreenSettings = tkVars.ScreenData
+    SingleDisplay = messagebox.askyesno(title='GUI sizing steup',message='Script has detected that this is the first time this script has been run on this system.\
+        Script will now measure screen size to correctly size GUI. You must run this process with only a single display running on the system. \
+            Make sure that you set system to single display mode first and then run script. You can go back to multiple screens after running the script once.\
+                Is system set to single display mode?')
+    if SingleDisplay is True:
+        tkVars = Tkinter_Utilities.TkinterSizingVars()
+        tkVars.SetScreenInfoFile()
+        tkVars.ExportVars(dir+FDel+'SystemInfo')
+        ScreenSettings = tkVars.ScreenData
 
 defCharWid = ScreenSettings['Def_font']['char_width (pixels)']; 
 defCharH = ScreenSettings['Def_font']['char_height (pixels)']
@@ -60,6 +70,7 @@ bea = BEA_API_backend.BEA_Data(api_key=api_key,BEA_Info_filePath=defPath)
 root = ctk.CTk()
 default_font = tkFont.nametofont("TkDefaultFont")
 root.title('Bureau of Economic Analysis Data Downloader')
+#root.geometry(str(win_widthT)+'x'+str(win_heightT))
 root.columnconfigure(0,weight=1,minsize=win_widthT)
 root.rowconfigure(0,weight=3); root.rowconfigure(1,weight=4); root.rowconfigure(2,weight=3)
 root.rowconfigure(3,weight=3); root.rowconfigure(4,weight=3)
