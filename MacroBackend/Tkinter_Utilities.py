@@ -8,11 +8,13 @@ class TkinterSizingVars():
 
     def __init__(self) -> None:
         self.root = tk.Tk()
+        self.allCharsStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "
+        #'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*=-,.|()?+[]\/~1234567890 ><"";'
+        self.FDel = os.path.sep
         
     def SetScreenInfoFile(self):
         ###### Determine what OS this is running on and get appropriate path delimiter. #########
-        FDel = os.path.sep
-        print("Operating system: ",sys.platform, "Path separator character: ", FDel)
+        print("Operating system: ",sys.platform, "Path separator character: ", self.FDel)
         if sys.platform == 'win32':
             username = os.environ['USERNAME']
         else:
@@ -32,9 +34,9 @@ class TkinterSizingVars():
         self.ScreenData['Screen_height'] = screen_height
 
         # Get character size
-        label = tk.Label(root, text="M")
+        label = tk.Label(self.root, text="M")
         label.pack()
-        root.update_idletasks()
+        self.root.update_idletasks()
         char_width = label.winfo_width()
         char_height = label.winfo_height()
         print(f'Character size: {char_width}x{char_height}')
@@ -45,16 +47,19 @@ class TkinterSizingVars():
         self.root.destroy()
 
     def get_def_FontInfo(self):
+        print("Measuring default font... all characters: ","\n", self.allCharsStr,len(self.allCharsStr))
         default_font = tkFont.nametofont("TkDefaultFont")
+        lengthAll = default_font.measure(self.allCharsStr)
         defFontInfo = {'name': default_font.name ,
                     'family': default_font.actual('family'),
                     'size': default_font.actual('size'),
-                    'char_width (pixels)': default_font.measure('M'),
+                    'char_width (pixels)': default_font.measure('C'),
+                    #'char_width (pixels)': round(lengthAll/len(self.allCharsStr)),
                     'char_height (pixels)': default_font.metrics("linespace")}
         return defFontInfo
     
     def ExportVars(self,folder:str):
-        filePath = folder+FDel+"ScreenData.json"
+        filePath = folder+self.FDel+"ScreenData.json"
         with open(filePath, 'w') as f:
             json.dump(self.ScreenData, f, indent=4)
 
