@@ -8,8 +8,8 @@ class TkinterSizingVars():
 
     def __init__(self) -> None:
         self.root = tk.Tk()
-        self.allCharsStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZ "
-        #'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*=-,.|()?+[]\/~1234567890 ><"";'
+        #self.allCharsStr = "abcdefghijklmnopqrstuvwxyz " !@#$%^&*=-,.|()?+[]\/~1234567890 ><"";
+        self.allCharsStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
         self.FDel = os.path.sep
         
     def SetScreenInfoFile(self):
@@ -39,11 +39,12 @@ class TkinterSizingVars():
         self.root.update_idletasks()
         char_width = label.winfo_width()
         char_height = label.winfo_height()
+        
         print(f'Character size: {char_width}x{char_height}')
         self.ScreenData['Char_width'] = char_width
         self.ScreenData['Char_height'] = char_height
         self.ScreenData['Def_font'] =  self.get_def_FontInfo()
-
+   
         self.root.destroy()
 
     def get_def_FontInfo(self):
@@ -53,8 +54,8 @@ class TkinterSizingVars():
         defFontInfo = {'name': default_font.name ,
                     'family': default_font.actual('family'),
                     'size': default_font.actual('size'),
-                    'char_width (pixels)': default_font.measure('C'),
-                    #'char_width (pixels)': round(lengthAll/len(self.allCharsStr)),
+                    #'char_width (pixels)': default_font.measure('C'),
+                    'char_width (pixels)': round(lengthAll/len(self.allCharsStr)),
                     'char_height (pixels)': default_font.metrics("linespace")}
         return defFontInfo
     
@@ -62,7 +63,6 @@ class TkinterSizingVars():
         filePath = folder+self.FDel+"ScreenData.json"
         with open(filePath, 'w') as f:
             json.dump(self.ScreenData, f, indent=4)
-
 
 if __name__ == "__main__":
     root = tk.Tk()
