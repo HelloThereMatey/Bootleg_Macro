@@ -150,12 +150,16 @@ def PullBEASeries():
             year.append(str(i))    
 
     bea.Get_NIPA_Data(tCode,frequency=SeriesFreq,tDesc=TableDesc,year=year)
-    data = bea.NIPA_Data
+    if bea.NIPA_Data is not None:
+        data = bea.NIPA_Data
+    else:
+        print('Data pull failed, check error message from BEA API above.')
+        return    
    
     if data is not None:
         table = pd.DataFrame(data['Series_Split'])
-        dates = pd.DatetimeIndex(table.index); dates.rename('TimePeriod',inplace=True)
-        datelist = dates.to_list()
+        dates = pd.DatetimeIndex(table.index); dateIndex = pd.Index(dates.date)
+        datelist = dateIndex.to_list()
         print('Preview of the table pulled form BEA: ',table)
 
         ######### Display the data for the metric #####################
@@ -168,7 +172,7 @@ def PullBEASeries():
         cols.set(allCols) 
         tree["columns"] = allCols
         for col in tree['columns']:
-            tree.column(col,width=50)
+            tree.column(col,width=round((0.9*screen_width)/len(allCols)))
             tree.heading(col,text=col)
         for i in range(len(table)):
             values = table.iloc[i].tolist(); values.insert(0,dates[i])
@@ -185,7 +189,7 @@ def plotPreview():
     dates = pd.DatetimeIndex(dateList)
     dataStr = dict(json.loads(dataStr))
     yScale = YAxis.get()
-    figure = bea.BEAPreviewPlot(yScale)
+    figure = bea.BEAPreviewPlot(YScale=yScale)
     plt.show()       
 
 def SetSavingPath():
@@ -197,6 +201,12 @@ def SaveData():
     if bea.NIPA_Data is not None:
         name = bea.NIPA_Data_tCode
     bea.Export_BEA_Data([name],saveLoc=folder+FDel)
+    
+def CustomExport():
+    if bea.NIPA_Data is not None:
+        exportWindow = BEA_API_backend.CustomIndexWindow(bea.NIPA_Data,name=bea.NIPA_Data_name)
+    else:
+        print('Load data first.....')    
 
 path = ctk.StringVar(master=root,value=defPath,name='Data folder path.')
 searchTerm = ctk.StringVar(master=root,value="",name='SearchTerm')
@@ -213,8 +223,12 @@ Date = ctk.StringVar(master=root,value="",name='DataDateColumn')
 Data = ctk.StringVar(master=root,value="",name='DataColumn')
 cols = ctk.StringVar(master=root,value="",name='DataColumns')
 YAxis = ctk.StringVar(master=root,value='linear',name="Yaxis_Scale")
-savePath = wd+FDel+'Datasets'
+savePath = wd+FDel+'Datasets'; export = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'BEA'
 save = ctk.StringVar(master=root,value=savePath,name='DataSavePath')
+ExportPath = ctk.StringVar(master=root,value=export,name='Export_Path')
+components = ctk.StringVar(master=root,value="",name='IndexComponents')
+choices = ctk.StringVar(master=root,value="",name='Chosen_series')
+C_Index = ctk.StringVar(master=root,value="",name='Custom_index_name')
 
 ########### Load the excel file containing the dataframe with list of metrics from glassnode 
 pathBar = ctk.CTkEntry(top,width=round(0.95*win_widthT),textvariable=path); pathBar.grid(column=0,row=0,columnspan=4,padx=10,pady=5)
@@ -224,14 +238,15 @@ flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',11,'bold')) ; flab
 freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=3,row=1,padx=5,pady=10)
 
 # Create a text box to display the results
-result_box = tk.Listbox(middle,listvariable=SearchResults, font = default_font, height=round(250/defCharH), width=win_widChars); result_box.bind('<Double-1>', MakeChoice)
+result_box = tk.Listbox(middle,listvariable=SearchResults, font = default_font, height=round(250/defCharH), width=win_widChars)
+result_box.bind('<Double-1>', MakeChoice)
 print(result_box.config)
 result_box.pack(padx=30,pady=15)
 
 # ########### Start and end dates #################################
 bottom.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 bottom.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(3,weight=1,minsize=np.floor(win_widthT/4)*0.97)
-GetDataBtn = ctk.CTkButton(bottom, text="Get data series",command=PullBEASeries,font=('Arial',12)); GetDataBtn.grid(column=2,row=0,pady=5)
+GetDataBtn = ctk.CTkButton(bottom, text="Get data series",height=35,command=PullBEASeries,font=('Arial',13,'bold')); GetDataBtn.grid(column=2,row=0,pady=5)
 start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=0,row=0,sticky='n',pady=5)
 sLabel = ctk.CTkLabel(bottom,text='Starting year, blank = "All years"',font=('Arial',10)) ; sLabel.grid(column=0,row=0,sticky='s',pady=35)
 end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=1,row=0,sticky='n',pady=5)
@@ -240,10 +255,11 @@ eLabel = ctk.CTkLabel(bottom,text='End year, blank = latest data',font=('Arial',
 options = ['linear','log']
 bottom2.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom2.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 bottom2.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom2.columnconfigure(3,weight=1,minsize=np.floor(win_widthT/4)*0.97)
-drop = ctk.CTkOptionMenu(bottom2,variable=YAxis,values=options); drop.grid(column=0,sticky='n',row=0,pady=10)
-dLabel = ctk.CTkLabel(bottom2,text='Y-scaling for chart.',font=('Arial',11)); dLabel.grid(column=0,row=0,sticky='s',pady=40)
-plot_button = ctk.CTkButton(bottom2, text="Preview data",font=('Arial',12,'bold'), command=plotPreview); plot_button.grid(column=1,row=0,pady=10)
-SaveBtn=ctk.CTkButton(bottom2, text="Export data",command=SaveData,font=('Arial',14,'bold')); SaveBtn.grid(column=2,row=0,pady=10)
+drop = ctk.CTkOptionMenu(bottom2,variable=YAxis,values=options); drop.grid(column=0,sticky='w',row=0,padx=20,pady=10)
+dLabel = ctk.CTkLabel(bottom2,text='Chart Y-scale.',font=('Arial',11)); dLabel.grid(column=0,row=0,sticky='e')
+plot_button = ctk.CTkButton(bottom2, text="Preview data",font=('Arial',13,'bold'), text_color='yellow',command=plotPreview); plot_button.grid(column=1,row=0,pady=10)
+SaveBtn=ctk.CTkButton(bottom2, height=40, text="Export data",command=SaveData,font=('Arial',14,'bold')); SaveBtn.grid(column=2,row=0,pady=10)
+CustomIndex=ctk.CTkButton(bottom2, text="Export custom index",text_color='orange',command=CustomExport,font=('Arial',14,'bold')); CustomIndex.grid(column=3,row=0,pady=10)
 
 savePathDisplay =ctk.CTkEntry(bottom3,textvariable=save,width=round(0.79*win_widthT)); savePathDisplay.grid(column=0,row=0,columnspan=3,padx=10,pady=5)
 SetSavePath = ctk.CTkButton(bottom3, text="Set save path",font=('Arial',12,'bold'),command=SetSavingPath); SetSavePath.grid(column=3,row=0,padx=10,pady=5)
