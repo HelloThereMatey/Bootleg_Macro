@@ -339,10 +339,10 @@ class BMP_Fig(Figure):
           
         if bot < 0.14: 
             self.ax1.text(-0.03, -0.135 , 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
-            self.ax1.text(1.04, -0.135 , DataSourceStr,fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
+            self.ax1.text(1, -0.135 , DataSourceStr,fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
         else:
             self.ax1.text(-0.03, -0.195, 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)  
-            self.ax1.text(1.04, -0.195 , DataSourceStr,fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)       
+            self.ax1.text(1, -0.195 , DataSourceStr,fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)       
     
     def AddTraces(self,Traces:dict): #Traces is a nested dict with details of each trace such as color, linewidth etc. 
         i = 0; AxList =  self.axes
