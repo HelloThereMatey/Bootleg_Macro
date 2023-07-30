@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import datetime
+import operator
+import re
 
 
 def EqualSpacedTicks(data,numTicks,LogOrLin:str='linear',LabOffset=None,labPrefix:str=None,labSuffix:str=None,Ymin:float=None,Ymax:float=None):
@@ -162,13 +164,67 @@ def MonthPeriodAnnGrowth2(data,months:int): ###### Calculate the X month annuali
    
     return AnnPC
 
-# data = pd.read_excel('/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/Generic_Macro/SavedData/BTCUSD.xlsx')
-# data.set_index(pd.DatetimeIndex(pd.DatetimeIndex(data[data.columns[0]]).date),inplace=True); data.index.rename('date',inplace=True)
-# data.drop(data.columns[0],axis=1,inplace=True); data = pd.Series(data.squeeze(),name=data.columns[0])
-# #print(data,type(data))
-# data = data.resample('M').mean()
-# #data.fillna(method='ffill',inplace=True)
-# print(data,type(data))
- 
-# ann3M = MonthPeriodAnnGrowth(data,1); print(ann3M)
+class StringMathOp:
+    def __init__(self, data: pd.DataFrame, components: list, indexes: list):
+        self.operators = {
+            '/': operator.truediv,
+            '*': operator.mul,
+            '+': operator.add,
+            '-': operator.sub,
+        }
+        self.Data = data
+        self.components = components
+        self.indexes = indexes
+        self.colMap = {}
+        for i in range(len(self.indexes)):
+            self.colMap[self.indexes[i]] = self.components[i]
+        print(self.colMap)    
+
+    def op(self, MathOpStr:str, counter:int) -> pd.Series:
+        alpha = "abcdefghijklmnopqrstuvwxyz".upper()
+        for p in self.operators:
+            x = 0
+            while x < len(MathOpStr)-1 and any(p in str(el) for el in MathOpStr):
+                if p in str(MathOpStr[x]):
+                    replacer = self.operators.get(p)(MathOpStr[x-1] , MathOpStr[x+1])
+                    replacer = pd.Series(replacer, name="RES_"+alpha[counter])
+                    MathOpStr[x-1] = replacer
+                    del MathOpStr[x:x+2]
+                else:
+                    x += 1  
+        return MathOpStr[0]
+
+    def func(self, MathOpStr:str) -> pd.Series:
+        df = self.Data
+        results = {}
+        counter = 0
+        alpha = "abcdefghijklmnopqrstuvwxyz".upper()
+
+        while '(' in MathOpStr:
+            start = MathOpStr.rfind('(')
+            end = MathOpStr.find(')', start)
+            result = self.func(MathOpStr[start+1:end])
+            key = 'RES_' + alpha[counter]
+            results[key] = result
+            MathOpStr = MathOpStr[:start] + key + MathOpStr[end+1:]
+            counter += 1
+
+        d = []
+        tokens = re.split('(\W)', MathOpStr)
+        for i in tokens:
+            if i:
+                if i in self.operators:
+                    d.append(i)
+                elif i in results:
+                    result = results[i]
+                    d.append(result)
+                elif i.isdigit():
+                    column_index = int(i)
+                    column = df[self.colMap[column_index]]
+                    d.append(column)
+
+        d = self.op(d, counter)
+        d.rename('Custom_Index',inplace=True)
+        self.ComputedIndex = d.copy()
+        return d
 
