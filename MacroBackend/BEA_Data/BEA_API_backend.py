@@ -15,6 +15,7 @@ import customtkinter as ctk
 import tkinter as tk
 import tkinter.font as tkFont
 from tkinter import filedialog
+from Utilities import StringMathOp
 
 #"https://github.com/areed1192/python-bureau-economic-analysis-api-client?search=1"
 
@@ -285,19 +286,27 @@ class CustomIndexWindow(ctk.CTk):
     
     def ExportIndex(self):
         comps = self.ChoiceList.copy(); compsStr = ""
+        indx = self.choiceIndexList.copy()
         for comp in comps:
             compsStr += comp
         print('Making custom index from: ',comps)
         data = self.data
         Cindex = pd.Series(0, index = data.index)
         name = self.C_Index_name.get()
-        indxs = self.operationString.get(); print(indxs)
-        print(name)
-        for col in comps:
-            series = data[col]
-            Cindex = Cindex + series
-        Cindex.rename(name)  
-        print(Cindex)  
+        opString = self.operationString.get(); print(opString)
+        print('Will save custom index with name: ', name)
+
+        if len(opString) > 0:
+            smo = StringMathOp(data, comps, indx)
+            smo.func(opString)
+            print('Custom index made using math indicated in the operationString: ', smo.ComputedIndex)
+            Cindex = smo.ComputedIndex.copy()
+        else:
+            print('Adding the index components to produce custom index as no custom operation string provided.')
+            for col in comps:
+                series = data[col]
+                Cindex = Cindex + series
+        Cindex.rename(name) ; print('Custom index: ',Cindex)
 
         ExtraInfo = {'units': str(self.SeriesInfo['CL_UNIT'])+r'(x10$^'+str(self.SeriesInfo['UNIT_MULT'])+r'$)',
                      'units_short': str(self.SeriesInfo['CL_UNIT'])+r'(x10$^'+str(self.SeriesInfo['UNIT_MULT'])+r'$)',
