@@ -117,28 +117,24 @@ def MakeChoice(event):
     cs = result_box.curselection()
     SearchList = SearchResults.get()
     TableNameList = str(TableNames.get()).split(",")
-    #ridEm = {"(":"",")":"","'":"","'":""}
-    # for char in ridEm.keys():
-    #     SearchList = SearchList.replace(char,ridEm[char])
     lisT = SearchList.split("!")
     chosen = str(lisT[cs[0]]); chosen = chosen[4:len(chosen)]
-    TheTable = TableNameList[cs[0]]
-    print(TheTable, chosen)
+    TheTable = str(TableNameList[cs[0]]).replace("'","").replace("(","").replace(")","").replace(" ","")
     choice.set(chosen)
     TableName.set(TheTable)
+    print(TheTable, chosen)
     frequencies = []; TableDescList = chosen.split(" ")
     for fre in ["(A)","(Q)","(M)"]:
         if fre in TableDescList:
-            frequencies.append(fre[1:2])
-    print(frequencies)        
+            frequencies.append(fre[1:2])      
     freqs.configure(values=frequencies)
     freq.set(frequencies[0])
 
 def PullBEASeries():
-    tCode = str(TableName.get()).replace("'","")
-    tCode = tCode.replace(" ","")
+    tCode = str(TableName.get()).replace("'","").replace("(","").replace(")","").replace(" ","")
     TableDesc = str(choice.get()).replace("'","")
-    
+    print(tCode,TableDesc)
+
     SeriesFreq = freq.get(); year = []
     startY = StartDate.get(); endY = EndDate.get()
     if len(startY) == 0:
@@ -149,7 +145,7 @@ def PullBEASeries():
         for i in range(int(startY),int(endY)+1,1):
             year.append(str(i))    
 
-    bea.Get_NIPA_Data(tCode,frequency=SeriesFreq,tDesc=TableDesc,year=year)
+    bea.Get_NIPA_Data(tCode,frequency=SeriesFreq,year=year)
     if bea.NIPA_Data is not None:
         data = bea.NIPA_Data
     else:
@@ -168,7 +164,6 @@ def PullBEASeries():
         tree.grid(column=0,row=0,sticky='nw',padx=5,pady=5)
         allCols = table.columns.to_list(); allCols.insert(0,'Date')
         Data.set(table.to_json()); Date.set(datelist)
-        print(allCols)
         cols.set(allCols) 
         tree["columns"] = allCols
         for col in tree['columns']:
