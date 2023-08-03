@@ -1,0 +1,17 @@
+/Generic_Macro/SavedData/
+/Generic_Macro/YoYBiz/
+/Global_M2/M2_USD_Tables/
+/Global_M2/TVDataFeed/
+/Global_M2/Datasums/
+/GlobalReserves/
+/MacroBackend/SystemInfo/
+/MacroBackend/tvDatafeedz/
+/MacroBackend/Glassnode/Saved_Data/
+/MacroBackend/BEA_Data/Datasets/
+/NetLiquidity/NLQ_Data/
+/NetLiquidity/FRED_Data/
+/NetLiquidity/CompAssets/
+/NetLiquidity/TreasuryData/
+/MacroBackend/PairCorrelation/
+*.DS_Store
+**/__pycache__
