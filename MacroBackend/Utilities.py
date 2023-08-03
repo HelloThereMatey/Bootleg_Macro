@@ -4,7 +4,6 @@ import datetime
 import operator
 import re
 
-
 def EqualSpacedTicks(data,numTicks,LogOrLin:str='linear',LabOffset=None,labPrefix:str=None,labSuffix:str=None,Ymin:float=None,Ymax:float=None):
     if type(data) == pd.DataFrame:
         data = pd.Series(data[data.columns[0]])
@@ -182,11 +181,15 @@ class StringMathOp:
 
     def op(self, MathOpStr:str, counter:int) -> pd.Series:
         alpha = "abcdefghijklmnopqrstuvwxyz".upper()
-        for p in self.operators:
+        for p in self.operators.keys():
             x = 0
             while x < len(MathOpStr)-1 and any(p in str(el) for el in MathOpStr):
                 if p in str(MathOpStr[x]):
-                    replacer = self.operators.get(p)(MathOpStr[x-1] , MathOpStr[x+1])
+                    print(f"Operator: ({MathOpStr[x+1]}): {type(MathOpStr[x+1])}")
+                    print(f"Left operand ({MathOpStr[x]}): {type(MathOpStr[x])}")
+                    print(f"Right operand ({MathOpStr[x-1]}): {type(MathOpStr[x-1])}")
+                    print('Running operation: ', self.operators.get(p))
+                    replacer = self.operators.get(p)(MathOpStr[x] , MathOpStr[x-1])
                     replacer = pd.Series(replacer, name="RES_"+alpha[counter])
                     MathOpStr[x-1] = replacer
                     del MathOpStr[x:x+2]
@@ -211,15 +214,17 @@ class StringMathOp:
 
         d = []
         tokens = re.split('(\W)', MathOpStr)
-        for i in tokens:
-            if i:
-                if i in self.operators:
-                    d.append(i)
-                elif i in results:
-                    result = results[i]
+        for i in range(len(tokens)):
+            if tokens[i]:
+                if tokens[i] in self.operators:
+                    d.append(tokens[i])
+                    if i == len(tokens) - 1 or tokens[i+1] in self.operators:
+                        raise ValueError("Operator must be followed by an operand")
+                elif tokens[i] in results:
+                    result = results[tokens[i]]
                     d.append(result)
-                elif i.isdigit():
-                    column_index = int(i)
+                elif tokens[i].isdigit():
+                    column_index = int(tokens[i])
                     column = df[self.colMap[column_index]]
                     d.append(column)
 
@@ -227,4 +232,3 @@ class StringMathOp:
         d.rename('Custom_Index',inplace=True)
         self.ComputedIndex = d.copy()
         return d
-
