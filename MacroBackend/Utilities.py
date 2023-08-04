@@ -3,6 +3,8 @@ import pandas as pd
 import datetime
 import operator
 import re
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 
 def EqualSpacedTicks(data,numTicks,LogOrLin:str='linear',LabOffset=None,labPrefix:str=None,labSuffix:str=None,Ymin:float=None,Ymax:float=None):
     if type(data) == pd.DataFrame:
@@ -177,40 +179,42 @@ class StringMathOp:
         self.colMap = {}
         for i in range(len(self.indexes)):
             self.colMap[self.indexes[i]] = self.components[i]
-        print(self.colMap)    
+        print(self.colMap)   
+        self.counter = 0 
 
-    def op(self, MathOpStr:str, counter:int) -> pd.Series:
+    def op(self, MathOpStr:str) -> pd.Series:
         alpha = "abcdefghijklmnopqrstuvwxyz".upper()
         for p in self.operators.keys():
             x = 0
             while x < len(MathOpStr)-1 and any(p in str(el) for el in MathOpStr):
                 if p in str(MathOpStr[x]):
-                    print(f"Operator: ({MathOpStr[x+1]}): {type(MathOpStr[x+1])}")
-                    print(f"Left operand ({MathOpStr[x]}): {type(MathOpStr[x])}")
-                    print(f"Right operand ({MathOpStr[x-1]}): {type(MathOpStr[x-1])}")
+                    print(f"Operator: ({MathOpStr[x]}): {type(MathOpStr[x])}")
+                    print(f"Left operand ({MathOpStr[x-1]}): {type(MathOpStr[x-1])}")
+                    print(f"Right operand ({MathOpStr[x+1]}): {type(MathOpStr[x+1])}")
                     print('Running operation: ', self.operators.get(p))
-                    replacer = self.operators.get(p)(MathOpStr[x] , MathOpStr[x-1])
-                    replacer = pd.Series(replacer, name="RES_"+alpha[counter])
+                    replacer = self.operators.get(p)(MathOpStr[x-1] , MathOpStr[x+1])
+                    replacer = pd.Series(replacer, name="RES_"+alpha[self.counter])
+                    print("Replacing: ",MathOpStr[x-1], ' with: ',replacer)
                     MathOpStr[x-1] = replacer
+                    print("Will delete: ",MathOpStr[x:x+2])
                     del MathOpStr[x:x+2]
                 else:
-                    x += 1  
+                    x += 1; self.counter += 1  
         return MathOpStr[0]
-
+    
     def func(self, MathOpStr:str) -> pd.Series:
         df = self.Data
         results = {}
-        counter = 0
         alpha = "abcdefghijklmnopqrstuvwxyz".upper()
 
         while '(' in MathOpStr:
             start = MathOpStr.rfind('(')
             end = MathOpStr.find(')', start)
             result = self.func(MathOpStr[start+1:end])
-            key = 'RES_' + alpha[counter]
+            key = 'RES_' + alpha[self.counter]
             results[key] = result
             MathOpStr = MathOpStr[:start] + key + MathOpStr[end+1:]
-            counter += 1
+            self.counter += 1
 
         d = []
         tokens = re.split('(\W)', MathOpStr)
@@ -225,10 +229,20 @@ class StringMathOp:
                     d.append(result)
                 elif tokens[i].isdigit():
                     column_index = int(tokens[i])
-                    column = df[self.colMap[column_index]]
+                    column = df[self.colMap[column_index]].reset_index(drop=True)
                     d.append(column)
-
-        d = self.op(d, counter)
-        d.rename('Custom_Index',inplace=True)
+        
+        d = self.op(d)
         self.ComputedIndex = d.copy()
         return d
+
+def Colors(map:str, num_colors:int):
+    # Create the colormap
+    cm = plt.get_cmap(map)  # You can choose another colormap here
+    # Create the list of colors
+    colors = [cm(1.*i/num_colors) for i in range(num_colors)]    
+    return colors
+
+if __name__ == '__main__':
+    print(Colors('gist_rainbow',50))
+    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']; print(colors)
