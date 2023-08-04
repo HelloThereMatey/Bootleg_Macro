@@ -196,9 +196,14 @@ class BEA_Data(BureauEconomicAnalysisClient):
             pass
         else:    
             data = pd.DataFrame(self.NIPA_Data['Series_Split'])
-        print(data)    
+
+        numColors = len(data.columns) + 1
+        colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color']); i = 0
+        moreColors = Utilities.Colors('viridis',num_colors=numColors)
+        colors.extend(moreColors)   
+        
         for col in data.columns:
-            ax.plot(data[col],label=col)    
+            ax.plot(data[col],label=col, color = colors[i]); i += 1    
         ax.legend(fontsize=5,loc=2,bbox_to_anchor=(1.005,1.01))
         
         ax.set_yscale(YScale); 
@@ -322,13 +327,16 @@ class CustomIndexWindow(ctk.CTk):
         seriesInfo = pd.Series(self.SeriesInfo)
         data = pd.DataFrame(self.data)
         LeftTraces = self.ChoiceList.copy()
-       
+        numColors = len(LeftTraces) + 1
+        colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color']); i = 0
+        moreColors = Utilities.Colors('viridis',num_colors=numColors)
+        colors.extend(moreColors)
+        
         for trace in LeftTraces:
-            ax.plot(data[trace],label=trace)    
+            ax.plot(data[trace],label=trace, color = colors[i]); i += 1
         ax.legend(fontsize=7,loc=2)
         axb = ax.twinx()
-        #print("Custom index: ", C_Index.head(50))
-        axb.plot(C_Index,label = self.C_Index_name.get()+' (right axis)',lw=2.25)
+        axb.plot(C_Index,label = self.C_Index_name.get()+' (right axis)',lw=2.25, color = colors[i])
         axb.legend(fontsize=7,loc=1)
         
         ax.set_yscale(YScale); 
@@ -378,7 +386,8 @@ class CustomIndexWindow(ctk.CTk):
             smo = Utilities.StringMathOp(data, comps, indx)
             smo.func(opString)
             print('Custom index made using math indicated in the operationString: ', opString)
-            Cindex = smo.ComputedIndex.copy(); print('Custom index...:',Cindex)
+            Cindex = pd.Series(smo.ComputedIndex.copy().to_list(), name = 'Custom_Index', index = self.data.index)
+            print('Custom index...:',Cindex)
         else:
             print('Adding the index components to produce custom index as no custom operation string provided.')
             for col in comps:
@@ -435,7 +444,7 @@ if __name__ == "__main__":
     # data = pd.DataFrame(bea.NIPA_Data['Series_Split']); print(data.head(50),data.dtypes)
     # SeriesInfo = bea.NIPA_Data['SeriesInfo']
 
-    FullLoad = pd.read_excel('/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/MacroBackend/BEA_Data/Datasets/T20806.xlsx',sheet_name=None)
+    FullLoad = pd.read_excel('/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/MacroBackend/BEA_Data/Datasets/T20805.xlsx',sheet_name=None)
     print(FullLoad.keys())
     TheData = FullLoad['Series_Split']
     SeriesInfo = FullLoad['SeriesInfo']
