@@ -199,7 +199,7 @@ def SaveData():
     
 def CustomExport():
     if bea.NIPA_Data is not None:
-        exportWindow = BEA_API_backend.CustomIndexWindow(bea.NIPA_Data,name=bea.NIPA_Data_name)
+        exportWindow = BEA_API_backend.CustomIndexWindow(root, bea.NIPA_Data,name=bea.NIPA_Data_name)
     else:
         print('Load data first.....')    
 
@@ -229,8 +229,8 @@ C_Index = ctk.StringVar(master=root,value="",name='Custom_index_name')
 pathBar = ctk.CTkEntry(top,width=round(0.95*win_widthT),textvariable=path); pathBar.grid(column=0,row=0,columnspan=4,padx=10,pady=5)
 searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=0,row=1,padx=5,pady=5)
 btn=ctk.CTkButton(top, text="Search for data",command=SearchBtn,font=('Arial',12)); btn.grid(column=1,row=1,padx=5,pady=10)
-flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',11,'bold')) ; flabel.grid(column=2,row=1,padx=5,pady=10)
-freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=3,row=1,padx=5,pady=10)
+flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',12,'bold')) ; flabel.grid(column=2,row=1,pady=10)
+freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=3,row=1,padx=30,pady=10)
 
 # Create a text box to display the results
 result_box = tk.Listbox(middle,listvariable=SearchResults, font = default_font, height=round(250/defCharH), width=win_widChars)
@@ -242,10 +242,10 @@ result_box.pack(padx=30,pady=15)
 bottom.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 bottom.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(3,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 GetDataBtn = ctk.CTkButton(bottom, text="Get data series",height=35,command=PullBEASeries,font=('Arial',13,'bold')); GetDataBtn.grid(column=2,row=0,pady=5)
-start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=0,row=0,sticky='n',pady=5)
-sLabel = ctk.CTkLabel(bottom,text='Starting year, blank = "All years"',font=('Arial',10)) ; sLabel.grid(column=0,row=0,sticky='s',pady=35)
-end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=1,row=0,sticky='n',pady=5)
-eLabel = ctk.CTkLabel(bottom,text='End year, blank = latest data',font=('Arial',10)); eLabel.grid(column=1,row=0,sticky='s',pady=35)
+start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=0,row=0,sticky='w',pady=5,padx=30)
+sLabel = ctk.CTkLabel(bottom,text='Start year\nblank = "All years"',font=('Arial',10)) ; sLabel.grid(column=0,row=0,sticky='e',pady=35)
+end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=1,row=0,sticky='w',pady=5,padx=30)
+eLabel = ctk.CTkLabel(bottom,text='End year\nblank = latest data',font=('Arial',10)); eLabel.grid(column=1,row=0,sticky='e',pady=35)
 
 options = ['linear','log']
 bottom2.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom2.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)

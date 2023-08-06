@@ -1,15 +1,15 @@
 {
-    "OS": "darwin",
-    "USER": "jamesbishop",
-    "Screen_width": 1680,
-    "Screen_height": 1050,
-    "Char_width": 22,
-    "Char_height": 24,
+    "OS": "win32",
+    "USER": "jimmi",
+    "Screen_width": 1920,
+    "Screen_height": 1080,
+    "Char_width": 17,
+    "Char_height": 21,
     "Def_font": {
         "name": "TkDefaultFont",
-        "family": ".AppleSystemUIFont",
-        "size": 13,
-        "char_width (pixels)": 9,
-        "char_height (pixels)": 16
+        "family": "Segoe UI",
+        "size": 9,
+        "char_width (pixels)": 7,
+        "char_height (pixels)": 15
     }
 }
