@@ -18,7 +18,19 @@ import tkinter.font as tkFont
 from tkinter import filedialog
 from MacroBackend import Utilities
 
-#"https://github.com/areed1192/python-bureau-economic-analysis-api-client?search=1"
+Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
+ , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
+ 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 
+ 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 
+ 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'forestgreen', 'fuchsia', 'gold', 'goldenrod', 
+ 'gray', 'green', 'greenyellow', 'grey','hotpink', 'indianred', 'indigo', 'khaki',
+ 'lawngreen', 'lemonchiffon','lime', 
+ 'limegreen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 
+ 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'moccasin', 'navy', 
+ 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegreen', 'paleturquoise', 'palevioletred',
+ 'peru', 'plum', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 
+ 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'springgreen', 'steelblue', 'tan', 'teal', 'tomato', 
+ 'turquoise', 'violet','yellowgreen']
 
 def Search_df(df:Union[pd.DataFrame, pd.Series], searchTerm:str):
     matches = []; match_indices = []; match_col = []; i = 0
@@ -197,10 +209,8 @@ class BEA_Data(BureauEconomicAnalysisClient):
         else:    
             data = pd.DataFrame(self.NIPA_Data['Series_Split'])
 
-        numColors = len(data.columns) + 1
         colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color']); i = 0
-        moreColors = Utilities.Colors('viridis',num_colors=numColors)
-        colors.extend(moreColors)   
+        colors.extend(Mycolors)   
         
         for col in data.columns:
             ax.plot(data[col],label=col, color = colors[i]); i += 1    
@@ -244,10 +254,10 @@ class BEA_Data(BureauEconomicAnalysisClient):
         else:
             print('Load NIPA table data from BEA first.')    
 
-class CustomIndexWindow(ctk.CTk):
+class CustomIndexWindow(ctk.CTkToplevel):
 
-    def __init__(self, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'BEA'):
-        super().__init__()
+    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'BEA'):
+        super().__init__(master)
         default_font = ctk.CTkFont('Arial',13)
         self.data = pd.DataFrame(dataTable['Series_Split'])
         self.SeriesInfo = pd.DataFrame(dataTable['SeriesInfo']).copy().squeeze()
@@ -417,6 +427,9 @@ class CustomIndexWindow(ctk.CTk):
         folder_selected = filedialog.askdirectory(initialdir=self.exportPath)
         self.ExportPath.set(folder_selected)  
 
+def BringItUp():
+    exportWindow = CustomIndexWindow(main, FullLoad,tDesc)  
+
 if __name__ == "__main__":
     api_key='779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC'
     dataset = "NIPA"
@@ -431,7 +444,6 @@ if __name__ == "__main__":
     # tCode = 'T11705'
     # frequency="Q"
     # print("Pulling data from BEA API for: ",tCode)
-
     # results = {}; year = []
     # yearOne = 2020
     # endYear = datetime.datetime.today().year
@@ -443,8 +455,8 @@ if __name__ == "__main__":
 
     # data = pd.DataFrame(bea.NIPA_Data['Series_Split']); print(data.head(50),data.dtypes)
     # SeriesInfo = bea.NIPA_Data['SeriesInfo']
-
-    FullLoad = pd.read_excel('/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/MacroBackend/BEA_Data/Datasets/T20805.xlsx',sheet_name=None)
+    loadPath = "C:/Users/jimmi/OneDrive/Documents/Documents/Scripts/VenV/Plebs_Macro/MacroBackend/BEA_Data/Datasets/T20805.xlsx"
+    FullLoad = pd.read_excel(loadPath,sheet_name=None)
     print(FullLoad.keys())
     TheData = FullLoad['Series_Split']
     SeriesInfo = FullLoad['SeriesInfo']
@@ -460,6 +472,7 @@ if __name__ == "__main__":
     # bea.Export_BEA_Data(['T20805_PCE_M'])
     # ############# Export data to Excel. 
     # savePath = wd+"/Datasets/"+tCode+".xlsx"
-
-    window = CustomIndexWindow(FullLoad,tDesc)
-    window.mainloop()
+    main = ctk.CTk()
+    but = ctk.CTkButton(main, text='WINDOW',command=BringItUp)
+    but.pack()
+    main.mainloop()

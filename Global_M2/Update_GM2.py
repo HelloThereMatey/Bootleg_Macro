@@ -1,18 +1,20 @@
 ###### Required modules/packages #####################################
+import sys
+print(sys.path)
 import os
+FDel = os.path.sep
 wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
 dir = os.path.dirname(wd)
+print('System information: ',sys.platform,', directory delimiter: ', FDel, ', working directory: ', wd)
 print(wd,dir)
+sys.path.append(dir+'/MacroBackend') #This makes sure script can find tvdatafeed module. 
 
-import sys ; sys.path.append(dir)
-print(sys.path)
-import TvDatafeedz #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
 import pandas as pd
 from matplotlib import colors as mcolors
 import matplotlib.pylab as pl
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-#from tvDatafeed import TvDatafeed, Interval
+from tvDatafeedz import TvDatafeed, Interval
 import numpy as np
 import datetime
 import tkinter as tk
@@ -21,13 +23,6 @@ from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import showinfo
 
 Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
-if sys.platform == "linux" or sys.platform == "linux2":        #This detects what operating system you're using so that the right folder delimiter can be use for paths. 
-    FDel = '/'; OpSys = 'linux'
-elif sys.platform == "darwin":
-    FDel = '/'; OpSys = 'mac'
-elif sys.platform == "win32":
-    FDel = '\\' ; OpSys = 'windows'
-print('System information: ',sys.platform, OpSys,', directory delimiter: ', FDel, ', working directory: ', wd)
 
 ################################################### CODE FOR UPDATING EXISTING M2 & FX DATA FOR COUNTRIES SUPPLIED IN A LIST TAKEN FROM EXCEL FILE #############
 def PullData(FullInfo:pd.DataFrame,username=None,password=None,Rank:list=None): #Use the full dataframe with M2 and FX ticker infos to pull the data for them from TV.  
@@ -236,6 +231,8 @@ msg = showinfo(title='Global M2 input data info.',message='Choose Global M2 info
          " If you use the wrong ticker & exchange codes for a particular country in your dataframe, you'll get NaNs and get f**ked on.")
           
 filename = askopenfilename(title='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.',defaultextension='.xlsx',initialdir=wd) 
+des = filename.rsplit('.',1)[0].rsplit('_',1)[1]
+print(FDel, filename, '\n', des)
 
 # show an "Open" dialog box and return the path to the selected file
 M2Path = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'M2_Data'); 
