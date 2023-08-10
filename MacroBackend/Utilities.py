@@ -112,9 +112,18 @@ def MonthPeriodAnnGrowth2(data,months:int): ###### Calculate the X month annuali
     else:
         data = pd.Series(data)    
     freq = pd.infer_freq(data.index);           #months is the number of months to calculate the annualized % change over.  
+   
+    if freq is None:
+        print('Could not infer frequency of series, resampling to daily...')
+        data = data.resample('D').mean(); data.fillna(method='ffill', inplace=True)
+        freq = 'D'
+
     print('Calculating the',months,'month annualized % change for the series.')
-    print('Frequency of input time series, ',':',freq)    
-    split = freq.split('-')
+    print('Frequency of input time series:',freq)    
+    if '-' in freq:
+        split = freq.split('-')
+    else:
+        split = freq    
     MonthlyList = ['M','SM','BM','CBM','MS','SMS','BMS','CBMS']
     QuarterList = ['Q','BQ','QS','BQS']
     AnnualList = ['A', 'Y','BA', 'BY', 'AS', 'YS','BAS', 'BYS']

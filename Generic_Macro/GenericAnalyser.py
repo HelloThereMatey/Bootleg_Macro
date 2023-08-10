@@ -98,14 +98,16 @@ for series in SeriesDict.keys():
     
     if Source == 'load':
         SeriesInfo = pd.read_excel(DataPath+FDel+ticker+'.xlsx',sheet_name='SeriesInfo')
-        SeriesInfo.set_index(SeriesInfo[SeriesInfo.columns[0]],inplace=True)
-        SeriesInfo.drop(SeriesInfo.columns[0],axis=1,inplace=True); SeriesInfo.index.rename('Property',inplace=True)
-        SeriesInfo = pd.Series(SeriesInfo.squeeze(),name='Value')
+        SeriesInfo.set_index(SeriesInfo[SeriesInfo.columns[0]],inplace=True,drop=True) 
+        SeriesInfo.index.rename('Property',inplace=True)
+        if len(SeriesInfo.columns) > 1:
+            SeriesInfo = pd.Series(SeriesInfo[SeriesInfo.columns[len(SeriesInfo.columns)-1]])
         TheData = pd.read_excel(DataPath+FDel+ticker+'.xlsx',sheet_name='Closing_Price')
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
         TheData.drop(TheData.columns[0],axis=1,inplace=True)
-        TheData = pd.Series(TheData.squeeze(),name=ticker)
+        TheData = pd.Series(TheData[TheData.columns[0]],name=ticker)
         TheSeries['Source'] = SeriesInfo['Source']
+        
     elif Source == 'GNload':
         TheData = pd.read_excel(GNPath+FDel+ticker+'.xlsx')
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
@@ -126,9 +128,9 @@ for series in SeriesDict.keys():
             if len(TheData) < 1:
                 print('No data for ',ticker,' scored using yfinance package, now trying yahoo_fin package....')
                 TheData = PriceImporter.Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)
-                TheData = pd.Series(TheData['Close'],name=TheSeries['Name'])
             else:
-                print("Data pulled from yfinance for: "+str(AssetName))    
+                print("Data pulled from yfinance for: "+str(AssetName))   
+            TheData = pd.Series(TheData['Close'],name=TheSeries['Name'])     
         except:
             print("Could not score data for asset: "+ticker," from yfinance. Trying other APIs.") 
             print("Trying yahoo_fin web scraper.....")   
@@ -185,15 +187,18 @@ for series in SeriesDict.keys():
             print("If using Source = spread, you must input Series_Ticker as i/j, where i & j are the index numbers of two series already in the chart.")     
             quit()      
     else:
-        print("Can't find data for: ",series)    
-    if Source != 'load':    
-        SeriesInfo['Source'] = Source    
+        print("Can't find data for: ",series)  
+
     if len(SeriesInfo) > 0:
-        pass
+        if Source != 'load':    
+            SeriesInfo['Source'] = Source            
     else:
+        print("Using default Series info for series: ", TheSeries['Legend_Name'], )
         SeriesInfo['units'] = 'US Dollars'; SeriesInfo['units_short'] = 'USD'
         SeriesInfo['title'] = TheSeries['Legend_Name']; SeriesInfo['id'] = TheSeries['Name']
         SeriesInfo['Source'] = Source
+    if Source != 'load':    
+        SeriesInfo['Source'] = Source       
     
     ######### Applies to all data loaded #####################
     TheData.index.rename('date',inplace=True)
@@ -214,6 +219,7 @@ for series in SeriesDict.keys():
     TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.   
     SeriesDict[series] = TheSeries
     if pd.isna(TheSeries['axlabel']):
+       print("No axis label entered using the designation from SeriesInfo for series: ",TheSeries['Legend_Name'], SeriesInfo)
        TheSeries['axlabel'] = SeriesInfo['units_short']
       
     ########################## SAVE DATA ####################################################################################
