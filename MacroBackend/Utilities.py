@@ -203,6 +203,7 @@ class StringMathOp:
                     print('Running operation: ', self.operators.get(p))
                     replacer = self.operators.get(p)(MathOpStr[x-1] , MathOpStr[x+1])
                     replacer = pd.Series(replacer, name="RES_"+alpha[self.counter])
+                    replacer.reset_index(inplace=True,drop=True)
                     print("Replacing: ",MathOpStr[x-1], ' with: ',replacer)
                     MathOpStr[x-1] = replacer
                     print("Will delete: ",MathOpStr[x:x+2])
@@ -242,6 +243,8 @@ class StringMathOp:
                     d.append(column)
         
         d = self.op(d)
+        d = pd.Series(d.to_list(), index = df.index)
+        print(d)
         self.ComputedIndex = d.copy()
         return d
 

@@ -92,7 +92,7 @@ def SearchBtn():
     results = SearchMetrics(loadPath,term)
     print(results)
     result = results['Description'].to_list(); finRes = []
-    TCodes = results['TableName'].to_list()
+    TCodes = results.index.to_list()
     for res in result:
         finRes.append(res+"!")
     SearchResults.set(finRes)
@@ -100,7 +100,7 @@ def SearchBtn():
 
 def SearchMetrics(MetricsList, SearchString:str): 
     if type(MetricsList) == str:  
-        df = pd.read_excel(MetricsList,sheet_name='NIPA_TableNames')  #Load the GNMetrics list as pandas dataframe. 
+        df = pd.read_excel(MetricsList,sheet_name='NIPA_Tables')  #Load the GNMetrics list as pandas dataframe. 
         df.set_index(df.columns[0],inplace=True); df.index.rename('Index',inplace=True) 
         print(df.head(50))
     elif str(type(MetricsList) == "<class 'pandas.core.frame.DataFrame'>"):
@@ -242,9 +242,9 @@ result_box.pack(padx=30,pady=15)
 bottom.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 bottom.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(3,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 GetDataBtn = ctk.CTkButton(bottom, text="Get data series",height=35,command=PullBEASeries,font=('Arial',13,'bold')); GetDataBtn.grid(column=2,row=0,pady=5)
-start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=0,row=0,sticky='w',pady=5,padx=30)
+start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=0,row=0,sticky='w',pady=5,padx=15)
 sLabel = ctk.CTkLabel(bottom,text='Start year\nblank = "All years"',font=('Arial',10)) ; sLabel.grid(column=0,row=0,sticky='e',pady=35)
-end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=1,row=0,sticky='w',pady=5,padx=30)
+end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=1,row=0,sticky='w',pady=5,padx=15)
 eLabel = ctk.CTkLabel(bottom,text='End year\nblank = latest data',font=('Arial',10)); eLabel.grid(column=1,row=0,sticky='e',pady=35)
 
 options = ['linear','log']
