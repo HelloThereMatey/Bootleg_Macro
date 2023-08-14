@@ -17,6 +17,7 @@ import tkinter as tk
 import tkinter.font as tkFont
 from tkinter import filedialog
 from MacroBackend import Utilities
+from pprint import pprint
 
 Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
@@ -56,40 +57,85 @@ def convert_to_float_with_commas(value):
         val = str(value)
         return float(val.replace(',', ''))
 
+
 class BEA_Data(BureauEconomicAnalysisClient):
 
-    def __init__(self, api_key: str, BEA_Info_filePath: str = None) -> None:
+    def __init__(self, api_key: str, BEA_Info_filePath: str = "", Refresh_Info: bool = False) -> None:
         super().__init__(api_key)
 
         self.baseURL = self.bea_url+"?&UserID="+self.api_key
         self.ResultFormat = "json"
-
         self.NIPA_Data = None
-
-        if BEA_Info_filePath is not None:
-            DataSetList = pd.read_excel(BEA_Info_filePath, sheet_name='Datasets') 
-            DataSetList.set_index(DataSetList.columns[0],inplace=True); DataSetList.index.rename('Index',inplace=True) 
-            print(DataSetList)
-            NIPA_TableNames = pd.read_excel(BEA_Info_filePath, sheet_name='NIPA_TableNames')
-            NIPA_TableNames.set_index(NIPA_TableNames.columns[0],inplace=True); NIPA_TableNames.index.rename('Index',inplace=True) 
-            print(NIPA_TableNames)
-            
-        else:  
-            # Grab the Dataset List.
-            DataSetList = self.get_dataset_list()
-            datasets = pd.json_normalize(DataSetList['BEAAPI']['Results']['Dataset'])
-            NIPA_Pars = self.get_parameters_list('NIPA')
-            NIPA_Params = pd.json_normalize(NIPA_Pars['BEAAPI']['Results']['Parameter'])
-            
-            print(datasets,NIPA_Params,"\n",NIPA_TableNames)
-
-    def GetInfoAboutDataset(self,dataset:str,parameterName:str):
         
+        if os.path.isfile(BEA_Info_filePath) and Refresh_Info is False:
+            self.BEAAPI_InfoTables = pd.read_excel(BEA_Info_filePath, sheet_name=None, index_col=0) 
+            print("BEA API info loaded from file: ",BEA_Info_filePath)
+            DataSets = self.BEAAPI_InfoTables['DataSetList']
+            DataSetList = DataSets.index.to_list(); DataSetList2 = []
+            DataSetList.remove('APIDatasetMetaData')
+            for d in DataSetList:
+                DataSetList2.append(d+'_params')
+            InfoList = list(self.BEAAPI_InfoTables.keys())
+            print(DataSetList2, InfoList)
+            if all(a in InfoList for a in DataSetList2):
+                print('Info loaded from excel concerning API parameters is sufficiently complete..')
+                pass
+            else: 
+                print('Updating BEA API info excel file......')
+                self.BEAAPI_InfoTables = self.GetAllDatasetParams()
+        else:  
+            print('No file found at BEA_Info_filePath and/or Refresh_Info is False.')
+            self.BEAAPI_InfoTables = self.GetAllDatasetParams()
+        
+        if Refresh_Info is True and len(BEA_Info_filePath) > 0:
+            i = 0
+            for key in self.BEAAPI_InfoTables.keys():
+                df = pd.DataFrame(self.BEAAPI_InfoTables[key])
+                if i == 0:
+                    df.to_excel(BEA_Info_filePath,sheet_name=key)
+                else:    
+                    with pd.ExcelWriter(BEA_Info_filePath, engine='openpyxl', mode='a') as writer:  
+                        df.to_excel(writer, sheet_name=key)    
+                i += 1
+            print("Dataset information pulled and saved to: ", BEA_Info_filePath)    
+
+    def GetDS_Params(self, dataset: str = 'NIPA') -> pd.DataFrame:
+        # Grab the Dataset List.
+        DS_Pars = self.get_parameters_list(dataset)
+        try:
+            DS_Params = pd.DataFrame(DS_Pars['BEAAPI']['Results']['Parameter'])
+            return DS_Params
+        except Exception as error:
+            print('Could not convert the given parameter data to a Dataframe. Dataset: ', dataset, 'Error: ', error, ', data: \n', DS_Pars)
+            return DS_Pars
+        
+    def GetParamVals(self, dataset: str = 'NIPA', parameterName: str = 'TableName') -> pd.DataFrame:
         NReqParameterValues = "&method=GetParameterValues&datasetname="+dataset+"&ParameterName="+parameterName+"&ResultFormat="+self.ResultFormat
         req = requests.get(self.baseURL+NReqParameterValues)
-        NIPA_TableNames = pd.json_normalize(req.json()['BEAAPI']['Results']['ParamValue'])
-        
-        return NIPA_TableNames
+        ParVals = req.json()['BEAAPI']['Results']['ParamValue']
+        ParVals = pd.DataFrame(ParVals)
+        ParVals.set_index(ParVals[ParVals.columns[0]],inplace=True)
+        return ParVals
+    
+    def GetAllDatasetParams(self):
+        DataSets = self.get_dataset_list()
+        DataSetList = pd.DataFrame(DataSets['BEAAPI']['Results']['Dataset'])
+        DataSetList.set_index(DataSetList.columns[0], inplace=True)
+        NIPA_Tables = self.GetParamVals()
+        NIPA_Details = self.GetParamVals(dataset='NIUnderlyingDetail')
+        FixedAssets = self.GetParamVals(dataset='FixedAssets')
+        BEAAPI_InfoTables = {'DataSetList': DataSetList,
+                                    'NIPA_Tables': NIPA_Tables,
+                                    'NIPA_Details': NIPA_Details,
+                                    'FixedAssets': FixedAssets
+        }
+        for ds in DataSetList.index:
+            if ds == 'APIDatasetMetaData':
+                pass
+            else:
+                print('Getting parameters for dataset: ', ds)
+                BEAAPI_InfoTables[ds+'_params'] = self.GetDS_Params(dataset=ds)
+        return  BEAAPI_InfoTables      
         
     def Get_NIPA_Data(self,tCode:str,frequency:str="M",year:list='ALL'):
         print(tCode)
@@ -263,12 +309,13 @@ class CustomIndexWindow(ctk.CTkToplevel):
         self.SeriesInfo = pd.DataFrame(dataTable['SeriesInfo']).copy().squeeze()
         
         self.notes = pd.DataFrame(dataTable['Notes']); self.notes.set_index("NoteRef",inplace=True)
+        print(self.notes)
         if len(self.notes.columns) > 1:
             self.notes.drop(self.notes.columns[0],axis=1,inplace=True)
         print("NOTES: ", self.notes)
         self.notes = self.notes.copy().squeeze()
 
-        TabName = str(self.notes.to_list()[0])
+        TabName = str(self.notes[0])
         self.data_name = TabName.split('[')[0]
         self.title('Export custom index')
 
@@ -427,9 +474,6 @@ class CustomIndexWindow(ctk.CTkToplevel):
         folder_selected = filedialog.askdirectory(initialdir=self.exportPath)
         self.ExportPath.set(folder_selected)  
 
-def BringItUp():
-    exportWindow = CustomIndexWindow(main, FullLoad,tDesc)  
-
 if __name__ == "__main__":
     api_key='779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC'
     dataset = "NIPA"
@@ -439,32 +483,46 @@ if __name__ == "__main__":
 
     # Initalize the new Client.
     bea = BEA_Data(api_key=api_key,BEA_Info_filePath=filepath)
+    print(bea.BEAAPI_InfoTables)
 
     #tCode = 'T20805'
     # tCode = 'T11705'
     # frequency="Q"
     # print("Pulling data from BEA API for: ",tCode)
-    # results = {}; year = []
-    # yearOne = 2020
-    # endYear = datetime.datetime.today().year
-    # endYear = 2022
-    # for i in range(yearOne,endYear+1,1):
-    #     year.append(str(i))
+    # results = {}; 
 
+    # yearList = []
+    # yearStr = ""
+    # yearOne = 2000
+    # endYear = datetime.datetime.today().year
+    
+    # for i in range(yearOne,endYear+1,1):
+    #     yearList.append(str(i))
+    #     if i < endYear:
+    #         yearStr += str(i)+','
+    #     else:
+    #         yearStr += str(i)
+    # print(yearList,yearStr)    
+ 
     # bea.Get_NIPA_Data(tCode,frequency=frequency,year=year)
+
+    # test = "https://apps.bea.gov/api/data/?&SeriesId=30&UserID="+api_key+"&method=GetData&DataSetName=MNE&Year="+yearStr+"&Country=650,699\
+    #     &DirectionOfInvestment=Outward&Classification=Country&ResultFormat=json"
+    # r = requests.get(test).json()
+    # pprint(r)
 
     # data = pd.DataFrame(bea.NIPA_Data['Series_Split']); print(data.head(50),data.dtypes)
     # SeriesInfo = bea.NIPA_Data['SeriesInfo']
-    loadPath = "C:/Users/jimmi/OneDrive/Documents/Documents/Scripts/VenV/Plebs_Macro/MacroBackend/BEA_Data/Datasets/T20805.xlsx"
-    FullLoad = pd.read_excel(loadPath,sheet_name=None)
-    print(FullLoad.keys())
-    TheData = FullLoad['Series_Split']
-    SeriesInfo = FullLoad['SeriesInfo']
-    Notes = FullLoad['Notes']
-    TheData.set_index(TheData.columns[0],inplace=True); SeriesInfo.set_index(SeriesInfo.columns[0],inplace=True)
-    SeriesInfo = pd.Series(SeriesInfo.squeeze(),name='SeriesInfo'); TheData.index.rename('TimePeriod',inplace=True)
-    TabName = str(Notes['NoteText'][0])
-    tDesc = TabName.split('[')[0]
+    # loadPath = "C:/Users/jimmi/OneDrive/Documents/Documents/Scripts/VenV/Plebs_Macro/MacroBackend/BEA_Data/Datasets/T20805.xlsx"
+    # FullLoad = pd.read_excel(loadPath,sheet_name=None)
+    # print(FullLoad.keys())
+    # TheData = FullLoad['Series_Split']
+    # SeriesInfo = FullLoad['SeriesInfo']
+    # Notes = FullLoad['Notes']
+    # TheData.set_index(TheData.columns[0],inplace=True); SeriesInfo.set_index(SeriesInfo.columns[0],inplace=True)
+    # SeriesInfo = pd.Series(SeriesInfo.squeeze(),name='SeriesInfo'); TheData.index.rename('TimePeriod',inplace=True)
+    # TabName = str(Notes['NoteText'][0])
+    # tDesc = TabName.split('[')[0]
     # print(tDesc,TheData,SeriesInfo)
     
     # fig = bea.BEAPreviewPlot(data=TheData,YScale="log",seriesInfo=SeriesInfo,title=tDesc)
@@ -472,7 +530,10 @@ if __name__ == "__main__":
     # bea.Export_BEA_Data(['T20805_PCE_M'])
     # ############# Export data to Excel. 
     # savePath = wd+"/Datasets/"+tCode+".xlsx"
-    main = ctk.CTk()
-    but = ctk.CTkButton(main, text='WINDOW',command=BringItUp)
-    but.pack()
-    main.mainloop()
+
+    # def BringItUp():
+    # exportWindow = CustomIndexWindow(main, FullLoad,tDesc)  
+    # main = ctk.CTk()
+    # but = ctk.CTkButton(main, text='WINDOW',command=BringItUp)
+    # but.pack()
+    # main.mainloop()
