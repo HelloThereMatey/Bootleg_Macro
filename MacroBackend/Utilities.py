@@ -255,6 +255,52 @@ def Colors(map:str, num_colors:int):
     colors = [cm(1.*i/num_colors) for i in range(num_colors)]    
     return colors
 
+
+def GetAxesDims(fig: plt.Figure, ax: plt.Axes) -> dict:
+    print(fig, ax)
+    # Get the Bbox of the axes in display coordinates
+    bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+    x_margin, y_margin = ax.margins()
+    print(f"x margin: {x_margin*100}%")
+    print(f"y margin: {y_margin*100}%")
+
+    width_inches_T = bbox.width
+    height_inches_T = bbox.height
+    width_inches = width_inches_T-x_margin*width_inches_T
+    height_inches = height_inches_T-y_margin*height_inches_T
+    # Width and height in points (1 inch = 72 points)
+    width_points = width_inches * 72
+    width_points_T = width_inches_T * 72
+    height_points = height_inches * 72
+    height_points_T = height_inches_T * 72
+    # Width and height in centimeters (1 inch = 2.54 cm)
+    width_cm = width_inches * 2.54
+    width_cm_T = width_inches_T * 2.54
+    height_cm = height_inches * 2.54
+    height_cm_T = height_inches_T * 2.54
+
+    dims = {'width_inches_total': width_inches_T,
+            'width_inches': width_inches,
+            'width_points_total': width_points_T,
+            'width_points': width_points,
+            'width_cm_total': width_cm_T,
+            'width_cm': width_cm,
+            'height_inches_total': height_inches_T,
+            'height_inches': height_inches,
+            'height_points_total': height_points_T,
+            'height_points': height_points,
+            'height_cm_total': height_cm_T,
+            'height_cm': height_cm
+    }
+    return dims
+
 if __name__ == '__main__':
-    print(Colors('gist_rainbow',50))
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']; print(colors)
+    # print(Colors('gist_rainbow',50))
+    # colors = plt.rcParams['axes.prop_cycle'].by_key()['color']; print(colors)
+
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.margins(0.2,0.2)
+    dims = GetAxesDims(fig, ax)
+    print(dims)
+    plt.show()

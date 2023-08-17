@@ -88,17 +88,26 @@ def Plot_GlobalM2(Global_M2:pd.Series,GlobalM2:pd.DataFrame):
     ax2.legend(loc=2,fontsize=8)
     ax.set_yscale('log'); ax.set_ylabel('M2 Money supply (USD)',fontweight='bold',fontsize=12)
     mom = pd.Series([((((Global_M2[i]-Global_M2[i-1])/Global_M2[i-1])*100)) for i in range(len(Global_M2))],name="GlobalM2_MoM",index=Global_M2.index)
-    mom2 = ax3.plot(mom,label=r'Global M2 MoM $\Delta$%',color='green',lw=1)
-    ax.tick_params(axis='x',labelsize=0); ax.tick_params(axis='x',labelsize=0); ax2.tick_params(axis='x',labelsize=0)
-    ax2.set_ylabel(r'M2 YoY $\Delta$%',fontweight='bold',fontsize=12); ax3.set_ylabel(r'MoM $\Delta$%',fontweight='bold',fontsize=10)
-    ax2.axhline(y=0,linestyle='dashed',color='red',lw=1); ax3.axhline(y=0,linestyle='dashed',color='red',lw=0.75)
-    ax.legend(loc=1,bbox_to_anchor=(0.1,1.1),fontsize=9)         
-    for axis in ['top','bottom','left','right']:
-            ax.spines[axis].set_linewidth(1.5); ax2.spines[axis].set_linewidth(1.5) ; ax3.spines[axis].set_linewidth(1.5)      
+
     ax.minorticks_on(); ax2.minorticks_on(); ax3.minorticks_on()
     ax.margins(0.02,0.02); ax2.margins(0.02,0.02); ax3.margins(0.02,0.02)
     ax.grid(which='both',axis="both",linestyle="dotted")
     ax2.grid(which='both',axis="both",linestyle="dotted"); ax3.grid(which='both',axis="both",linestyle="dotted")
+    exM, whyM = ax3.margins()
+    DateRange = (mom.index[len(mom)-1] - mom.index[0]).days
+    DateRangeAct = DateRange - (2*exM)*DateRange
+    print('Date range covers ',DateRangeAct, 'days.')
+    BarWidth = np.floor(DateRangeAct/len(mom))
+
+    mom2 = ax3.bar(x = mom.index, height = mom, width = BarWidth, label=r'Global M2 MoM $\Delta$%',color='green',lw=1)
+    ax3.set_axisbelow(True)
+    ax.tick_params(axis='x',labelsize=0); ax.tick_params(axis='x',labelsize=0); ax2.tick_params(axis='x',labelsize=0)
+    ax2.set_ylabel(r'M2 YoY $\Delta$%',fontweight='bold',fontsize=12); ax3.set_ylabel(r'MoM $\Delta$%',fontweight='bold',fontsize=10)
+    ax2.axhline(y=0,linestyle='dashed',color='red',lw=1); ax3.axhline(y=0,linestyle='dashed',color='red',lw=0.75)
+
+    ax.legend(loc=1,bbox_to_anchor=(0.1,1.1),fontsize=9)         
+    for axis in ['top','bottom','left','right']:
+            ax.spines[axis].set_linewidth(1.5); ax2.spines[axis].set_linewidth(1.5) ; ax3.spines[axis].set_linewidth(1.5)      
 
     laggers = []; latestPrint = GlobalM2.index[len(GlobalM2)-1]; print('Latest data print: ',latestPrint); M2Total = 0; missingT = 0
     for i in range(2,len(GlobalM2.columns),1):
@@ -174,5 +183,5 @@ PlotM2Data(FullDF,DataComp)
 Plot_GlobalM2(FullDF['Global M2 (USD, ffill)'],FullDF)
 M2List = [('Long27_M2_USD','Top 27 longest data','black'),('Long28_M2_USD','Top 28 longest data','red'),('Top33_M2_USD','Top 33 economies','blue'),
 ('Top50_M2_USD','Top 50 economies','green')]
-Compare_GlobalM2s(M2List)
+#Compare_GlobalM2s(M2List)
 plt.show()
