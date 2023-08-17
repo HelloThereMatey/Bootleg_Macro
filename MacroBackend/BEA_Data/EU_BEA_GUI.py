@@ -83,14 +83,17 @@ bottom3 = ctk.CTkFrame(root,width=win_widthT); bottom3.grid(column=0,row=4,padx=
 
 def SearchBtn():
     loadPath = path.get(); term = searchTerm.get()
-    print(loadPath)
+    TheDataSet = DataSet.get()
+
     ridEm = {"(":"",")":"","'":"","'":"",",":""}
     for char in ridEm.keys():
         term = term.replace(char,ridEm[char])
         loadPath = loadPath.replace(char,ridEm[char])
-    print(term,loadPath)
-    results = SearchMetrics(loadPath,term)
-    print(results)
+    print('Will search for ',term,', amoungst dataset: ',TheDataSet,'\n',loadPath)
+    DS_Name = TheDataSet+'_Tables'
+    df = bea.BEAAPI_InfoTables[DS_Name]
+    results = SearchMetrics(df,term)
+    
     result = results['Description'].to_list(); finRes = []
     TCodes = results.index.to_list()
     for res in result:
@@ -104,7 +107,7 @@ def SearchMetrics(MetricsList, SearchString:str):
         df.set_index(df.columns[0],inplace=True); df.index.rename('Index',inplace=True) 
         print(df.head(50))
     elif str(type(MetricsList) == "<class 'pandas.core.frame.DataFrame'>"):
-        pass
+        df = MetricsList
     else:
         print('List must be supplied as a dataframe or as a str containing a path to an excel file to load the dataframe from.')    
         quit()
@@ -131,10 +134,11 @@ def MakeChoice(event):
     freq.set(frequencies[0])
 
 def PullBEASeries():
+    TheDataSet = DataSet.get(); print('Looking for data from the ', TheDataSet, ' dataset from BEA.')
     tCode = str(TableName.get()).replace("'","").replace("(","").replace(")","").replace(" ","")
     TableDesc = str(choice.get()).replace("'","")
-    print(tCode,TableDesc)
-
+    
+    data = None
     SeriesFreq = freq.get(); year = []
     startY = StartDate.get(); endY = EndDate.get()
     if len(startY) == 0:
@@ -145,12 +149,13 @@ def PullBEASeries():
         for i in range(int(startY),int(endY)+1,1):
             year.append(str(i))    
 
-    bea.Get_NIPA_Data(tCode,frequency=SeriesFreq,year=year)
-    if bea.NIPA_Data is not None:
-        data = bea.NIPA_Data
+    
+    bea.Get_BEA_Data(dataset=TheDataSet,tCode=tCode,frequency=SeriesFreq,year=year)
+    if bea.Data is not None:
+        data = bea.Data
     else:
         print('Data pull failed, check error message from BEA API above.')
-        return    
+        return     
    
     if data is not None:
         table = pd.DataFrame(data['Series_Split'])
@@ -172,6 +177,9 @@ def PullBEASeries():
         for i in range(len(table)):
             values = table.iloc[i].tolist(); values.insert(0,dates[i])
             tree.insert('',tk.END,values=values)  
+    else:
+        print('No data..')        
+        return None
 
 ######## Plot preview ###################################
 def plotPreview():
@@ -193,13 +201,13 @@ def SetSavingPath():
 
 def SaveData():
     folder = save.get()
-    if bea.NIPA_Data is not None:
-        name = bea.NIPA_Data_tCode
+    if bea.Data is not None:
+        name = bea.Data_tCode
     bea.Export_BEA_Data([name],saveLoc=folder+FDel)
     
 def CustomExport():
-    if bea.NIPA_Data is not None:
-        exportWindow = BEA_API_backend.CustomIndexWindow(root, bea.NIPA_Data,name=bea.NIPA_Data_name)
+    if bea.Data is not None:
+        exportWindow = BEA_API_backend.CustomIndexWindow(root, bea.Data,name=bea.Data_name)
     else:
         print('Load data first.....')    
 
@@ -210,6 +218,8 @@ TableNames = ctk.StringVar(master=root,value="",name='TableNamesList')
 TableName = ctk.StringVar(master=root,value="",name='TableName')
 choice = ctk.StringVar(master=root,value="",name='Table choice')
 freq = ctk.StringVar(master=root,value="",name='Series frequency')
+DataSet = ctk.StringVar(master=root,value="NIPA",name='DataSet')
+
 StartDate = ctk.StringVar(master=root,value="",name='StartDate')
 EndDate = ctk.StringVar(master=root,value="",name='EndDate')
 
@@ -226,11 +236,12 @@ choices = ctk.StringVar(master=root,value="",name='Chosen_series')
 C_Index = ctk.StringVar(master=root,value="",name='Custom_index_name')
 
 ########### Load the excel file containing the dataframe with list of metrics from glassnode 
-pathBar = ctk.CTkEntry(top,width=round(0.95*win_widthT),textvariable=path); pathBar.grid(column=0,row=0,columnspan=4,padx=10,pady=5)
-searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=0,row=1,padx=5,pady=5)
-btn=ctk.CTkButton(top, text="Search for data",command=SearchBtn,font=('Arial',12)); btn.grid(column=1,row=1,padx=5,pady=10)
-flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',12,'bold')) ; flabel.grid(column=2,row=1,pady=10)
-freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=3,row=1,padx=30,pady=10)
+pathBar = ctk.CTkEntry(top,width=round(0.95*win_widthT),textvariable=path); pathBar.grid(column=0,row=0,columnspan=5,padx=10,pady=5)
+choose_ds = ctk.CTkOptionMenu(top, values = bea.DSTables, variable=DataSet); choose_ds.grid(column=0,row=1,padx=5,pady=10)
+searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=1,row=1,padx=5,pady=5)
+btn=ctk.CTkButton(top, text="Search for data",command=SearchBtn,font=('Arial',12)); btn.grid(column=2,row=1,padx=5,pady=10)
+flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',12,'bold')) ; flabel.grid(column=3,row=1,pady=10)
+freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=4,row=1,padx=30,pady=10)
 
 # Create a text box to display the results
 result_box = tk.Listbox(middle,listvariable=SearchResults, font = default_font, height=round(250/defCharH), width=win_widChars)

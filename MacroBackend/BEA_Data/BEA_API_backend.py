@@ -65,7 +65,7 @@ class BEA_Data(BureauEconomicAnalysisClient):
 
         self.baseURL = self.bea_url+"?&UserID="+self.api_key
         self.ResultFormat = "json"
-        self.NIPA_Data = None
+        self.Data = None
         
         if os.path.isfile(BEA_Info_filePath) and Refresh_Info is False:
             self.BEAAPI_InfoTables = pd.read_excel(BEA_Info_filePath, sheet_name=None, index_col=0) 
@@ -76,7 +76,7 @@ class BEA_Data(BureauEconomicAnalysisClient):
             for d in DataSetList:
                 DataSetList2.append(d+'_params')
             InfoList = list(self.BEAAPI_InfoTables.keys())
-            print(DataSetList2, InfoList)
+            
             if all(a in InfoList for a in DataSetList2):
                 print('Info loaded from excel concerning API parameters is sufficiently complete..')
                 pass
@@ -84,8 +84,14 @@ class BEA_Data(BureauEconomicAnalysisClient):
                 print('Updating BEA API info excel file......')
                 self.BEAAPI_InfoTables = self.GetAllDatasetParams()
         else:  
-            print('No file found at BEA_Info_filePath and/or Refresh_Info is False.')
+            print('No file found at BEA_Info_filePath and/or Refresh_Info is True.')
             self.BEAAPI_InfoTables = self.GetAllDatasetParams()
+            
+        self.DataSetList = self.BEAAPI_InfoTables['DataSetList'].index.to_list()
+        self.DataSetList.remove('APIDatasetMetaData')
+        self.SheetsList = [sheet.replace("_params", "") for sheet in list(self.BEAAPI_InfoTables.keys())]
+        self.DSTables = [a.replace("_Tables","") for a in self.SheetsList if a not in self.DataSetList and "_Tables" in a]
+            
         
         if Refresh_Info is True and len(BEA_Info_filePath) > 0:
             i = 0
@@ -126,8 +132,8 @@ class BEA_Data(BureauEconomicAnalysisClient):
         FixedAssets = self.GetParamVals(dataset='FixedAssets')
         BEAAPI_InfoTables = {'DataSetList': DataSetList,
                                     'NIPA_Tables': NIPA_Tables,
-                                    'NIPA_Details': NIPA_Details,
-                                    'FixedAssets': FixedAssets
+                                    'NIPA_Details_Tables': NIPA_Details,
+                                    'FixedAsset_Tables': FixedAssets
         }
         for ds in DataSetList.index:
             if ds == 'APIDatasetMetaData':
@@ -137,9 +143,18 @@ class BEA_Data(BureauEconomicAnalysisClient):
                 BEAAPI_InfoTables[ds+'_params'] = self.GetDS_Params(dataset=ds)
         return  BEAAPI_InfoTables      
         
-    def Get_NIPA_Data(self,tCode:str,frequency:str="M",year:list='ALL'):
-        print(tCode)
-        data = self.national_income_and_product_accounts(tCode,frequency=frequency,year=year)
+    def Get_BEA_Data(self,dataset:str='NIPA',tCode:str='T10101',frequency:str="M",year:list='ALL'):
+        print('Pulling data from BEA API dataset: ',dataset,', Table code: ',tCode)
+        if dataset == 'NIPA':
+            data = self.national_income_and_product_accounts(tCode,year=year,frequency=frequency)
+        elif dataset == 'NIPA_Details':   
+            data = self.national_income_and_product_accounts_detail(tCode,year=year,frequency=frequency)
+        elif dataset == 'FixedAsset':   
+            data = self.fixed_assets(tCode,year=year)    
+        else:
+            print('Dataset specification is not valid.....')
+            return  
+          
         print(data['BEAAPI'].keys())
         if 'Error' in data['BEAAPI'].keys():
             print('Error pulling data from BEA API. Error message: ',data['BEAAPI']['Error'])
@@ -152,15 +167,15 @@ class BEA_Data(BureauEconomicAnalysisClient):
             TabName = str(data["BEAAPI"]["Results"]["Notes"][0]["NoteText"]); print(TabName)
             tDesc = TabName.split('[')[0]; print(tDesc)
 
-        self.NIPA_Data = {}; AddInfo = {}
-        self.NIPA_Data_tCode = tCode
-        self.NIPA_Data_name = tDesc
-        self.NIPA_Data_freq = frequency
+        self.Data = {}; AddInfo = {}
+        self.Data_tCode = tCode
+        self.Data_name = tDesc
+        self.Data_freq = frequency
         for key in data["BEAAPI"]["Results"].keys():
             try: 
                 if type(data["BEAAPI"]["Results"][key] == dict):
-                    self.NIPA_Data[key] = pd.DataFrame.from_dict(data["BEAAPI"]["Results"][key])
-                    self.NIPA_Data[key] = pd.DataFrame(self.NIPA_Data[key])
+                    self.Data[key] = pd.DataFrame.from_dict(data["BEAAPI"]["Results"][key])
+                    self.Data[key] = pd.DataFrame(self.Data[key])
                 else:
                     AddInfo[key] = data["BEAAPI"]["Results"][key] 
             except:
@@ -168,24 +183,24 @@ class BEA_Data(BureauEconomicAnalysisClient):
                 AddInfo[key] = data["BEAAPI"]["Results"][key]
                 pass  
         
-        Data = pd.DataFrame(self.NIPA_Data['Data'])
-        SeriesInfo, FinalData = self.NIPA_Data_2DF(Data,frequency,tDesc)
+        Data = pd.DataFrame(self.Data['Data'])
+        SeriesInfo, FinalData = self.Data_2DF(Data,frequency,tDesc)
 
-        self.NIPA_Data['Series_Split'] = FinalData
+        self.Data['Series_Split'] = FinalData
         AddInfo["Source"] = "Bureau of economic analysis"
         addThis = pd.Series(AddInfo)
         SeriesInfo = pd.concat([SeriesInfo, addThis])
-        self.NIPA_Data['SeriesInfo'] = SeriesInfo
+        self.Data['SeriesInfo'] = SeriesInfo
 
-    def NIPA_Data_2DF(self,NIPA_Data:pd.DataFrame,frequency:str,tDesc:str):
-        categories = NIPA_Data['LineDescription'].unique()
-        SeriesInfo = pd.Series(NIPA_Data.iloc[0],name=tDesc)
+    def Data_2DF(self,Data:pd.DataFrame,frequency:str,tDesc:str):
+        categories = Data['LineDescription'].unique()
+        SeriesInfo = pd.Series(Data.iloc[0],name=tDesc)
         SeriesInfo.drop(['LineDescription','NoteRef','LineNumber','TimePeriod','DataValue'],axis=0,inplace=True)   
 
     ################## Split the table into separate time-series.
         i = 0; names = []; codes = []
         for cat in categories:
-            category = pd.DataFrame(NIPA_Data[NIPA_Data['LineDescription'] == cat])
+            category = pd.DataFrame(Data[Data['LineDescription'] == cat])
             category.drop_duplicates("TimePeriod",inplace=True)
             if frequency == 'M':
                 periods = category["TimePeriod"].to_list()
@@ -223,8 +238,8 @@ class BEA_Data(BureauEconomicAnalysisClient):
     def Export_BEA_Data(self, filenames:list, saveLoc:str = wd+"/Datasets/"):
         # saveLoc is the directory to save in
         Export = {}
-        if self.NIPA_Data is not None:
-            Export["NIPA"] = self.NIPA_Data.copy()
+        if self.Data is not None:
+            Export["Data"] = self.Data.copy()
     ############# Export data to an Excel file (.xlsx).
         for n, export in enumerate(Export.keys()):
             savePath = saveLoc+filenames[n]+".xlsx"
@@ -249,11 +264,11 @@ class BEA_Data(BureauEconomicAnalysisClient):
         if seriesInfo is not None:
             pass
         else:
-            seriesInfo = pd.Series(self.NIPA_Data['SeriesInfo'])
+            seriesInfo = pd.Series(self.Data['SeriesInfo'])
         if data is not None:
             pass
         else:    
-            data = pd.DataFrame(self.NIPA_Data['Series_Split'])
+            data = pd.DataFrame(self.Data['Series_Split'])
 
         colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color']); i = 0
         colors.extend(Mycolors)   
@@ -266,7 +281,7 @@ class BEA_Data(BureauEconomicAnalysisClient):
         if title is not None:
             ax.set_title(title,fontweight='bold',fontsize=9,loc='left',x = 0.1)
         else:    
-            ax.set_title(self.NIPA_Data_name,fontweight='bold',fontsize=9,loc='left',x = 0.1)
+            ax.set_title(self.Data_name,fontweight='bold',fontsize=9,loc='left',x = 0.1)
         units = int(seriesInfo['UNIT_MULT'])
         unit = str(seriesInfo['METRIC_NAME'])
         if unit == 'Current Dollars' or unit == 'Chained Dollars':
@@ -295,8 +310,8 @@ class BEA_Data(BureauEconomicAnalysisClient):
         plt.show()       
         
     def ExportCustomIndex(self, savePath):
-        if self.NIPA_Data is not None:
-            data = self.NIPA_Data['Series_Split']
+        if self.Data is not None:
+            data = self.Data['Series_Split']
         else:
             print('Load NIPA table data from BEA first.')    
 
@@ -482,8 +497,9 @@ if __name__ == "__main__":
     filepath = wd+"/Datasets/BEAAPI_Info.xlsx"
 
     # Initalize the new Client.
-    bea = BEA_Data(api_key=api_key,BEA_Info_filePath=filepath)
+    bea = BEA_Data(api_key=api_key,BEA_Info_filePath=filepath, Refresh_Info=False)
     print(bea.BEAAPI_InfoTables)
+    print(bea.DataSetList, bea.SheetsList, bea.DSTables)
 
     #tCode = 'T20805'
     # tCode = 'T11705'
