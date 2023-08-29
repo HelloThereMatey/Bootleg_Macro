@@ -1,13 +1,13 @@
 ###### Required modules/packages #####################################
 import os
 wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
-dir = os.path.dirname(wd)
-print(wd,dir)
-import sys; sys.path.append(dir)
+dire = os.path.dirname(wd)
+print(wd,dire)
+import sys; sys.path.append(dire)
+
 from MacroBackend import PriceImporter ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
 from MacroBackend import Charting    ##This script has all the matplotlib chart formatting code. That code is ugly, best to put it in a second file like this. 
 from MacroBackend import Utilities
-import mplfinance
 ## You may see: 'Import "MacroBackend" could not be resolved' & it looks like MacroBackend can't be found. However, it will be found when script is run. Disregard error. 
 #### The below packages need to be installed via pip/pip3 on command line. These are popular, well vetted packages all. Just use 'pip install -r requirements.txt'
 import numpy as np
@@ -19,12 +19,37 @@ from matplotlib.gridspec import GridSpec
 ### These are standard python packages included in the latest python distributions. No need to install them. 
 import datetime
 from datetime import timedelta
-import re 
-import tkinter as tk
+from tkinter import filedialog, messagebox
+import json
 
+###### Determine what OS this is running on and get appropriate path delimiter. #########
 FDel = os.path.sep
-print('System information: ',sys.platform,', directory delimiter: ', FDel, ', working directory: ', wd)
+print("Operating system: ",sys.platform, "Path separator character: ", FDel)
 
+######### Set default font and fontsize ##################### Make this automatic and hide in utility files later on. 
+try:
+    ScreenSetFile = open(dire+FDel+'MacroBackend'+FDel+'SystemInfo'+FDel+'ScreenData.json')
+    ScreenSettings = dict(json.load(ScreenSetFile))
+except:
+    SingleDisplay = messagebox.askyesno(title='GUI sizing steup',message='Script has detected that this is the first time this script has been run on this system.\
+        Script will now measure screen size to correctly size GUI. You must run this process with only a single display running on the system. \
+            Make sure that you set system to single display mode first and then run script. You can go back to multiple screens after running the script once.\
+                Is system set to single display mode?')
+    if SingleDisplay is True:
+        tkVars = Utilities.TkinterSizingVars()
+        tkVars.SetScreenInfoFile()
+        tkVars.ExportVars(dire+FDel+'MacroBackend'+FDel+'SystemInfo')
+        ScreenSettings = tkVars.ScreenData
+        print("Very good. Screen measured. Now run script again. You shouldn't have to do this screen measure again.")
+        quit()
+
+fwid = ((14*2.54)*10); fhght =  ((7*2.54)*10) #Figsize in mm.
+figsize = (fwid/(2.54*10), fhght/(2.54*10))   #Figsize in inches.
+pixel = float(ScreenSettings['Pixel size (mm)'])
+figsize_px = (round(fwid/pixel),round(fhght/pixel))
+print('figsize (cm):',figsize,'figsize (pixels):',figsize_px)
+
+########## Script speciic business #############################################################################
 try:
     Inputs = pd.read_excel(wd+'/Control.xlsx')     ##Pull input parameters from the input parameters excel file. 
 except Exception as e: 
@@ -76,9 +101,9 @@ for i in range(1,6):
         color = Inputs.loc[i].at['TraceColor']; label = Inputs.loc[i].at['Legend_Name']; name = Inputs.loc[i].at['Name']
         yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['Resample2D']
         axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i-1]; MA =  Inputs.loc[i].at['Sub_MA']; LW = Inputs.loc[i].at['LineWidth']
-        convert = Inputs.loc[i].at['ConvertUnits']; Ymin = Inputs.loc[i].at['Ymin']
+        convert = Inputs.loc[i].at['ConvertUnits']; Ymin = Inputs.loc[i].at['Ymin']; aMA =  Inputs.loc[i].at['Add_MA']
         SeriesDict[name] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name,\
-                            'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax,'Resample2D': resample, 'useMA': MA, 'LW': LW, 'Ticker_Source':ticker,
+                            'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax,'Resample2D': resample, 'useMA': MA, 'addMA':aMA, 'LW': LW, 'Ticker_Source':ticker,
                             'ConvertUnits':convert,'Ymin': Ymin }      
 
 SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
@@ -150,7 +175,7 @@ for series in SeriesDict.keys():
         TheSeries['Ticker'] = ticker
         print('Data pulled from TV for: ',ticker,"\n")
     elif Source == 'coingecko':
-        CoinID = PriceImporter.getCoinID(ticker,InputTablePath=dir+FDel+'MacroBackend'+FDel+'AllCG.xlsx')
+        CoinID = PriceImporter.getCoinID(ticker,InputTablePath=dire+FDel+'MacroBackend'+FDel+'AllCG.xlsx')
         TheData = PriceImporter.CoinGeckoPriceHistory(CoinID[1],TimeLength=TimeLength) 
         TheData.rename({"Price (USD)":"Close"},axis=1,inplace=True) 
         TheData = pd.Series(TheData['Close'],name=TheSeries['Name']) 
@@ -267,7 +292,7 @@ for series in SeriesDict.keys():
 
 ###################### Change series to YoY or other annualized rate calcs if that option is chosen #################################
 normStr = 'Unaltered'; YoYStr = 'Year on year % change'; devStr = '% deviation from fitted trendline'; ann3mStr = 'Annualised 3-month % change'
-ann6mStr = 'Annualised 6-month % change'; momStr = 'Month on month % change'
+ann6mStr = 'Annualised 6-month % change'; momStr = 'Month on month % change'; yoySqStr = 'YoY of Yoy, i.e YoY^2'
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]; 
     data = TheSeries['Data']; name = TheSeries['Name']
@@ -277,15 +302,6 @@ for series in SeriesDict.keys():
     Freqsplit = Freq.split("-")
 
     if TraceType.upper() == YoYStr.upper():
-        # if Freq == 'D':
-        #     data = Utilities.MonthPeriodAnnGrowth2(data,12)
-        # elif Freqsplit[0] == 'W':    
-        #     data = Utilities.MonthPeriodAnnGrowth2(data,12) 
-        # elif Freq == 'MS' or Freq == 'M': 
-        #     data = PriceImporter.YoY4Monthly(data)
-        # else:
-        #     print("For series: ",data.name,", with frequency: ",Freq," is currently imcompatible with YoY % change calculation. Set Resample2D to 'yes' to use daily frequency.")    
-        #     quit()
         data = Utilities.MonthPeriodAnnGrowth2(data,12)
         data.dropna(inplace=True)    
     elif TraceType.upper() == ann3mStr.upper():    
@@ -300,6 +316,9 @@ for series in SeriesDict.keys():
         print('Month on month annualized % change transformation chosen for dataset: ',name)
         data = Utilities.MonthPeriodAnnGrowth2(data,1)   
         data.dropna(inplace=True)    
+    elif TraceType.upper() == yoySqStr.upper(): 
+        FirstDer = Utilities.MonthPeriodAnnGrowth2(data,12) + 100
+        data = Utilities.MonthPeriodAnnGrowth2(FirstDer,12) 
     # elif  TraceType.upper() == devStr.upper():      
     #     fitY, std_u, std_l, TrendDev = fitExpTrend(data)
     else:
@@ -355,32 +374,6 @@ else:
 margins = {'top':0.95, 'bottom':Bot ,'left':0.06,'right':1-(numAxii*0.035)}
 
 print('######################## PLOTTING ####################################################################')
-def get_curr_screen_geometry():
-    """
-    Workaround to get the size of the current screen in a multi-screen setup.
-    Returns:
-        geometry (str): The standard Tk geometry string.
-            [width]x[height]+[left]+[top]
-    """
-    root = tk.Tk()
-    root.update_idletasks()
-    root.attributes('-fullscreen', True)
-    root.state('iconic')
-    geometry = root.winfo_geometry()
-    root.destroy()
-    return geometry
-
-screen = get_curr_screen_geometry()   
-split = screen.split('+'); geo = split[0]
-split2 = geo.split("x"); cm = 2.54
-sw = int(split2[0]); sh = int(split2[1]) 
-px = (1/plt.rcParams['figure.dpi'])*25.4  ##Pixel size in mm. 
-print('Pixel size (mm):',px,'Screen width (pixels):',sw,'Screen height (pixels):',sh,'\n'\
-      ,'Screen width (mm):',sw*px,'Screen height (mm):',sh*px,'Screen width (cm):',(sw*px)/10,'Screen height (cm):',(sh*px)/10)
-fwid = ((14*cm)*10); fhght =  ((7*cm)*10) #Figsize in mm.
-figsize = (fwid/(cm*10), fhght/(cm*10))   #Figsize in inches.
-figsize_px = (round(fwid/px),round(fhght/px))
-print('figsize (cm):',figsize,'figsize (pixels):',figsize_px)
 
 ############ This organises a list of data sources to add at bottom of chart. 
 DS_List = []

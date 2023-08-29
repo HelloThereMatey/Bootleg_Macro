@@ -1,8 +1,13 @@
 import numpy as np
 import pandas as pd
 import datetime
+import tkinter as tk
+import tkinter.font as tkfont
 import operator
+import sys
+import os
 import re
+import json
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
@@ -294,13 +299,83 @@ def GetAxesDims(fig: plt.Figure, ax: plt.Axes) -> dict:
     }
     return dims
 
-if __name__ == '__main__':
-    # print(Colors('gist_rainbow',50))
-    # colors = plt.rcParams['axes.prop_cycle'].by_key()['color']; print(colors)
+def SecondDerivative(input: pd.Series, periods:int) -> pd.Series:
+    FirstDer = input.pct_change(periods=periods)*100
+    FirstDer += 100
+    SecDer = FirstDer.pct_change(periods=periods)*100
+    return SecDer
 
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    ax.margins(0.2,0.2)
-    dims = GetAxesDims(fig, ax)
-    print(dims)
-    plt.show()
+def RoCYoY(input: pd.Series) -> pd.Series:
+    inPut_YoY = MonthPeriodAnnGrowth2(input,12) + 100 
+    RocYoY = inPut_YoY.pct_change(periods=1)*100
+    return RocYoY
+
+def RoCofRoC(input: pd.Series,periods:int = 1 ) -> pd.Series:
+    roc = input.diff(periods=periods)
+    return roc.diff(periods=periods)
+
+class TkinterSizingVars():
+
+    def __init__(self) -> None:
+        self.root = tk.Tk()
+        #self.allCharsStr = "abcdefghijklmnopqrstuvwxyz " !@#$%^&*=-,.|()?+[]\/~1234567890 ><"";
+        self.allCharsStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        self.FDel = os.path.sep
+        
+    def SetScreenInfoFile(self):
+        ###### Determine what OS this is running on and get appropriate path delimiter. #########
+        print("Operating system: ",sys.platform, "Path separator character: ", self.FDel)
+        if sys.platform == 'win32':
+            username = os.environ['USERNAME']
+        else:
+            username = os.environ['USER']
+
+        self.ScreenData = {'OS': sys.platform,
+                    "USER": username}
+
+        # Get screen size
+        self.root.update_idletasks()
+        self.root.attributes('-fullscreen', True)
+        self.root.state('iconic')
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        print(f'Screen size: {screen_width}x{screen_height}')
+        self.ScreenData['Screen_width'] = screen_width
+        self.ScreenData['Screen_height'] = screen_height
+
+        px = (1/plt.rcParams['figure.dpi'])*25.4  ##Pixel size in mm. 
+        self.ScreenData['Pixel size (mm)'] = px
+        self.ScreenData['Screen width (cm)'] = (screen_width*px)/10
+        self.ScreenData['Screen height (cm)'] = (screen_height*px)/10
+
+        # Get character size
+        label = tk.Label(self.root, text="M")
+        label.pack()
+        self.root.update_idletasks()
+        char_width = label.winfo_width()
+        char_height = label.winfo_height()
+        
+        print(f'Character size: {char_width}x{char_height}')
+        self.ScreenData['Char_width'] = char_width
+        self.ScreenData['Char_height'] = char_height
+        self.ScreenData['Def_font'] =  self.get_def_FontInfo()
+   
+        self.root.destroy()
+
+    def get_def_FontInfo(self):
+        print("Measuring default font... all characters: ","\n", self.allCharsStr,len(self.allCharsStr))
+        default_font = tkfont.nametofont("TkDefaultFont")
+        lengthAll = default_font.measure(self.allCharsStr)
+        defFontInfo = {'name': default_font.name ,
+                    'family': default_font.actual('family'),
+                    'size': default_font.actual('size'),
+                    #'char_width (pixels)': default_font.measure('C'),
+                    'char_width (pixels)': round(lengthAll/len(self.allCharsStr)),
+                    'char_height (pixels)': default_font.metrics("linespace")}
+        return defFontInfo
+    
+    def ExportVars(self,folder:str):
+        filePath = folder+self.FDel+"ScreenData.json"
+        with open(filePath, 'w') as f:
+            json.dump(self.ScreenData, f, indent=4)
+
