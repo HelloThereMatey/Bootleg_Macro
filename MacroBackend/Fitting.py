@@ -5,102 +5,36 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import matplotlib.dates as mdates
+import Utilities
 import datetime
 from datetime import timedelta
 
-data = pd.read_excel('/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/Generic_Macro/SavedData/BTCUSD.xlsx')
-data.set_index(pd.DatetimeIndex(pd.DatetimeIndex(data['date']).date),inplace=True)
-data.drop('date',axis=1,inplace=True)
-StartDate = datetime.date(2012,1,1); start = pd.Timestamp(StartDate)
-StartDate2 = datetime.date(2017,7,1); start2 = pd.Timestamp(StartDate2)
-data = data[start::]
-data = data['BTC']
-data2 = data.copy(); data2 = data2[start2::] 
+class FitFunction():
+    def __init__(self):
+        self.functions = {'Exp_Base10':self.Exp_Base10,
+                          "Exponential": None,
+                          "ExpLog": self.expLog,
+                          "Logistic": self.logistic_func}
+        print("Data fitting engine, fit function options are: ",list(self.functions.keys()))
 
-def fitExpTrend(data:pd.Series):
-    index = data.index.to_numpy()
-    x = np.linspace(1,len(data),len(data)); y = data.to_numpy()
+    ## Mathematical functions to fit to data.
+    def Exp_Base10(self, x, a, b):
+        self.funcName = "Exp_Base10"
+        return 10**(a*x+b)
 
-    fit = np.polyfit(x, np.log(y), 1)
-    print('Log fit to: ',data.name, ', x, np.log(y), intercept, slope a,b = ',fit)
-    a = fit[0]; b = fit[1]
+    def expLog(self, x, a, b):  # Define expLog function
+        self.funcName = "ExpLog"
+        return 10**(a*np.log(x)-b)
+        #return np.exp((a*np.log(x)-b))
 
-    x = np.linspace(0,len(data-1),len(data))
-    fit_y = [];  fit_y2 = []
-    for ex in x:
-        fit_y.append(np.exp(b+a*ex))
-    fitY = pd.Series(fit_y,index=index,name=data.name+" exp trend") 
-    TrendDev = ((y - fitY)/fitY)*100+100
-    return fitY, TrendDev
-
-def StdDevBands(midline:pd.Series,Mults:int,window:int):
-    stdDev = midline.rolling(window=window).std()
-    numstd_l = Mults/np.e
-    std_u = midline + Mults*stdDev
-    std_l = midline - numstd_l*stdDev
-    return std_u, std_l
-
-def PCBands(midline:pd.Series,PC:float):
-    pcu = midline*((100+PC)/100)
-    pcl = midline/((100+PC)/100)
-    return pcu, pcl
-
-def Exp_Base10(x, a, b):
-    return 10**(a*x+b)
-
-def expLog(x, a, b):  # Define expLog function
-    return 10**(a*np.log(x)-b)
-    #return np.exp((a*np.log(x)-b))
-
-def logistic_func(x, K, A, r):  # Define logistic function
-    return K / (1 + A * np.exp(-r * x))
-# Fit logistic function to data
-
-def YoYCalcFromDaily(series:pd.Series): 
-    print('\nYoY calcuation on series: ',series.name,', data frequency: ',pd.infer_freq(series.index))
-    if series.index.inferred_freq != 'D':
-        print('Resampling',series.name,'to daily frequency for YoY calculation....')
-        series = series.resample('D').mean()
-        series.fillna(method='ffill',inplace=True) #This'l make it daily data even if weekly data is input. 
-    YoYCalc = [np.nan for i in range(len(series))]
-    YoYSeries = pd.Series(YoYCalc,index=series.index,name=series.name+' YoY % change')
-    for i in range(365,len(series),1):
-        YoYSeries.iloc[i] = (((series[i]-series[i-365])/series[i-365])*100)
-    #print('After YoY calc: ',YoYSeries.tail(54),len(YoYSeries))        
-    return YoYSeries  
-
-def FitData(f,data:pd.Series,LogOrLin:str='lin',funcName:str=''):  #Fit trend to data. 
-    x = np.linspace(1,len(data),len(data)); y = data.to_numpy(); yLog = np.log(y)
-    if LogOrLin == 'log':
-        popt, pcov = curve_fit(f,x,y)
-        fit = f(x,*popt)
-    else:
-        popt, pcov = curve_fit(f,x,yLog)
-        fit = np.exp(f(x,*popt))
-    Fit = pd.Series(fit,index=data.index,name=data.name+" "+funcName+" fit")   
-    print('Trendline fitted to data: ',data.name,' ',funcName,' function used, optimized fitting parameters: ',popt)  
-    return Fit, popt, pcov
-    
-x = np.linspace(1,len(data),len(data)); y = data.to_numpy(); yLog = np.log(y)
-print(x, y,yLog)
-
-fitY, TrendDev = fitExpTrend(data)    #Exponential fit (linear on SemiLogY chart)
-#fitY = FitData(Exp_Base10,data,funcName='Exponential (base 10)')
-
-fitY2, popt2, pcov2 = FitData(logistic_func,data,funcName='Logistic')
-fitY3, popt3, pcov3 = FitData(expLog,data,funcName='ExpLog')
-
-#TrendDev = pd.Series(((y - fitY)/fitY)*100+100)
-TrendDev2 = pd.Series(((y - fitY2)/fitY2)*100+100)
-TrendDev3 = pd.Series(((y - fitY3)/fitY3)*100+100)
-#TrendDev2.to_excel('/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/Generic_Macro/SavedData/BTC_LogisticFitResPC.xlsx')
-######### MATPLOTLIB SECTION #################################################################
-plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 200   ###Set the resolution of the displayed figs & saved fig respectively. 
+    def logistic_func(self, x, K, A, r):  # Define logistic function
+        self.funcName = "Logistic"
+        return K / (1 + A * np.exp(-r * x))
+    # Fit logistic function to data
 
 #### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
 def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
-               LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None):
-    #plt.rc('text', usete=True)
+            LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None):
     fig = plt.figure(num=title,figsize=(13,6.5), tight_layout=True)
     gs1 = GridSpec(1, 1, top = 0.95, bottom=0.14 ,left=0.06,right=0.92)
     ax1 = fig.add_subplot(gs1[0])
@@ -142,7 +76,7 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b'))
         ax1.set_xlim(XTicks[0],XTicks[len(XTicks)-1])
         ax1.set_xlabel('Date (year-month)',fontweight='bold',fontsize=11)
-       
+    
     ax1.legend(loc=2,fontsize=9)
     ax1.set_ylabel(LYLabel,fontweight='bold',fontsize=11)
     for axis in ['top','bottom','left','right']:
@@ -151,128 +85,130 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
         ax1.text(text1)
     return fig    
 
-pcBands = PCBands(fitY,200) 
-pcBands2 = PCBands(fitY2,200)       ## Bands at set % above and below trendline. 
-pcBands3 = PCBands(fitY3,200)
+class FitTrend():
 
-#text1 = '0.9,0.44,s="Price on trendline",color="red",fontsize=9,transform=ax1.transAxes,horizontalalignment="left",verticalalignment="center"'
-Ticks = np.array([25, 50, 100, 200, 400, 800, 1600]); ticklabs = Ticks - 100; minors = []  #Major ticks custom right axis. 
+    def __init__(self, data: pd.Series) -> None:
+        self.name = data.name
+        self.original_data = data
 
-for i in range(len(Ticks)-1):        ###Minor ticks for the custom right axis. 
-    step = (Ticks[i+1] - Ticks[i])/4
-    for j in range(1,4,1):
-        minors.append(int(round(Ticks[i]+j*step)))
-minTicks = np.array(minors); print(minTicks,minTicks.dtype)
-minTickLabs = minTicks - 100; minTicks = minTicks.tolist()
-minTickLabs = minTickLabs.astype(str).tolist()
+    def fitExpTrend(self):
+        index = self.original_data.index.to_numpy()
+        x = np.linspace(1,len(index),len(index)); y = self.original_data.to_numpy()
 
-Range = data.index[len(data)-1] - data.index[0]
-margs = round((0.02*Range.days),0); print(Range.days,margs)
-#### X Ticks for all charts #################################################################################
-Xmin = data.index[0]-timedelta(days=margs); Xmax = data.index[len(data)-1]+timedelta(days=margs)
-Xmin = Xmin.to_pydatetime(); Xmax = Xmax.to_pydatetime()
-stepsize = (Xmax - Xmin) / 20
-XTickArr = np.arange(Xmin, Xmax, stepsize) 
-XTickArr = np.append(XTickArr, Xmax)
-Xmin2 = data.index[0]+timedelta(days=365)-timedelta(days=margs)
-XTickArr2 = np.arange(Xmin2, Xmax, stepsize) 
+        fit = np.polyfit(x, np.log(y), 1)
+        print('Log fit to: ',data.name, ', x, np.log(y), intercept, slope a,b = ',fit)
+        a = fit[0]; b = fit[1]
 
+        x = np.linspace(0,len(data-1),len(data))
+        fit_y = []
+        for ex in x:
+            fit_y.append(np.exp(b+a*ex))
+        fitY = pd.Series(fit_y,index=index,name=data.name+" exp_fit") 
+        TrendDev = ((self.original_data - fitY)/fitY)*100+100
+        self.fit = fitY
+        self.PctDev = TrendDev; self.PctDev.rename('Percentage_dev_from_fit',inplace=True)
+        self.Fit_Info = {"Fit function":"Exponential",
+                    "gradient": a,
+                    "intercept": b}
 
-##### Chart 1 ######################################################################################################################
-fit2n=r'$\bf{Logistic\ fit:}$'+' '+str(round(popt2[0],2))+" / (1 + "+str(round(popt2[1],2))+" x exp(-"+str(round(popt2[2],6))+" * (Date - "+str(StartDate)+")))"
-LeftTraces = {'BTC since 2013':(data,'orangered',2.5),fit2n:(fitY2,'black',1.75),'Logis_UpperBand':(pcBands2[0],'dodgerblue',1.5),'Logis_LowerBand':(pcBands2[1],'dodgerblue',1.5)}
-RightTraces = {'Dev. from logistic fit (right)':(TrendDev2,'blue',1)}
+    def FitData(self, LogOrLin:str='lin', FitFunc: str = "ExpLog"):  #Fit trend to data. 
+        data = self.original_data.copy()
+        func = FitFunction()
+        x = np.linspace(1,len(data),len(data)); y = data.to_numpy(); yLog = np.log(y)
+        f = func.functions[FitFunc]; funcName = FitFunc
+        if funcName == "Exponential":
+            self.fitExpTrend()
+            return
+        if LogOrLin == 'log':
+            try:
+                popt, pcov = curve_fit(f,x,y)
+                fit = f(x,*popt)
+            except Exception as error:    
+                print('Devo, fit failed bro.. error message: ',error,'\n',"Try running fit again with LogOrLin set to 'linear'") 
+                quit()   
+        else:
+            try:
+                popt, pcov = curve_fit(f,x,yLog)
+                fit = np.exp(f(x,*popt))
+            except Exception as error:    
+                print('Devo, fit failed bro.. error message: ',error,'\n',"Try running fit again with LogOrLin set to 'log'") 
+                quit()         
+         
+        Fit = pd.Series(fit,index=data.index,name=data.name+" "+funcName+" fit")   
+        print('Trendline fitted to data: ',data.name,' ',funcName,' function used, optimized fitting parameters: ',popt)  
+        self.fit = Fit
+        TrendDev = ((data - Fit)/Fit)*100+100
+        self.PctDev = TrendDev; self.PctDev.rename('Percentage_dev_from_fit',inplace=True)
+        self.Fit_Info = {"Fit function":funcName,
+                        "p_opt": popt,
+                        "p_cov": pcov}
+        if funcName == "ExpLog":
+            self.fit[0:round(0.02*len(self.fit))] = np.nan
+            self.PctDev[0:round(0.02*len(self.PctDev))] = np.nan
+        elif funcName == "Exp_Base10":
+            print("Note: 'Exp_Base10 fit was not working last timme I checked. Use 'Exponential' instead.")    
+    
+    def StdDevBands(self, multiples:int, periods:int):
+        stdDev = self.fit.rolling(window=periods).std()
+        numstd_l = multiples/np.e
+        self.std_u = self.fit + multiples*stdDev; self.std_u.rename('Upper std. dev. band',inplace=True)
+        self.std_l = self.fit - numstd_l*stdDev; self.std_l.rename('Lower std. dev. band',inplace=True)
 
-plot1 = TwoAxisFig(LeftTraces,'log','Price (USD)','Logistic fit to bitcoin price history',XTicks=XTickArr,\
-    RightTraces=RightTraces,RightScale='log',RightTicks=(Ticks,ticklabs),RightMinTicks=(minTicks,minTickLabs),RYLabel='Deviation from trend (%)')
-plot = plot1.axes[0]; plotb = plot1.axes[1]
-plot.set_ylim(min(data)-0.1*min(data),max(data)+0.1*max(data))
-plotb.set_ylim(25,2250)
-plotb.axhline(100,color='red',ls='dotted',lw=0.75)
-plotb.axhline(46,color='black',linestyle='dotted',lw=1)
-plot.minorticks_on()
+    def PCBands(self, PC_Offset:float):
+        self.pcu = self.fit*((100+PC_Offset)/100); self.pcu.rename('Upper '+str(PC_Offset)+'% band',inplace=True)
+        self.pcl = self.fit/((100+PC_Offset)/100); self.pcu.rename('Lower '+str(PC_Offset)+'% band',inplace=True)
 
-##### Chart 2 ######################################################################################################################
-fit3n = r'$\bf{ExpLog\ fit:}$'+" exp("+str(round(popt3[0],3))+" * ln(Date - "+str(StartDate)+") - "+str(round(popt3[1],3))+')'
-LeftTraces2 = {'BTC since 2013':(data,'orangered',2.5),fit3n:(fitY3,'black',1.75),'ExpLog_UpperBand':(pcBands3[0],'lime',1.5),'ExpLog_LowerBand':(pcBands3[1],'lime',1.5)}
-RightTraces2 = {'Dev. from explog fit (right)':(TrendDev3,'green',1)}
+    def ShowFit(self, yaxis: str = "linear", YLabel: str = "Price (USD)"):
+        if self.fit is None:
+            print('Run fitting funnction first before trying to plot the fit.')    
+            return
+        
+        else:
+            fig = plt.figure(figsize=(13,6.5), tight_layout=True)
+            gs1 = GridSpec(1, 1, top = 0.95, bottom=0.07, left=0.08, right=0.92)
+            ax1 = fig.add_subplot(gs1[0]); axb = ax1.twinx()
+            title = self.fit.name + ", fit quality assessment chart."
+            ax1.set_title(title,fontweight='bold')
 
-plot_2 = TwoAxisFig(LeftTraces2,'log','Price (USD)','ExpLog fit to bitcoin price history',XTicks=XTickArr,\
-                    RightTraces=RightTraces2,RightScale='log',RightTicks=(Ticks,ticklabs),RightMinTicks=(minTicks,minTickLabs),RYLabel='Deviation from trend (%)')
-print(plot1.axes)
-plot2 = plot_2.axes[0]; plot2b = plot_2.axes[1]
-plot2.set_ylim(min(data)-0.1*min(data),max(data)+0.1*max(data))
-plot2b.set_ylim(25,2250)
-plot2b.axhline(100,color='red',ls='dotted',lw=0.75)
-plot2.minorticks_on()
+            ax1.plot(self.original_data, label = self.original_data.name, color = "black", lw = 2.5)
+            ax1.plot(self.fit,label = self.fit.name, color = "blue", lw=1.75)
+            axb.plot(self.PctDev, label = self.PctDev.name, color = "green", lw = 1.25)
+            axb.set_ylabel('% deviation from fitted trend', fontsize = 10, fontweight = 'bold')
+            ax1.set_ylabel(YLabel, fontsize = 10, fontweight = 'bold')
 
-### Chart 3 ########################################################################################################################################
-Pymin = round(min(TrendDev),2); Pymax = round(max(TrendDev),2)
-Ticks2 = np.logspace(start = np.log2(Pymin), stop = np.log2(Pymax), num=10, base=2) 
-tickLabs2 = Ticks.copy(); tickLabs2 -= 100
-Ticks2.round(decimals=0,out=Ticks2); tickLabs2.round(decimals=0,out=tickLabs2)
-Ticks2 = np.ndarray.astype(Ticks,dtype=int,copy=False)
+            ax1.legend(loc=2, fontsize = 'small'); axb.legend(loc=1, fontsize = 'small')
+            ax1.grid(visible=True,axis='both',which='major',lw=0.75,ls=":",color='gray')
+            ax1.grid(visible=True,axis='x',which='both',lw=0.75,ls=":",color='gray')
+            ax1.minorticks_on()
+            ax1.set_ylim((self.original_data.min()-0.05*self.original_data.min()),(self.original_data.max()+0.05*self.original_data.max()))
+            # axb.set_ylim(self.PctDev[round(0.25*len(self.PctDev)):len(self.PctDev)].min(),self.PctDev[round(0.25*len(self.PctDev)):len(self.PctDev)].max())
 
-LeftTraces3 = {'BTC since 2013':(data,'orangered',2.5),'Exponential growth fit':(fitY,'black',1.75),'UpperBand':(pcBands[0],'fuchsia',1.5),'LowerBand':(pcBands[1],'fuchsia',1.5)}
-RightTraces3 = {'Dev. from exp. fit (right)':(TrendDev,'red',1)}
-plot_3 = TwoAxisFig(LeftTraces3,'log','Price (USD)','Exponential fit to bitcoin price history',XTicks=XTickArr,\
-                    RightTraces=RightTraces3,RightScale='log',RightTicks=(Ticks,ticklabs),RightMinTicks=(minTicks,minTickLabs),RYLabel='Deviation from trend (%)')
+            for axis in ['top','bottom','left','right']:
+                ax1.spines[axis].set_linewidth(1.5)
 
-plot3 = plot_3.axes[0]; plot3b = plot_3.axes[1]
-plot3.set_ylim(min(data)-0.1*min(data),max(data)+0.1*max(data))
-plot3b.set_ylim(25,2250)
-plot3b.axhline(100,color='red',ls='dotted',lw=0.75)
-plot3.minorticks_on()
+            if yaxis == 'log':
+                ax1.set_yscale('log'); axb.set_yscale('log')
+                lTicks, lTickLabs = Utilities.EqualSpacedTicks(self.original_data, numTicks=10, LogOrLin='log')
+                rTicks, rTickLabs = Utilities.EqualSpacedTicks(self.PctDev, numTicks=10, LogOrLin='log',LabOffset=-100,labSuffix="%")
+                ax1.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
+                ax1.set_yticks(lTicks); ax1.set_yticklabels(lTickLabs)
+                ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,left=True,labelleft=True)
+                axb.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0) 
+                axb.set_yticks(rTicks); axb.set_yticklabels(rTickLabs)
+                axb.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True)
+                
+            return fig
 
-######## CHART 4 ######################################################################################################################
-TicksLin = np.array([0,100,200,300,400,500,600,700,800,900])
-TicksLog = np.array([12.5, 25, 50, 100, 200, 400, 800])
-LabsLin = TicksLin.copy(); LabsLog = TicksLog.copy()
-LabsLin -= 100; LabsLog -= 100
+if __name__ == '__main__':
+    data = pd.read_excel('/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/Generic_Macro/SavedData/BTCUSD.xlsx')
+    data.set_index(pd.DatetimeIndex(pd.DatetimeIndex(data['date']).date),inplace=True)
+    data.drop('date',axis=1,inplace=True)
+    StartDate = datetime.date(2011,1,1); start = pd.Timestamp(StartDate)
+    data = data[start::]; data = pd.Series(data.squeeze(),name="BTC (USD)")
+    print(data)
+    fit = FitTrend(data)
+    #fit.fitExpTrend()
+    fit.FitData(LogOrLin='log', FitFunc = 'ExpLog')
 
-LeftTraces4 = {'Distorted data: linear % axis (left)':(TrendDev,'black',1.5)}
-RightTraces4 = {'Non-distorted data: offset log % axis':(TrendDev,'green',1.5)}
-plot_4 = TwoAxisFig(LeftTraces4,'linear','Deviation from trend (%)','Linear vs logarithmic % axis',XTicks=XTickArr,LeftTicks=(TicksLin,LabsLin),\
-                    RightTraces=RightTraces4,RightScale='log',RightTicks=(TicksLog,LabsLog),RYLabel='Deviation from trend (%)')
-plot4 = plot_4.axes[0]; plot4b = plot_4.axes[1]
-
-
-plot4.axhline(100,color='red',linestyle='dotted',lw=1)
-plot4b.axhline(100,color='blue',linestyle='dotted',lw=1)
-plot4b.spines['right'].set_color('green')
-plot4b.tick_params(axis='y',which='both',color='green',labelsize=9,labelcolor='green')
-plot4b.set_ylabel('Deviation from trend (%)',fontweight='bold',color='green')
-# ax2.text(0.27,0.11,s="0 % line (linear axis)",color='red',fontsize=9.5,transform=ax2.transAxes,horizontalalignment='left',verticalalignment='center')
-plot4b.legend(loc=1,fontsize=9)
-plot4.legend(loc=2,fontsize=9,bbox_to_anchor=(0.2,1))
-plot4.margins(0.02,0.03); plot4b.margins(0.02,0.03)
-
-######## CHART 5 ######################################################################################################################
-BTC_YoY = YoYCalcFromDaily(data); BTC_YoY_log = BTC_YoY.copy() + 100
-
-TicksLin2 = np.array([0,100,1000,2000,3000,4000,5000,6000,7000,8000,9000,10000])
-TicksLog2 = np.array([12.5, 25, 50, 100, 200, 400, 800, 1600,3200,6400,10000])
-LabsLin2 = TicksLin2.copy(); LabsLog2 = TicksLog2.copy()
-LabsLin2 -= 100; LabsLog2 -= 100
-
-LeftTraces5 = {'Distorted data: linear % axis (left)':(BTC_YoY,'darkorange',1.5)}
-RightTraces5 = {'Non-distorted data: offset log % axis':(BTC_YoY_log,'blue',1.5)}
-plot_5 = TwoAxisFig(LeftTraces5,'linear',r'YoY $\Delta$%','Linear vs logarithmic % axis, '+r'YoY $\Delta$%',LeftTicks=(TicksLin2,LabsLin2),XTicks=XTickArr2,\
-                    RightTraces=RightTraces5,RightScale='log',RightTicks=(TicksLog2,LabsLog2),RYLabel=r'YoY $\Delta$%')
-plot5 = plot_5.axes[0]; plot5b = plot_5.axes[1]
-
-plot5b.axhline(100,color='blue',linestyle='dotted',lw=1.5)
-plot5.axhline(100,color='orangered',linestyle='dotted',lw=1)
-plot5b.spines['right'].set_color('blue')
-#plot5b.tick_params(axis='y',which='both',width=0,labelsize=0,labelcolor='blue')
-plot5.tick_params(axis='y',which='both',labelsize=9)
-plot5b.tick_params(axis='y',which='both',color='blue',labelsize=9,labelcolor='blue')
-plot5b.set_ylabel(r'YoY $\Delta$%',fontweight='bold',color='blue')
-plot5b.legend(loc=1,fontsize=9)
-plot5.grid(visible=True,axis='both',which='major',lw=0.75,ls=':',color='black')
-#plot5.grid(visible=True,axis='both',which='major',lw=0.75,ls=':',color='black')
-plot5.set_axisbelow(True); plot5b.set_axisbelow(True)
-plot5.legend(loc=2,fontsize=9,bbox_to_anchor=(0.2,0.97))
-plot5.margins(0.02,0.03); plot5b.margins(0.02,0.03)
-
-plt.show() 
+    figure = fit.ShowFit(yaxis='log')
+    plt.show()

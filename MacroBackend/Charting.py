@@ -403,6 +403,10 @@ class BMP_Fig(Figure):
                         TheAx.plot(data[col],label = data[col].name,lw=LW)
                 else:        
                     TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
+                    if pd.isna(TheTrace['addMA']) is False:
+                        period = round(TheTrace['addMA'])
+                        ThisTrace = pd.Series(TheTrace['Data'])
+                        TheAx.plot(ThisTrace.rolling(period).mean(),label = TheTrace['Legend_Name']+' '+str(period)+'_MA',color=TheTrace['TraceColor'],lw=1)
                 ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin=TheTrace['YScale'],Ymax=Ymax,Ymin=Ymin)
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
                 TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)   

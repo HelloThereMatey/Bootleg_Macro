@@ -58,7 +58,7 @@ def PlotM2Data(GlobalM2:pd.DataFrame,DataSum:pd.DataFrame,Rank:list=None,LedgFon
         Country = str(iterator[i])
         M2Trace = GlobalM2[Country].copy(); print(Country+', latest print: '+str(M2Trace[len(M2Trace)-1])+', one before that: '+str(M2Trace[len(M2Trace)-2]))
         print(M2Trace.tail(10))
-        YoYm = PriceImporter.YoY4Monthly(M2Trace.copy())
+        YoYm = M2Trace.copy().pct_change(periods=12)*100
         print(M2Trace.tail(10))
         Dat = ax.plot(M2Trace,label=Country,color=colors[culNum])
         yoy = ax2.plot(YoYm,label=Country,color=colors[culNum])
@@ -75,14 +75,18 @@ def PlotM2Data(GlobalM2:pd.DataFrame,DataSum:pd.DataFrame,Rank:list=None,LedgFon
 
 def Plot_GlobalM2(Global_M2:pd.Series,GlobalM2:pd.DataFrame):
     fig = plt.figure(figsize=(11,9), tight_layout=True)
-    gs = GridSpec(3, 1, top = 0.94, bottom=0.05,left=0.1,right=0.96, height_ratios=[1,0.7,0.33], hspace=0.01)
-    ax = fig.add_subplot(gs[0]); ax2 = fig.add_subplot(gs[1],sharex=ax); ax3 = fig.add_subplot(gs[2],sharex=ax)
+    gs = GridSpec(4, 1, top = 0.94, bottom=0.05,left=0.1,right=0.96, height_ratios=[1,0.7,0.33,0.33], hspace=0.01)
+    ax = fig.add_subplot(gs[0]); ax2 = fig.add_subplot(gs[1],sharex=ax); ax3 = fig.add_subplot(gs[2],sharex=ax); ax4 = fig.add_subplot(gs[3],sharex=ax)
     ax.set_title('M2 money supply, sum of top '+str(int(round(((len(GlobalM2.columns)-2)/2),0)))+' economies (USD)',fontweight='bold',fontsize=14)
-    YoYm2 = PriceImporter.YoY4Monthly(Global_M2.copy())
+    YoYm2 = Global_M2.copy().pct_change(periods=12)*100
+    temp = YoYm2.copy()+100
+    sd = temp.pct_change(periods=12)*100
+    print(sd)
     Ann6m =  Utilities.MonthPeriodAnnGrowth(Global_M2.copy(),6)
     Ann3m = Utilities.MonthPeriodAnnGrowth(Global_M2.copy(),3)
     Dat2 = ax.plot(Global_M2,label='Global M2 aggregate',color='blue',lw=2)
     yoy2 = ax2.plot(YoYm2,label=r'GM2 YoY $\Delta$%',color='black',lw=2.25)
+    
     an6m = ax2.plot(Ann6m,label=r'GM2 6m ann. $\Delta$%',color='blue',lw=1.5)
     an3m = ax2.plot(Ann3m,label=r'GM2 3m ann. $\Delta$%',color='orangered',lw=1)
     ax2.legend(loc=2,fontsize=8)
@@ -100,14 +104,17 @@ def Plot_GlobalM2(Global_M2:pd.Series,GlobalM2:pd.DataFrame):
     BarWidth = np.floor(DateRangeAct/len(mom))
 
     mom2 = ax3.bar(x = mom.index, height = mom, width = BarWidth, label=r'Global M2 MoM $\Delta$%',color='green',lw=1)
+    SeconDeriv = ax4.plot(sd,label=r'YoY $\Delta$% of YoY $\Delta$% of global M2',color='red',lw=1)
     ax3.set_axisbelow(True)
     ax.tick_params(axis='x',labelsize=0); ax.tick_params(axis='x',labelsize=0); ax2.tick_params(axis='x',labelsize=0)
     ax2.set_ylabel(r'M2 YoY $\Delta$%',fontweight='bold',fontsize=12); ax3.set_ylabel(r'MoM $\Delta$%',fontweight='bold',fontsize=10)
     ax2.axhline(y=0,linestyle='dashed',color='red',lw=1); ax3.axhline(y=0,linestyle='dashed',color='red',lw=0.75)
-
+    ax4.set_ylabel(r'YoY$^{2}$ $\Delta$%', fontweight='bold',fontsize=11)
+    ax4.grid(which='both',axis="both",linestyle="dotted"); ax4.legend(loc=2,fontsize='small')
     ax.legend(loc=1,bbox_to_anchor=(0.1,1.1),fontsize=9)         
     for axis in ['top','bottom','left','right']:
-            ax.spines[axis].set_linewidth(1.5); ax2.spines[axis].set_linewidth(1.5) ; ax3.spines[axis].set_linewidth(1.5)      
+            ax.spines[axis].set_linewidth(1.5); ax2.spines[axis].set_linewidth(1.5) ; ax3.spines[axis].set_linewidth(1.5)     
+            ax4.spines[axis].set_linewidth(1.5)   
 
     laggers = []; latestPrint = GlobalM2.index[len(GlobalM2)-1]; print('Latest data print: ',latestPrint); M2Total = 0; missingT = 0
     for i in range(2,len(GlobalM2.columns),1):

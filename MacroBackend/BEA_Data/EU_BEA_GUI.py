@@ -3,7 +3,7 @@ wd = os.path.dirname(__file__)  ## This gets the working directory which is the 
 dir = os.path.dirname(wd); parent = os.path.dirname(dir)
 print('Working directory: ',wd,', parent folder',dir, 'level above that: ',parent)
 import sys; sys.path.append(parent); sys.path.append(dir); print(sys.path)
-import Tkinter_Utilities ## Don't worry if your IDE shows that this module can't be found, it should stil work. 
+from MacroBackend import Utilities ## Don't worry if your IDE shows that this module can't be found, it should stil work. 
 
 import customtkinter as ctk
 import tkinter as tk
@@ -31,7 +31,7 @@ except:
             Make sure that you set system to single display mode first and then run script. You can go back to multiple screens after running the script once.\
                 Is system set to single display mode?')
     if SingleDisplay is True:
-        tkVars = Tkinter_Utilities.TkinterSizingVars()
+        tkVars = Utilities.TkinterSizingVars()
         tkVars.SetScreenInfoFile()
         tkVars.ExportVars(dir+FDel+'SystemInfo')
         ScreenSettings = tkVars.ScreenData
@@ -48,7 +48,7 @@ if SessionCheck != OldSesh:
             Make sure that you set system to single display mode first and then run script. You can go back to multiple screens after running the script once.\
                 Is system set to single display mode?')
     if SingleDisplay is True:
-        tkVars = Tkinter_Utilities.TkinterSizingVars()
+        tkVars = Utilities.TkinterSizingVars()
         tkVars.SetScreenInfoFile()
         tkVars.ExportVars(dir+FDel+'SystemInfo')
         ScreenSettings = tkVars.ScreenData
