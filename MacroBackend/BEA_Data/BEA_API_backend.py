@@ -10,6 +10,7 @@ import requests
 import re
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import matplotlib.colors as mcolors
 from typing import Union
 import datetime
 import customtkinter as ctk
@@ -32,22 +33,6 @@ Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  'peru', 'plum', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 
  'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'springgreen', 'steelblue', 'tan', 'teal', 'tomato', 
  'turquoise', 'violet','yellowgreen']
-
-def Search_df(df:Union[pd.DataFrame, pd.Series], searchTerm:str):
-    matches = []; match_indices = []; match_col = []; i = 0
-    matchDF = pd.DataFrame()
-    search_regex = re.compile(searchTerm.replace('*', '.*'), re.IGNORECASE)
-    for col in df.columns:
-        i = 0
-        for s in df[col]:
-            if search_regex.search(s):
-                matches.append(s)
-                match_indices.append(i)
-                match_col.append(col)
-                matchRow = df.iloc[[i]]
-                matchDF = pd.concat([matchDF,matchRow],axis=0)
-            i += 1   
-    return matches, match_indices, match_col, matchDF
 
 # Function to convert numbers with commas to integers
 def convert_to_float_with_commas(value):
@@ -179,7 +164,7 @@ class BEA_Data(BureauEconomicAnalysisClient):
                 else:
                     AddInfo[key] = data["BEAAPI"]["Results"][key] 
             except:
-                print('Error encountered trying to convert data from dict to data frame, for BEAAPI data: ', key)
+                #print('Error encountered trying to convert data from dict to data frame, for BEAAPI data: ', key)
                 AddInfo[key] = data["BEAAPI"]["Results"][key]
                 pass  
         
@@ -271,7 +256,8 @@ class BEA_Data(BureauEconomicAnalysisClient):
             data = pd.DataFrame(self.Data['Series_Split'])
 
         colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color']); i = 0
-        colors.extend(Mycolors)   
+        xkcd_colors = list(mcolors.XKCD_COLORS.keys())
+        colors.extend(Mycolors); colors.extend(xkcd_colors)
         
         for col in data.columns:
             ax.plot(data[col],label=col, color = colors[i]); i += 1    
@@ -338,7 +324,6 @@ class CustomIndexWindow(ctk.CTkToplevel):
         self.components = ctk.StringVar(self, value=self.data.columns.to_list(), name = 'ListComponents')
         self.ExportPath = ctk.StringVar(self, value= exportPath, name = 'Export_path')
         self.C_Index_name = ctk.StringVar(self, value="Custom_Index", name = 'Export_name')
-        self.exportPath = exportPath
         self.operationString = ctk.StringVar(self, value="", name = 'Operation_String')
 
         self.frame1 = ctk.CTkFrame(self); self.frame2 = ctk.CTkFrame(self); self.frame3 = ctk.CTkFrame(self); self.frame4 = ctk.CTkFrame(self)
@@ -384,7 +369,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
     
     def ExportIndex(self):   #Save the custom index series to disk. 
         name = self.C_Index_name.get()
-        filename = self.exportPath+FDel+name+'.xlsx'; print(filename)
+        filename = self.ExportPath+FDel+name+'.xlsx'; print(filename)
         print('Saving custom index series as: ',filename)
         self.C_Index.to_excel(filename,sheet_name='Closing_Price')
         with pd.ExcelWriter(filename, engine='openpyxl', mode='a') as writer:  
@@ -486,7 +471,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
         self.choiceIndex.set("")
 
     def SetExpPath(self):
-        folder_selected = filedialog.askdirectory(initialdir=self.exportPath)
+        folder_selected = filedialog.askdirectory(initialdir=self.ExportPath)
         self.ExportPath.set(folder_selected)  
 
 if __name__ == "__main__":

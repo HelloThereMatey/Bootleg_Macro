@@ -83,12 +83,14 @@ bottom3 = ctk.CTkFrame(root,width=win_widthT); bottom3.grid(column=0,row=4,padx=
 
 def SearchBtn():
     loadPath = path.get(); term = searchTerm.get()
+    print("Search term original: ",term)
     TheDataSet = DataSet.get()
 
     ridEm = {"(":"",")":"","'":"","'":"",",":""}
     for char in ridEm.keys():
-        term = term.replace(char,ridEm[char])
+        # term = term.replace(char,ridEm[char])
         loadPath = loadPath.replace(char,ridEm[char])
+    print("Search term butchered: ",term)    
     print('Will search for ',term,', amoungst dataset: ',TheDataSet,'\n',loadPath)
     DS_Name = TheDataSet+'_Tables'
     df = bea.BEAAPI_InfoTables[DS_Name]
@@ -105,7 +107,6 @@ def SearchMetrics(MetricsList, SearchString:str):
     if type(MetricsList) == str:  
         df = pd.read_excel(MetricsList,sheet_name='NIPA_Tables')  #Load the GNMetrics list as pandas dataframe. 
         df.set_index(df.columns[0],inplace=True); df.index.rename('Index',inplace=True) 
-        print(df.head(50))
     elif str(type(MetricsList) == "<class 'pandas.core.frame.DataFrame'>"):
         df = MetricsList
     else:
@@ -113,7 +114,7 @@ def SearchMetrics(MetricsList, SearchString:str):
         quit()
 
     #Set your serach term here. Wildcard characters (*) not needed. Will list all partial matches. Case insensitive. 
-    matches, match_indices, match_col, matchDF = BEA_API_backend.Search_df(df, SearchString)  #search 
+    matchDF = Utilities.Search_DF(df, SearchString)  #search 
     return matchDF
 
 def MakeChoice(event):

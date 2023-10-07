@@ -1,3 +1,8 @@
+import sys
+import os
+wd = os.path.dirname(__file__); dire = os.path.dirname(wd)
+sys.path.append(dire)
+
 import numpy as np
 from scipy.optimize import curve_fit
 import pandas as pd
@@ -5,19 +10,26 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import matplotlib.dates as mdates
-import Utilities
+from MacroBackend import Utilities
 import datetime
 from datetime import timedelta
 
 class FitFunction():
     def __init__(self):
-        self.functions = {'Exp_Base10':self.Exp_Base10,
-                          "Exponential": None,
-                          "ExpLog": self.expLog,
-                          "Logistic": self.logistic_func}
+        ### Define function formula as a function below, and define tuple in self.functions with (callable function, Yscale of data display).. 
+        self.functions = {"Line": (self.FitLine, 'linear'),
+                        'Exp_Base10':(self.Exp_Base10, 'log'), 
+                        "Exponential": (None,'log'),
+                        "ExpLog": (self.expLog, 'log'),
+                        "LinExpLog": (self.expLog, 'linear'),
+                        "Logistic": (self.logistic_func, 'log')}
         print("Data fitting engine, fit function options are: ",list(self.functions.keys()))
 
     ## Mathematical functions to fit to data.
+    def FitLine(self, x, m, b):
+        self.funcName = "Line"
+        return (m*x) + b
+    
     def Exp_Base10(self, x, a, b):
         self.funcName = "Exp_Base10"
         return 10**(a*x+b)
@@ -96,52 +108,61 @@ class FitTrend():
         x = np.linspace(1,len(index),len(index)); y = self.original_data.to_numpy()
 
         fit = np.polyfit(x, np.log(y), 1)
-        print('Log fit to: ',data.name, ', x, np.log(y), intercept, slope a,b = ',fit)
+        print('Exponential fit to: ',self.original_data.name, ', x, np.log(y), intercept, slope a,b = ',fit)
         a = fit[0]; b = fit[1]
 
-        x = np.linspace(0,len(data-1),len(data))
+        x = np.linspace(0,len(self.original_data-1),len(self.original_data))
         fit_y = []
         for ex in x:
             fit_y.append(np.exp(b+a*ex))
-        fitY = pd.Series(fit_y,index=index,name=data.name+" exp_fit") 
-        TrendDev = ((self.original_data - fitY)/fitY)*100+100
+        fitY = pd.Series(fit_y,index=index,name=self.original_data.name+" exp_fit") 
+        TrendDev = ((self.original_data - fitY)/fitY)*100; print('Dev from trend max, min: ',TrendDev.max(),TrendDev.min())
         self.fit = fitY
+        fit_res = ((self.original_data - fitY)**2).sum(); print("Residual squared: ", fit_res)
+        ss_tot = ((self.original_data - self.original_data.mean())**2).sum(); print("Total sum of squares: ", fit_res)
+        r2 = round(1 - (fit_res / ss_tot),3); print("R squared value from fit: ",r2)
         self.PctDev = TrendDev; self.PctDev.rename('Percentage_dev_from_fit',inplace=True)
         self.Fit_Info = {"Fit function":"Exponential",
                     "gradient": a,
-                    "intercept": b}
+                    "intercept": b,
+                    "R_Squared": r2}
 
-    def FitData(self, LogOrLin:str='lin', FitFunc: str = "ExpLog"):  #Fit trend to data. 
+    def FitData(self, FitFunc: str = "ExpLog"):  #Fit trend to data. 
         data = self.original_data.copy()
         func = FitFunction()
         x = np.linspace(1,len(data),len(data)); y = data.to_numpy(); yLog = np.log(y)
-        f = func.functions[FitFunc]; funcName = FitFunc
+        f = func.functions[FitFunc][0]; funcName = FitFunc
+        LogOrLin = func.functions[FitFunc][1]
         if funcName == "Exponential":
             self.fitExpTrend()
             return
-        if LogOrLin == 'log':
+        if LogOrLin == 'linear':
             try:
                 popt, pcov = curve_fit(f,x,y)
                 fit = f(x,*popt)
             except Exception as error:    
-                print('Devo, fit failed bro.. error message: ',error,'\n',"Try running fit again with LogOrLin set to 'linear'") 
+                print('Devo, fit failed bro.. error message: ',error,'\n',"Try running fit again with LogOrLin set to 'log'") 
                 quit()   
-        else:
+        elif LogOrLin == 'log':
             try:
                 popt, pcov = curve_fit(f,x,yLog)
                 fit = np.exp(f(x,*popt))
             except Exception as error:    
-                print('Devo, fit failed bro.. error message: ',error,'\n',"Try running fit again with LogOrLin set to 'log'") 
-                quit()         
+                print('Devo, fit failed bro.. error message: ',error,'\n',"Try running fit again with LogOrLin set to 'linear'") 
+                quit()                 
          
         Fit = pd.Series(fit,index=data.index,name=data.name+" "+funcName+" fit")   
         print('Trendline fitted to data: ',data.name,' ',funcName,' function used, optimized fitting parameters: ',popt)  
         self.fit = Fit
-        TrendDev = ((data - Fit)/Fit)*100+100
+        fit_res = ((data - Fit)**2).sum(); print("Residual squared: ", fit_res)
+        ss_tot = ((data - data.mean())**2).sum(); print("Total sum of squares: ", fit_res)
+        r2 = round(1 - (fit_res / ss_tot),3); print("R squared value from fit: ",r2)
+        TrendDev = ((data - Fit)/Fit)*100; print('Dev from trend max, min: ',TrendDev.max(),TrendDev.min())
         self.PctDev = TrendDev; self.PctDev.rename('Percentage_dev_from_fit',inplace=True)
         self.Fit_Info = {"Fit function":funcName,
                         "p_opt": popt,
-                        "p_cov": pcov}
+                        "p_cov": pcov,
+                        "R_Squared": r2}
         if funcName == "ExpLog":
             self.fit[0:round(0.02*len(self.fit))] = np.nan
             self.PctDev[0:round(0.02*len(self.PctDev))] = np.nan
@@ -169,10 +190,23 @@ class FitTrend():
             ax1 = fig.add_subplot(gs1[0]); axb = ax1.twinx()
             title = self.fit.name + ", fit quality assessment chart."
             ax1.set_title(title,fontweight='bold')
+            pct = self.PctDev.copy()
+
+            if yaxis == 'log':
+                ax1.set_yscale('log'); axb.set_yscale('log')
+                lTicks, lTickLabs = Utilities.EqualSpacedTicks(self.original_data, numTicks=10, LogOrLin='log')
+                pct += 100
+                rTicks, rTickLabs = Utilities.EqualSpacedTicks(pct, numTicks=10, LogOrLin='log',LabOffset=-100,labSuffix="%")
+                ax1.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
+                ax1.set_yticks(lTicks); ax1.set_yticklabels(lTickLabs)
+                ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,left=True,labelleft=True)
+                axb.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0) 
+                axb.set_yticks(rTicks); axb.set_yticklabels(rTickLabs)
+                axb.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True)
 
             ax1.plot(self.original_data, label = self.original_data.name, color = "black", lw = 2.5)
             ax1.plot(self.fit,label = self.fit.name, color = "blue", lw=1.75)
-            axb.plot(self.PctDev, label = self.PctDev.name, color = "green", lw = 1.25)
+            axb.plot(pct, label = self.PctDev.name, color = "green", lw = 1.25)
             axb.set_ylabel('% deviation from fitted trend', fontsize = 10, fontweight = 'bold')
             ax1.set_ylabel(YLabel, fontsize = 10, fontweight = 'bold')
 
@@ -181,21 +215,12 @@ class FitTrend():
             ax1.grid(visible=True,axis='x',which='both',lw=0.75,ls=":",color='gray')
             ax1.minorticks_on()
             ax1.set_ylim((self.original_data.min()-0.05*self.original_data.min()),(self.original_data.max()+0.05*self.original_data.max()))
+            printr2 = "R-squared value from fit: "+str(self.Fit_Info['R_Squared'])
+            ax1.text(x=0.37, y = 0.97, s= printr2,horizontalalignment='left',verticalalignment='center', transform=ax1.transAxes )
             # axb.set_ylim(self.PctDev[round(0.25*len(self.PctDev)):len(self.PctDev)].min(),self.PctDev[round(0.25*len(self.PctDev)):len(self.PctDev)].max())
 
             for axis in ['top','bottom','left','right']:
                 ax1.spines[axis].set_linewidth(1.5)
-
-            if yaxis == 'log':
-                ax1.set_yscale('log'); axb.set_yscale('log')
-                lTicks, lTickLabs = Utilities.EqualSpacedTicks(self.original_data, numTicks=10, LogOrLin='log')
-                rTicks, rTickLabs = Utilities.EqualSpacedTicks(self.PctDev, numTicks=10, LogOrLin='log',LabOffset=-100,labSuffix="%")
-                ax1.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
-                ax1.set_yticks(lTicks); ax1.set_yticklabels(lTickLabs)
-                ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,left=True,labelleft=True)
-                axb.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0) 
-                axb.set_yticks(rTicks); axb.set_yticklabels(rTickLabs)
-                axb.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True)
                 
             return fig
 
@@ -207,8 +232,7 @@ if __name__ == '__main__':
     data = data[start::]; data = pd.Series(data.squeeze(),name="BTC (USD)")
     print(data)
     fit = FitTrend(data)
-    #fit.fitExpTrend()
-    fit.FitData(LogOrLin='log', FitFunc = 'ExpLog')
+    fit.FitData(FitFunc='Logistic')
 
     figure = fit.ShowFit(yaxis='log')
     plt.show()
