@@ -8,6 +8,7 @@ import sys
 import os
 import re
 import json
+from typing import Union, Tuple, List
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
@@ -196,42 +197,37 @@ class StringMathOp:
         print(self.colMap)   
         self.counter = 0 
 
-    def op(self, MathOpStr:str) -> pd.Series:
-        alpha = "abcdefghijklmnopqrstuvwxyz".upper()
+    def op(self, MathOpStr: list) -> pd.Series:
         for p in self.operators.keys():
             x = 0
-            while x < len(MathOpStr)-1 and any(p in str(el) for el in MathOpStr):
-                if p in str(MathOpStr[x]):
+            while x < len(MathOpStr)-1 and any(p in el for el in str(MathOpStr)):
+                if re.search(f"^\{p}", str(MathOpStr[x])) and type(MathOpStr[x]) == str:
                     print(f"Operator: ({MathOpStr[x]}): {type(MathOpStr[x])}")
-                    print(f"Left operand ({MathOpStr[x-1]}): {type(MathOpStr[x-1])}")
-                    print(f"Right operand ({MathOpStr[x+1]}): {type(MathOpStr[x+1])}")
+                    print(f"Left operand ({MathOpStr[x-1].name}): {type(MathOpStr[x-1])}")
+                    print(f"Right operand ({MathOpStr[x+1].name}): {type(MathOpStr[x+1])}")
                     print('Running operation: ', self.operators.get(p))
                     replacer = self.operators.get(p)(MathOpStr[x-1] , MathOpStr[x+1])
-                    replacer = pd.Series(replacer, name="RES_"+alpha[self.counter])
-                    replacer.reset_index(inplace=True,drop=True)
-                    print("Replacing: ",MathOpStr[x-1], ' with: ',replacer)
+                    replacer = pd.Series(replacer, name="RES_"+str(self.counter))
+                    print("Result: ",replacer.name)
                     MathOpStr[x-1] = replacer
-                    print("Will delete: ",MathOpStr[x:x+2])
                     del MathOpStr[x:x+2]
-                else:
-                    x += 1; self.counter += 1  
+                x += 1     
         return MathOpStr[0]
     
     def func(self, MathOpStr:str) -> pd.Series:
+        print('MathOpStr @ start of func: ',MathOpStr,', iteration: ', self.counter)
         df = self.Data
-        results = {}
-        alpha = "abcdefghijklmnopqrstuvwxyz".upper()
+        results = {}; d = []
 
         while '(' in MathOpStr:
             start = MathOpStr.rfind('(')
             end = MathOpStr.find(')', start)
             result = self.func(MathOpStr[start+1:end])
-            key = 'RES_' + alpha[self.counter]
+            key = 'RES_' + str(self.counter)
             results[key] = result
             MathOpStr = MathOpStr[:start] + key + MathOpStr[end+1:]
             self.counter += 1
 
-        d = []
         tokens = re.split('(\W)', MathOpStr)
         for i in range(len(tokens)):
             if tokens[i]:
@@ -244,14 +240,14 @@ class StringMathOp:
                     d.append(result)
                 elif tokens[i].isdigit():
                     column_index = int(tokens[i])
-                    column = df[self.colMap[column_index]].reset_index(drop=True)
+                    column = df[self.colMap[column_index]]
                     d.append(column)
+        result = self.op(d); print("Finished op run. ")
+        result = pd.Series(result.to_list(), index = df.index, name = result.name)
         
-        d = self.op(d)
-        d = pd.Series(d.to_list(), index = df.index)
-        print(d)
-        self.ComputedIndex = d.copy()
-        return d
+        self.ComputedIndex = result.copy()
+        return result
+
 
 def Colors(map:str, num_colors:int):
     # Create the colormap
@@ -259,7 +255,6 @@ def Colors(map:str, num_colors:int):
     # Create the list of colors
     colors = [cm(1.*i/num_colors) for i in range(num_colors)]    
     return colors
-
 
 def GetAxesDims(fig: plt.Figure, ax: plt.Axes) -> dict:
     print(fig, ax)
@@ -378,4 +373,73 @@ class TkinterSizingVars():
         filePath = folder+self.FDel+"ScreenData.json"
         with open(filePath, 'w') as f:
             json.dump(self.ScreenData, f, indent=4)
+
+def Search_df(df:Union[pd.DataFrame, pd.Series], searchTerm:str):
+    matches = []; match_indices = []; match_col = []; i = 0
+    matchDF = pd.DataFrame()
+    search_regex = re.compile(searchTerm.replace('*', '.*'), re.IGNORECASE)
+    for col in df.columns:
+        i = 0
+        for s in df[col]:
+            if search_regex.search(s):
+                matches.append(s)
+                match_indices.append(i)
+                match_col.append(col)
+                matchRow = df.iloc[[i]]
+                matchDF = pd.concat([matchDF,matchRow],axis=0)
+            i += 1   
+    return matches, match_indices, match_col, matchDF
+
+def Search_DF(df: Union[pd.DataFrame, pd.Series], searchTerm: str):
+    # Split the search term by comma if any
+    searchTerms = []
+    if re.search(".*,.*",searchTerm):
+        searchTerms.extend(searchTerm.split(','))
+    else:
+        searchTerms.append(searchTerm) 
+
+    # Create list of compiled regular expressions
+    search_regexes = [term.strip().replace('*', '.*') for term in searchTerms]
+    print("Original search terms list: ", search_regexes)
+
+    def innerSearch(df: Union[pd.DataFrame, pd.Series], search_regexs):
+        matches = []; match_indices = []; match_col = []; matchDF = pd.DataFrame()
+
+        if not search_regexs:
+            return df
+        else:
+            for col in df.columns:
+                i = 0
+                for s in df[col]:
+                    if re.search(re.escape(search_regexes[0]), s, flags = re.IGNORECASE):
+                        matches.append(s)
+                        match_indices.append(i)
+                        match_col.append(col)
+                        matchRow = df.iloc[[i]]
+                        matchDF = pd.concat([matchDF,matchRow],axis=0)
+                    i += 1   
+            if len(matchDF.columns) == 1:
+                matchDF = pd.Series(matchDF.squeeze())     
+            search_regexs.pop(0)
+        return innerSearch(matchDF, search_regexs)
+    
+    finalMatchDF = innerSearch(df, search_regexes)
+    return finalMatchDF
+
+def CheckIndexDifference(series1:Union[pd.DataFrame, pd.Series], series2:Union[pd.DataFrame, pd.Series]):
+    diffs = (series1.index.difference(series2.index), series2.index.difference(series1.index))
+    differences = False
+    for diff in diffs:
+        if len(diff) > 0:
+            differences = True
+            return differences, diff
+        else:
+            pass
+    return differences 
+    
+
+if __name__ == "__main__":
+    df = pd.read_excel("/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/MacroBackend/BEA_Data/Datasets/BEAAPI_Info.xlsx", sheet_name="NIPA_Details_Tables", index_col=0)
+    purrFurr = Search_DF(df, "personal,(M),Real")
+    print(purrFurr)
 

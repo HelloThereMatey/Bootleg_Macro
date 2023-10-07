@@ -4,10 +4,25 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 import matplotlib.dates as mdates
 from matplotlib.gridspec import GridSpec
+import matplotlib.colors as mcolors
 ### These are standard python packages included in the latest python distributions. No need to install them. 
 import datetime
 from datetime import timedelta
 from . import Utilities
+
+Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
+ , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
+ 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 
+ 'darksalmon', 'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise', 'darkviolet', 'deeppink', 'deepskyblue', 
+ 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick', 'forestgreen', 'fuchsia', 'gold', 'goldenrod', 
+ 'gray', 'green', 'greenyellow', 'grey','hotpink', 'indianred', 'indigo', 'khaki',
+ 'lawngreen', 'lemonchiffon','lime', 
+ 'limegreen', 'magenta', 'maroon', 'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen', 'mediumslateblue', 
+ 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue', 'moccasin', 'navy', 
+ 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'palegreen', 'paleturquoise', 'palevioletred',
+ 'peru', 'plum', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 
+ 'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'springgreen', 'steelblue', 'tan', 'teal', 'tomato', 
+ 'turquoise', 'violet','yellowgreen']
 
    #######. MatPlotLib Section. Making good figs with MPL takes many lines of code dagnammit.  ###################
 def FedFig(TheData:pd.Series,SeriesInfo:pd.Series,RightSeries:pd.Series=None,rightlab="",LYScale="linear",RYScale="linear",CustomXAxis=True):
@@ -375,7 +390,7 @@ class BMP_Fig(Figure):
                 TheAx.set_yscale(TheTrace['YScale'])
                 print(trace,TheAx, 'Use scale: ', TheTrace['YScale'])
 
-            if TheTrace['YScale'] == 'log'and TheTrace['UnitsType'] != 'Unaltered':
+            if TheTrace['YScale'] == 'log' and TheTrace['UnitsType'] != 'Unaltered':
                 print('Using offset log axis for series: ',TheTrace['Name'])
                 TheTrace['Data'] += 100
                 if Ymin is not None:
@@ -469,3 +484,30 @@ class BMP_Fig(Figure):
     def addLogo(self,path):
         logo = plt.imread(path)
         self.figimage(logo,xo=2600,yo=10,origin = 'upper')    
+
+
+def DF_DefPlot(data: pd.DataFrame, yLabel: str = "a.u", YScale:str='linear', title: str = "DataFrame contents"):
+    plt.rcParams['font.family'] = 'serif'
+    fig = plt.figure(figsize=(11, 5), dpi=150)
+    ax = fig.add_axes(rect=[0.07,0.06,0.67,0.84])
+
+    colors = list(plt.rcParams['axes.prop_cycle'].by_key()['color']); i = 0
+    xkcd_colors = list(mcolors.XKCD_COLORS.keys())
+    colors.extend(Mycolors); colors.extend(xkcd_colors)
+    
+    for col in data.columns:
+        ax.plot(data[col],label=col, color = colors[i]); i += 1    
+    ax.legend(fontsize=5,loc=2,bbox_to_anchor=(1.005,1.01))
+    ax.set_yscale(YScale); 
+    ax.set_title(title,fontweight='bold',fontsize=9,loc='left',x = 0.1)
+
+    ax.set_ylabel(yLabel,fontweight='bold',fontsize=9)
+    ax.tick_params(axis='both',labelsize=8) 
+    ax.minorticks_on(); ax.margins(x=0.02,y=0.02)
+    ax.grid(visible=True,axis='both',which='both',lw=0.5,color='gray',ls=':')      
+    ax.margins(0.01,0.01)    
+    for axis in ['top','bottom','left','right']:
+            ax.spines[axis].set_linewidth(1.5)    
+    plt.tight_layout() # This will ensure everything fits well    
+
+    return fig      

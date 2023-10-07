@@ -5,22 +5,21 @@ dire = os.path.dirname(wd)
 print(wd,dire)
 import sys; sys.path.append(dire)
 
-from MacroBackend import PriceImporter ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
-from MacroBackend import Charting    ##This script has all the matplotlib chart formatting code. That code is ugly, best to put it in a second file like this. 
-from MacroBackend import Utilities
+## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
+from MacroBackend import PriceImporter, Charting, Utilities, Fitting
 ## You may see: 'Import "MacroBackend" could not be resolved' & it looks like MacroBackend can't be found. However, it will be found when script is run. Disregard error. 
+## You can make the error go away by adding thee MacroBackend and PLebs_Macro folder paths to you VSCode autocomplete paths list. 
 #### The below packages need to be installed via pip/pip3 on command line. These are popular, well vetted packages all. Just use 'pip install -r requirements.txt'
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from matplotlib.gridspec import GridSpec
 
 ### These are standard python packages included in the latest python distributions. No need to install them. 
 import datetime
 from datetime import timedelta
-from tkinter import filedialog, messagebox
+from tkinter import messagebox
 import json
+import re
 
 ###### Determine what OS this is running on and get appropriate path delimiter. #########
 FDel = os.path.sep
@@ -97,7 +96,7 @@ for i in range(1,6):
     if pd.isna(ticker):
         pass
     else:
-        source = Inputs.loc[i].at['Source']; Tipe = Inputs.loc[i].at['UnitsType']
+        source = Inputs.loc[i].at['Source']; Tipe = str(Inputs.loc[i].at['UnitsType']).strip()
         color = Inputs.loc[i].at['TraceColor']; label = Inputs.loc[i].at['Legend_Name']; name = Inputs.loc[i].at['Name']
         yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['Resample2D']
         axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i-1]; MA =  Inputs.loc[i].at['Sub_MA']; LW = Inputs.loc[i].at['LineWidth']
@@ -110,7 +109,7 @@ SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; Serie
 numAxii = numSeries
 print('Number of data series: ',numSeries,'Number of axii on chart: ',numAxii)
 
-DataPath = wd+FDel+'SavedData'; GNPath = DataPath+FDel+'Glassnode'
+DataPath = wd+FDel+'SavedData'; GNPath = DataPath+FDel+'Glassnode'; BEAPath = DataPath+FDel+'BEA'
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]; Source = TheSeries['Source']; ticker = TheSeries['Ticker']; TheIndex = TheSeries['Index']
     SeriesInfo = pd.Series([],dtype=str)
@@ -135,6 +134,15 @@ for series in SeriesDict.keys():
         
     elif Source == 'GNload':
         TheData = pd.read_excel(GNPath+FDel+ticker+'.xlsx')
+        TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
+        TheData.drop(TheData.columns[0],axis=1,inplace=True)
+        if type(TheData) == pd.DataFrame:
+            pass
+        else:
+            TheData = pd.Series(TheData.squeeze(),name=ticker)
+    
+    elif Source == 'load_BEA':
+        TheData = pd.read_excel(BEAPath+FDel+ticker+'.xlsx')
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
         TheData.drop(TheData.columns[0],axis=1,inplace=True)
         if type(TheData) == pd.DataFrame:
@@ -291,8 +299,9 @@ for series in SeriesDict.keys():
             print('Sub_MA must be an integer if you want to use an MA.')    
 
 ###################### Change series to YoY or other annualized rate calcs if that option is chosen #################################
-normStr = 'Unaltered'; YoYStr = 'Year on year % change'; devStr = '% deviation from fitted trendline'; ann3mStr = 'Annualised 3-month % change'
+normStr = 'Unaltered'; YoYStr = 'Year on year % change'; devStr = '% dev. from fit. trend'; ann3mStr = 'Annualised 3-month % change'
 ann6mStr = 'Annualised 6-month % change'; momStr = 'Month on month % change'; yoySqStr = 'YoY of Yoy, i.e YoY^2'
+
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]; 
     data = TheSeries['Data']; name = TheSeries['Name']
@@ -300,6 +309,7 @@ for series in SeriesDict.keys():
     idx = pd.DatetimeIndex(data.index)
     Freq = str(idx.inferred_freq); print(name,' Inferred frequency: ',Freq)
     Freqsplit = Freq.split("-")
+    MatchTransform = re.search(devStr, TraceType, flags = re.IGNORECASE)
 
     if TraceType.upper() == YoYStr.upper():
         data = Utilities.MonthPeriodAnnGrowth2(data,12)
@@ -319,8 +329,17 @@ for series in SeriesDict.keys():
     elif TraceType.upper() == yoySqStr.upper(): 
         FirstDer = Utilities.MonthPeriodAnnGrowth2(data,12) + 100
         data = Utilities.MonthPeriodAnnGrowth2(FirstDer,12) 
-    # elif  TraceType.upper() == devStr.upper():      
-    #     fitY, std_u, std_l, TrendDev = fitExpTrend(data)
+    elif MatchTransform is not None:  
+        print('Using dev. from fitted trend transformation...')   
+        start, end = MatchTransform.span()
+        matched = TraceType[start:end]; remainder = TraceType[:start] + TraceType[end:]
+        func = re.search(r'\w+',remainder, flags = re.IGNORECASE)
+        FitFunc = remainder[func.span()[0]:func.span()[1]]; print('Fit function to use: '+FitFunc+".")
+        fit = Fitting.FitTrend(data)
+        fit.FitData(FitFunc = FitFunc)
+        SeeFit = fit.ShowFit(yaxis=TheSeries['YScale'])
+        data = fit.PctDev
+    
     else:
         pass    
     TheSeries['Data'] = data
@@ -398,7 +417,8 @@ for source in DataSource:
         strList += ", "+source; 
     i +=1 
 DataSourceStr = 'Source: '+strList
-Replaces = {"GNload":"Glassnode","fred":"Federal reserve","yfinance":"Yahoo","yfinance":"Yahoo","tv":"Trading view","coingecko":"Coin gecko"}
+Replaces = {"GNload":"Glassnode","fred":"Federal reserve","yfinance":"Yahoo","yfinance":"Yahoo","tv":"Trading view","coingecko":"Coin gecko",
+            "load_BEA":"U.S Bureau of Economic Analysis"}
 for word in Replaces.keys():
     DataSourceStr = DataSourceStr.replace(word,Replaces[word])
 
