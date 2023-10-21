@@ -369,7 +369,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
     
     def ExportIndex(self):   #Save the custom index series to disk. 
         name = self.C_Index_name.get()
-        filename = self.ExportPath+FDel+name+'.xlsx'; print(filename)
+        filename = self.ExportPath.get()+FDel+name+'.xlsx'
         print('Saving custom index series as: ',filename)
         self.C_Index.to_excel(filename,sheet_name='Closing_Price')
         with pd.ExcelWriter(filename, engine='openpyxl', mode='a') as writer:  
@@ -481,13 +481,16 @@ if __name__ == "__main__":
    
     filepath = wd+"/Datasets/BEAAPI_Info.xlsx"
 
-    # Initalize the new Client.
-    bea = BEA_Data(api_key=api_key,BEA_Info_filePath=filepath, Refresh_Info=False)
-    print(bea.BEAAPI_InfoTables)
-    print(bea.DataSetList, bea.SheetsList, bea.DSTables)
+    # # Initalize the new Client.
+    # bea = BEA_Data(api_key=api_key,BEA_Info_filePath=filepath, Refresh_Info=False)
+    # print(bea.BEAAPI_InfoTables)
+    # print(bea.DataSetList, bea.SheetsList, bea.DSTables)
 
+    bilp = BureauEconomicAnalysisClient(api_key=api_key)
+    data = bilp.national_income_and_product_accounts(table_name='T20600', year = ["2022", "2023"], frequency= ["M"])
     #tCode = 'T20805'
     # tCode = 'T11705'
+    print(data["BEAAPI"])
     # frequency="Q"
     # print("Pulling data from BEA API for: ",tCode)
     # results = {}; 
@@ -506,6 +509,7 @@ if __name__ == "__main__":
     # print(yearList,yearStr)    
  
     # bea.Get_NIPA_Data(tCode,frequency=frequency,year=year)
+
 
     # test = "https://apps.bea.gov/api/data/?&SeriesId=30&UserID="+api_key+"&method=GetData&DataSetName=MNE&Year="+yearStr+"&Country=650,699\
     #     &DirectionOfInvestment=Outward&Classification=Country&ResultFormat=json"
