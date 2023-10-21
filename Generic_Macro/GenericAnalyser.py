@@ -417,8 +417,8 @@ for source in DataSource:
         strList += ", "+source; 
     i +=1 
 DataSourceStr = 'Source: '+strList
-Replaces = {"GNload":"Glassnode","fred":"Federal reserve","yfinance":"Yahoo","yfinance":"Yahoo","tv":"Trading view","coingecko":"Coin gecko",
-            "load_BEA":"U.S Bureau of Economic Analysis"}
+Replaces = {"GNload":"Glassnode","fred":"FRED","yfinance":"Yahoo","yfinance":"Yahoo","tv":"Trading view","coingecko":"Coin gecko",
+            "load_BEA":"US BEA"}
 for word in Replaces.keys():
     DataSourceStr = DataSourceStr.replace(word,Replaces[word])
 

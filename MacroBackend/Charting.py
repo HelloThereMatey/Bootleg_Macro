@@ -332,7 +332,6 @@ class BMP_Fig(Figure):
     def __init__(self,*args,margins:dict=None,numaxii:int=1,DataSourceStr:str="",**kwargs):  #margins is a dict like {top = 0.95, bottom=0.14 ,left=0.06,right=0.92}
         # figsize is a tuple like (width, height).
         plt.rcParams['font.family'] = 'serif'
-        print(kwargs)
         super().__init__(*args,**kwargs)
         if margins is not None:
             print('Using margin dict unpacking')
