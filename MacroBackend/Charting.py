@@ -484,7 +484,6 @@ class BMP_Fig(Figure):
         logo = plt.imread(path)
         self.figimage(logo,xo=2600,yo=10,origin = 'upper')    
 
-
 def DF_DefPlot(data: pd.DataFrame, yLabel: str = "a.u", YScale:str='linear', title: str = "DataFrame contents"):
     plt.rcParams['font.family'] = 'serif'
     fig = plt.figure(figsize=(11, 5), dpi=150)
