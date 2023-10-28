@@ -12,18 +12,31 @@ from typing import Union, Tuple, List
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
-def EqualSpacedTicks(data,numTicks,LogOrLin:str='linear',LabOffset=None,labPrefix:str=None,labSuffix:str=None,Ymin:float=None,Ymax:float=None):
+def count_zeros_after_decimal(series: pd.Series) -> int:
+    median_value = series.mean()
+    
+    if median_value < 1 and median_value > 0:
+        str_val = str(median_value).split('.')[1] # Convert to string and split by decimal point
+        return len(str_val) - len(str_val.lstrip('0')) + 1
+    else:
+        return 1
+
+def EqualSpacedTicks(data: Union[pd.Series, pd.DataFrame],numTicks,
+        LogOrLin:str='linear',LabOffset=None,labPrefix:str=None,labSuffix:str=None,Ymin:float=None,Ymax:float=None):
+   
     if type(data) == pd.DataFrame:
         data = pd.Series(data[data.columns[0]])
 
     if Ymin is not None:
         pass
     else:
-        Ymin = np.nanmin(data)
+        Ymin = data.min()
     if Ymax is not None:
         pass
     else:    
-        Ymax = np.nanmax(data)    #Major ticks custom right axis. 
+        Ymax = data.max()    #Major ticks custom right axis. 
+
+    decimals = count_zeros_after_decimal(data)
 
     if LogOrLin == 'log':
         #print('Using log scale for series: ', data.name, Ymin, Ymax)
@@ -36,7 +49,7 @@ def EqualSpacedTicks(data,numTicks,LogOrLin:str='linear',LabOffset=None,labPrefi
         quit()
     if LabOffset is not None:
         tickLabs += LabOffset
-    Ticks.round(decimals=1,out=Ticks); tickLabs.round(decimals=1,out=tickLabs)
+    Ticks.round(decimals=decimals,out=Ticks); tickLabs.round(decimals=decimals,out=tickLabs)
     Ticks = np.ndarray.astype(Ticks,dtype=float,copy=False)
     tickLabs = np.ndarray.astype(tickLabs,dtype=float,copy=False)
     tickLabs = np.ndarray.astype(tickLabs,dtype=str,copy=False)

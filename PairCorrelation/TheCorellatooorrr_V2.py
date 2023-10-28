@@ -234,7 +234,6 @@ for i in range(int(points)):
     Percentage.iloc[i] = ((Percentage.iloc[i] - midpoint)/midpoint)*100+100
 
 # # ################################### #Plot figures #############################################################
-
 Ticks, tickLabs = Utilities.EqualSpacedTicks(Percentage,10,LogOrLin='log',LabOffset=-100,labSuffix='%')
 
 #Price ratio plot.
@@ -263,17 +262,25 @@ for axis in ['top','bottom','left','right']:
 if scamFimode is True:     
     entry = ax1.axvline(LP_Entry,ls=":",lw=1.25,color='green')     
     exit = ax1.axvline(LP_Exit,ls=":",lw=1.25,color='red') 
-    ent = pd.Timestamp(LP_Entry); ex = pd.Timestamp(LP_Exit); mid = Percentage.index[round((len(Percentage)-1)/3)] 
-    entryPratio = Series1[ent]/Series2[ent]; exitPratio = Series1[ex]/Series2[ex]
+    middle = Percentage.index[round(len(Percentage)/2)]
+    dates = [pd.Timestamp(LP_Entry).date(), middle, pd.Timestamp(LP_Exit).date()]
+    idx = pd.DatetimeIndex(dates)
+    ent = idx[0]; mid = idx[1]; ex = idx[2]
+    entryPratio = Series1[ent]/Series2[ent]
+    exitPratio = Series1[ex]/Series2[ex]
     PratioDelta = round(((exitPratio-entryPratio)/entryPratio)*100,2)
+
     ax1.axhline(Percentage[ent],ls=":",lw=1.5,color='green')
     ax1.axhline(Percentage[ex],ls=":",lw=1.5,color='red')
     ax1.annotate("",xy=(mid,Percentage[ent]),xytext=(mid,Percentage[ex]),xycoords='data',textcoords="data",arrowprops={'arrowstyle':'<->'})
-    ax1.text(0.25,0.5,"LP ratio delta: "+str(PratioDelta)+"%",horizontalalignment='left', transform=ax1.transAxes,backgroundcolor='white',alpha=1,fontsize=9)
-    ax1.text(ent,Percentage[ent],"LP entry",horizontalalignment='left', backgroundcolor='white',alpha=1,fontsize=9,c='green')
-    ax1.text(ex,Percentage[ex],"LP exit",horizontalalignment='right', backgroundcolor='white',alpha=1,fontsize=9,c='red')
-    il = round((2*((PratioDelta/100)+1)**0.5/(2+(PratioDelta/100))-1)*100,2)             #IL(k) = (2*SQRT((k/100)+1)/(2+(k/100))-1)*100, k = delta price ratio in %. 
-    ax1.text(0.35,0.15,"IL: "+str(il)+"%",horizontalalignment='left', transform=ax1.transAxes, backgroundcolor='white',alpha=1,fontsize=10,c='black')
+    ax1.text(0.25,0.5,"LP ratio delta: "+str(PratioDelta)+"%",horizontalalignment='left',    
+                                     transform=ax1.transAxes,backgroundcolor='white',alpha=1,fontsize=9)
+    ax1.text(ent,Percentage[ent]+(0.05*Percentage[ent]),"LP entry",horizontalalignment='left', bbox = None, alpha=1,fontsize=9,c='green', fontweight='bold')
+    ax1.text(ex,Percentage[ex]+(0.05*Percentage[ex]),"LP exit",horizontalalignment='right', bbox = None, alpha=1, fontsize=9,c='red', fontweight='bold')
+    il = round((2*((PratioDelta/100)+1)**0.5/(2+(PratioDelta/100))-1)*100,2)             
+    #IL(k) = (2*SQRT((k/100)+1)/(2+(k/100))-1)*100, k = delta price ratio in %. 
+    ax1.text(0.35,0.15,"IL: "+str(il)+"%",horizontalalignment='left', transform=ax1.transAxes, 
+             backgroundcolor='white',alpha=1,fontsize=10,c='black')
 
 XMargin = round(0.01*TimeLength)
 xleft = PriceMatrix1.index[0] - timedelta(days = XMargin); xright = PriceMatrix1.index[len(PriceMatrix1)-1] + timedelta(days = XMargin)
@@ -299,8 +306,8 @@ ax2b.tick_params(axis='both',which='both',length=0,width=0,labelsize=0,labelleft
 ax2b.set_yticks(Ticks3); ax2b.set_yticklabels(tickLabs3)
 ax2.tick_params(axis='y',which='major',length=3,width=1,labelsize=9,left=True,labelleft=True)
 ax2b.tick_params(axis='y',which='major',length=3,width=1,labelsize=9,right=True,labelright=True)
-ax2.yaxis.set_major_formatter('${x:1.0f}')
-ax2b.yaxis.set_major_formatter('${x:1.0f}')
+ax2.yaxis.set_major_formatter('${x}')
+ax2b.yaxis.set_major_formatter('${x}')
 ax2.grid(visible=True,axis='y',which='major',linewidth=0.55,linestyle=':')   
 
 for axis in ['top','bottom','left','right']:
