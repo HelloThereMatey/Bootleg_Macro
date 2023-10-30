@@ -11,7 +11,7 @@ import datetime
 import pandas_datareader.data as web
 import yfinance as yf
 import yahoo_fin.stock_info as si
-from .tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
+from tvDatafeed import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
 import os
 from sys import platform
 import re
@@ -406,52 +406,61 @@ def PullFredSeries(series:str,apikey:str,start="1776-07-04",filetype="&file_type
 
 def PullTGA_Data(AccountName = 'Federal Reserve Account',start_date='2000-01-01') -> pd.DataFrame:
     urlBase = 'https://api.fiscaldata.treasury.gov/services/api/fiscal_service'
-    TrGenAccBal = '/v1/accounting/dts/dts_table_1'
+    TrGenAccBal = '/v1/accounting/dts/operating_cash_balance'
     fields = '?fields=record_date,account_type,close_today_bal,open_today_bal,open_month_bal'
     filters = '&filter=record_date:gte:'+start_date
 
     FullData = pd.DataFrame(); exceptions = 0
     for i in range(10000):
-        if i > 0:
-            LastSetFinDay = LastDay
+        if exceptions > 5: 
+            print('Enuff of dis shit...')
+            break  
+
         if i == 0:
             url = urlBase+TrGenAccBal+fields+filters
-        elif NextDSStart >= datetime.date.today():
+            NextDSStart = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
+            LastSetFinDay = start_date
+
+        elif i > 0 and NextDSStart is not None and NextDSStart >= datetime.date.today():
             break    
         else:
-            filt = '&filter=record_date:gte:'+NextDSStarT
+            filt = '&filter=record_date:gte:'+str(NextDSStart)
             url = urlBase+TrGenAccBal+fields+filt
+            LastSetFinDay = LastDay
+
         try:
             r = requests.get(url)
+            print('TGA API Request number: '+str(i)+',', url)
             if r.status_code != 200:
-                print("Couldn't pull data from this date: ",NextDSStarT)
+                print("Couldn't pull data from this date: ",NextDSStart)
+                print(r.text)
+                exceptions += 1  
                 continue
             df = pd.json_normalize(r.json())
             data = pd.json_normalize(df['data'][0])
+            print(data)
             if len(data) < 1:
                 break
             df.drop('data',axis=1,inplace=True)
-            MetaData = df.T
+        
             data.set_index('record_date',inplace=True)
             extracted = data[data['account_type'] == AccountName]
             TheData = extracted.sort_index()
-            #print(TheData)
+            print(TheData)
             DayOne = datetime.datetime.strptime(TheData.index[0],'%Y-%m-%d').date()
             LastDay = datetime.datetime.strptime(TheData.index[len(TheData)-1],'%Y-%m-%d').date()
-            NextDSStart = LastDay + datetime.timedelta(days=1); NextDSStarT = str(NextDSStart) 
+            NextDSStart = LastDay + datetime.timedelta(days=1)
             EndDateStr = TheData.index[len(TheData)-1]; print('Will start next dataset pull at: ',NextDSStart)
             DateDiff = LastDay - DayOne
             print('\nData from: ',DayOne,type(DayOne),' to ',LastDay,type(LastDay),'. DataLength: ',len(TheData),'TimeDelta (days): ',DateDiff.days)
             FullData= pd.concat([FullData,TheData],axis=0)
+
             if i > 0 and LastSetFinDay == LastDay:
                 break
         except Exception as e: 
             print(e)
             print('Exception, may be at end of data or those cunts changed the names in the table or sumtin, have a few more tries & then pull out.')
-            exceptions += 1  
-        if exceptions > 5: 
-            print('Enuff of dis shit...')
-            break    
+            exceptions += 1    
             
     return FullData
 
@@ -757,4 +766,3 @@ def GetRecessionDates(startDate:datetime.date)-> pd.Series:
 # print(StartDate,EndDate)
 # data = Yahoo_Fin_PullData("^GSPC", start_date = StartDate, end_date = EndDate)
 # print(data)
-
