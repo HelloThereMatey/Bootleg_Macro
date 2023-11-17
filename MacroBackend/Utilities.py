@@ -12,8 +12,11 @@ from typing import Union, Tuple, List
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 
-def count_zeros_after_decimal(series: pd.Series) -> int:
-    median_value = series.mean()
+def count_zeros_after_decimal(series: pd.Series = None, value: float = None) -> int:
+    if series is not None:
+        median_value = series.median()
+    else:
+        median_value = value   
     
     if median_value < 1 and median_value > 0:
         str_val = str(median_value).split('.')[1] # Convert to string and split by decimal point
@@ -21,28 +24,24 @@ def count_zeros_after_decimal(series: pd.Series) -> int:
     else:
         return 1
 
-def EqualSpacedTicks(data: Union[pd.Series, pd.DataFrame],numTicks,
+def EqualSpacedTicks(numTicks, data: Union[pd.Series, pd.DataFrame] = None,
         LogOrLin:str='linear',LabOffset=None,labPrefix:str=None,labSuffix:str=None,Ymin:float=None,Ymax:float=None):
-   
-    if type(data) == pd.DataFrame:
-        data = pd.Series(data[data.columns[0]])
+    
+    print('Equal spaced ticks function, data: ', data)
+    if data is not None:
+        if Ymin is None:
+            Ymin = data.min()
+        if Ymax is None:  
+            Ymax = data.max()    #Major ticks custom right axis. 
 
-    if Ymin is not None:
-        pass
+    if data is not None:
+        decimals = count_zeros_after_decimal(series = data)
     else:
-        Ymin = data.min()
-    if Ymax is not None:
-        pass
-    else:    
-        Ymax = data.max()    #Major ticks custom right axis. 
-
-    decimals = count_zeros_after_decimal(data)
+        decimals = count_zeros_after_decimal(value = (Ymax - Ymin)/2)
 
     if LogOrLin == 'log':
-        #print('Using log scale for series: ', data.name, Ymin, Ymax)
         Ticks = np.logspace(start = np.log10(Ymin), stop = np.log10(Ymax), num=numTicks, base=10); tickLabs = Ticks.copy()
     elif LogOrLin == 'linear':    
-        #print('Using linear scale for series: ', data.name, Ymin, Ymax
         Ticks = np.linspace(start = Ymin, stop = Ymax, num=numTicks); tickLabs = Ticks.copy()
     else:
         print('Must specify whether you want linear "linear" ticks or log10 ticks "log".')    
@@ -322,6 +321,63 @@ def RoCofRoC(input: pd.Series,periods:int = 1 ) -> pd.Series:
     roc = input.diff(periods=periods)
     return roc.diff(periods=periods)
 
+def GetClosestDateInIndex(df: Union[pd.DataFrame, pd.Series], searchDate: str = "2012-01-01"):
+    ## searchDate should bee in "YYYY-MM-DD" format. 
+    if type(df.index) != pd.DatetimeIndex:
+        print('Input dataframe must have a datetime index.')
+        return None
+
+    # Convert the Datestring to a Timestamp object
+    date_ts = pd.Timestamp(searchDate)
+    # Find the closest date in the index
+    closest_date = min(df.index, key=lambda x: abs(x - date_ts))
+    index = df.index.get_loc(closest_date)
+    return closest_date, index
+
+def find_closest_val(series:pd.Series, target_value: Union[int, float]):
+    differences = series.sub(target_value).abs()
+    idx_closest = differences.idxmin()
+    value_closest = series.loc[idx_closest]
+    return value_closest, idx_closest
+
+def Percent_OfBaseVal_Series(series: pd.Series, ZeroDate: str = None, median: bool = False, mean: bool = False, start: bool = False) -> pd.Series:
+    if ZeroDate is not None:
+        ZeroIndex = GetClosestDateInIndex(series, searchDate = ZeroDate)[1]
+        print(series.name, "base date: ",ZeroDate, ZeroIndex)
+    if median:
+        val = series.median()   
+        print(series.name, "Median: ",val)
+        findIndex = find_closest_val(series, val); print(findIndex)
+        index = series.index.get_loc(findIndex[1])
+        ZeroIndex = index
+    if mean:
+        val = series.mean()   
+        print(series.name, "mean: ",val)
+        findIndex = find_closest_val(series, val); print(findIndex)
+        index = series.index.get_loc(findIndex[1])
+        ZeroIndex = index
+    if start:
+        ZeroIndex = 0
+    
+    baseVal = series.iloc[ZeroIndex]; print(series.name, baseVal)
+    percentage = (series/baseVal)*100 #- 100
+    return percentage
+
+def get_global_min_max(ax: plt.axes):
+    min_vals = []
+    max_vals = []
+
+    # Iterate over all lines on the axes
+    for line in ax.get_lines():
+        y_data = line.get_ydata()
+        min_vals.append(np.min(y_data))
+        max_vals.append(np.max(y_data))
+
+    global_min = min(min_vals)
+    global_max = max(max_vals)
+
+    return global_min, global_max
+
 class TkinterSizingVars():
 
     def __init__(self) -> None:
@@ -448,11 +504,102 @@ def CheckIndexDifference(series1:Union[pd.DataFrame, pd.Series], series2:Union[p
             return differences, diff
         else:
             pass
-    return differences 
+    return differences
     
+def DetermineSeries_Frequency(series: pd.Series):
+    MonthlyList = ['M','SM','BM','CBM','MS','SMS','BMS','CBMS']
+    QuarterList = ['Q','BQ','QS','BQS']
+    AnnualList = ['A', 'Y','BA', 'BY', 'AS', 'YS','BAS', 'BYS']
+    multiplier = 1
+
+    frequency_dict = {
+                    "Weekly": ['W'],
+                    "Monthly": ['WOM', 'LWOM', 'M', 'MS', 'BM', 'BMS', 'CBM', 'CBMS', 'SM', 'SMS'],
+                    "Quarterly": ['Q', 'QS', 'BQ', 'BQS', 'REQ'],
+                    "Yearly": ['A', 'AS', 'BYS', 'BA', 'BAS', 'RE'],
+                    "Daily": ['D', 'B', 'C'],  
+                    "Hourly": ['BH', 'CBH', 'H'],
+                    "Minutely": ['T', 'min'],
+                    "Secondly": ['S'],
+                    "Millisecondly": ['L', 'ms'],
+                    "Microsecondly": ['U', 'us'],
+                    "Nanosecondly": ['N'] }
+    periods_in_day = {
+                    "Weekly": 1/7,
+                    "Monthly": 1/30.4375,
+                    "Quarterly": 1/91.3125,
+                    "Yearly": 1/365.25,
+                    "Daily": 1,  
+                    "Hourly": 24,
+                    "Minutely": 24*60,
+                    "Secondly": 60*60*24,
+                    "Millisecondly": 1000*60*60*24,
+                    "Microsecondly": 1000000*60*60*24,
+                    "Nanosecondly": 1000000000*60*60*24 }
+    
+    freq = pd.infer_freq(series.index)
+    print('Frequency determination function for series: ', series.name, ' frequency: ', freq)
+    
+    if freq is None:
+        print("Couldn't discern frequency in the regular manner, trying manual process....")
+        avDelta = manual_frequency(series)
+        print('Looks like average index timedelta is: ', avDelta[1],', resampling series to that frequency.')
+        Frequency, periods_inDay = DetermineSeries_Frequency(avDelta[0])
+        return Frequency, periods_inDay
+    else:
+        match = re.match(r'(\d+)([A-Za-z]+)', freq)
+        if match:
+            matches = match.groups()
+            multiplier = int(matches[0]); freq = matches[1]
+   
+    frequency = None
+    for freqName in frequency_dict.keys():
+        if freq in frequency_dict[freqName]:
+            frequency = freqName
+        elif freq.split('-')[0] == 'W':
+            frequency = 'Weekly'
+    if frequency is None:
+        print('Could not match the frequency for input series, ', series.name,' reported frequency is: ', freq)    
+        frequency = freq
+
+    return frequency, periods_in_day[frequency]/ multiplier
+
+def manual_frequency(series: pd.Series, threshold_multiplier=2.25):
+    daysInPeriod = {'1H': 1/24, '4H': 1/6, 'Day': 1, 'Week': 7, 'Month': 30, 'Quarter': 90}
+    
+    if not isinstance(series.index, pd.DatetimeIndex):
+        print('Series must have a datetime index for frequency determination. Exiting...')
+        return None
+    
+    # Calculate timedelta in days between each point
+    deltas = series.index.to_series().diff().dt.total_seconds() / (3600 * 24)  # Convert to days
+    deltas = deltas.dropna()  # Drop the first NaN value
+
+    # Identify the typical delta (we use median to avoid extreme values)
+    typical_delta = deltas.median()
+
+    # Filter out deltas that are significantly larger than the typical delta
+    filtered_deltas = deltas[deltas <= typical_delta * threshold_multiplier]
+
+    # Calculate the average of the filtered deltas
+    average = filtered_deltas.mean()
+
+    # Find the period whose number of days is closest to the average timedelta
+    closest_period = min(daysInPeriod, key=lambda p: abs(daysInPeriod[p] - average))
+
+    # Map to the appropriate frequency
+    freq_map = {
+        '1H': 'H', '4H': '4H', 'Day': 'D', 'Week': 'W', 'Month': 'M', 'Quarter': 'Q'
+    }
+    freq = freq_map[closest_period]
+    
+    resampled_series = series.resample(freq).mean()  # Replace .mean() with an appropriate aggregation function if needed
+    return resampled_series, closest_period
 
 if __name__ == "__main__":
-    df = pd.read_excel("/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/MacroBackend/BEA_Data/Datasets/BEAAPI_Info.xlsx", sheet_name="NIPA_Details_Tables", index_col=0)
-    purrFurr = Search_DF(df, "personal,(M),Real")
-    print(purrFurr)
-
+    series = pd.read_excel("/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/Generic_Macro/SavedData/CNLIVRR.xlsx", sheet_name="Closing_Price", index_col=0)
+    series = series[series.columns[0]].resample('B').mean()
+    
+    print(series)
+    SeriesFreq = DetermineSeries_Frequency(series)
+    print(SeriesFreq)

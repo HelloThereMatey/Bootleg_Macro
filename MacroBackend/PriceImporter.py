@@ -11,7 +11,7 @@ import datetime
 import pandas_datareader.data as web
 import yfinance as yf
 import yahoo_fin.stock_info as si
-from tvDatafeed import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
+from .tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
 import os
 from sys import platform
 import re
@@ -321,23 +321,87 @@ def DataFromTVDaily(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end
     data = tv.get_hist(symbol,exchange,n_bars=numBars)
     return data
 
-def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_date=datetime.date.today(),BarTimeFrame='daily'): 
+def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_date=datetime.date.today(), BarTimeFrame: str = None): 
+    if type(start_date) == str:
+        start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d').date()
+    if type(end_date) == str:
+        end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d').date()    
     numDays = (end_date-start_date).days; print('Number of days of data for ',symbol,': ',numDays)
-    if numDays > 5000:
-        BarTimeFrame='weekly'
+    barTarget = numDays/5000
+    timeFrames = ['1H', '4H', 'D', 'W', 'M']
+
     tv = TvDatafeed()
-    if BarTimeFrame == 'daily':
-        TimeFrame = Interval.in_daily; numBars = numDays
-    elif BarTimeFrame == 'weekly':
-        TimeFrame = Interval.in_weekly; numBars = ceil(numDays/7)
-    elif BarTimeFrame == 'monthly':
-        TimeFrame = Interval.in_monthly; numBars = ceil(numDays/30)
-    elif BarTimeFrame == '4hr':
-        TimeFrame = Interval.in_4_hour; numBars = numDays*6
-    elif BarTimeFrame == 'hr':
-        TimeFrame = Interval.in_1_hour; numBars = numDays*24
-    data = tv.get_hist(symbol,exchange,interval=TimeFrame,n_bars=numBars)
-    return data
+    for i in range(6):
+        if barTarget < 0.041 and BarTimeFrame is None or BarTimeFrame == '1H':
+            TimeFrame = 'Hourly'; BarTimeFrame = '1H'; numBars = round(numDays*24)
+            if numBars > 5000:
+                BarTimeFrame = '4H'
+                continue
+            interval = Interval.in_1_hour 
+            index = timeFrames.index(BarTimeFrame)
+
+        elif barTarget < 0.165 and barTarget > 0.041 and BarTimeFrame is None or BarTimeFrame == '4H':
+            TimeFrame = 'Hourly x 4'; BarTimeFrame = '4H'; numBars = round(numDays*6)
+            if numBars > 5000:
+                BarTimeFrame = 'D'
+                continue
+            interval = Interval.in_4_hour
+            index = timeFrames.index(BarTimeFrame)
+            print('Index in intervals list of the interval: ', index)
+           
+        elif barTarget < 1 and barTarget > 0.165 and BarTimeFrame is None or BarTimeFrame == 'D':
+            TimeFrame = 'Daily'; BarTimeFrame = 'D'; numBars = round(numDays) 
+            if numBars > 5000:
+                BarTimeFrame = 'W'
+                continue
+            interval = Interval.in_daily
+            index = timeFrames.index(BarTimeFrame)
+         
+        elif barTarget > 1 and barTarget <= 7 and BarTimeFrame is None or BarTimeFrame == 'W':
+            TimeFrame = 'Weekly'; BarTimeFrame = 'W'; numBars = round(numDays/7)
+            if numBars > 5000:
+                BarTimeFrame = 'M'
+                continue
+            interval = Interval.in_weekly
+            index = timeFrames.index(BarTimeFrame)
+          
+        elif barTarget > 7 and BarTimeFrame is None or BarTimeFrame == 'M': 
+            TimeFrame = 'Monthly'; BarTimeFrame = 'M'; numBars = round(ceil(numDays/30))
+            interval = Interval.in_monthly
+            index = timeFrames.index(BarTimeFrame)
+          
+        else:
+            print('What is the interval to use dog?')
+            return None
+        
+        print('Pulling data from trading view. Ticker: ', symbol,', exchange: ', exchange,'\nData time frame: ', TimeFrame, 
+              BarTimeFrame, ', number of days: ', numDays, ', fraction of max data pull length: ', numBars/5000, ', number of datapoints: ', numBars, 
+              ', loop: ', i)
+        data = tv.get_hist(symbol,exchange, interval = interval, n_bars = numBars)
+        
+        if data is None:
+            print('Fucked out cunt, try next higher timeFrame.')
+            if index == len(timeFrames)-1:
+                return
+            else:
+                BarTimeFrame = timeFrames[index+1]
+                continue
+        print('Data received length: ', len(data), 'start date: ', data.index[0], 'end date: ', data.index[len(data)-1], data.index[len(data)-1] - data.index[0])
+
+        data = data[start_date::].copy().drop('symbol', axis = 1)
+        if index > 1:
+            dateIndex = pd.Series(pd.DatetimeIndex(pd.DatetimeIndex(data.index).date), name = 'Date')
+            data.reset_index(inplace = True, drop=True)
+            data = pd.concat([dateIndex,data], axis = 1)
+            data.set_index('Date', drop = True, inplace = True)
+            data.name = symbol
+        else:
+            data.name = symbol    
+
+        info = {'Source': 'trading view', 'Ticker': symbol, 'Exchange': exchange, 'Ticker': symbol, 'Start date': start_date.strftime('%Y-%m-%d'),
+                'End date': end_date.strftime('%Y-%m-%d'), 'Data frequency': BarTimeFrame, 'Data time frame': TimeFrame}
+        seriesInfo = pd.Series(info.values(), index = info.keys(), name = 'Series info')
+        return data, seriesInfo
 
 ###### Functions ###############################################################################################################################################
 
@@ -517,7 +581,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
         FXData.set_index(dtIndex,inplace=True)
         FXData.drop('datetime',axis=1,inplace=True)
     else:  ##Get data if no file already containing the data exists in the right spot. 
-        FXData = pd.DataFrame(DataFromTVGen(FXSymbol[1],exchange=FXSymbol[0],start_date=StartDate,end_date=EndDate)) 
+        FXData, FX_info = DataFromTVGen(FXSymbol[1],exchange=FXSymbol[0],start_date=StartDate,end_date=EndDate, BarTimeFrame='D')
         FXData.to_excel(FXDataPath); print('FXData for '+FXSymbol[1]+', pulled from TV.')
         dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(FXData.index).date)
         FXData.set_index(dtIndex,inplace=True)
@@ -534,7 +598,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
 
     if LastDay < EndDate or FirstDay > StartDate:
         print('FXData not up to date, pulling new data for '+FXSymbol[1]+' from TV......')
-        NewFXData = pd.DataFrame(DataFromTVGen(FXSymbol[1],exchange=FXSymbol[0],start_date=StartDate,end_date=EndDate))
+        NewFXData, FX_info2 = DataFromTVGen(FXSymbol[1],exchange=FXSymbol[0],start_date=StartDate,end_date=EndDate, BarTimeFrame='D')
         if len(NewFXData) > 1:
             NewFXData.drop(NewFXData.index[0],axis=0,inplace=True)
             dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewFXData.index).date)
@@ -566,7 +630,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
         BSData.set_index(dtIndex,inplace=True)
         BSData.drop('datetime',axis=1,inplace=True)
     else:  ##Get data if no file already containing the data exists in the right spot. 
-        BSData = pd.DataFrame(DataFromTVGen(TV_Code[1],exchange=TV_Code[0],start_date=StartDate,end_date=EndDate)) 
+        BSData, info = DataFromTVGen(TV_Code[1],exchange=TV_Code[0],start_date=StartDate,end_date=EndDate, BarTimeFrame='D')
         BSData.to_excel(BSDataPath); print('Bal sheet for '+TV_Code[1]+', pulled from TV.')
         dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(BSData.index).date)
         BSData.set_index(dtIndex,inplace=True)
@@ -579,7 +643,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
 
     if LastDayBS < EndDate or FirstDayBS > StartDate:
         print('BSData not up to date, pulling new data for '+TV_Code[1]+' from TV......')
-        NewBSData = pd.DataFrame(DataFromTVGen(TV_Code[1],exchange=TV_Code[0],start_date=StartDate,end_date=LastDayBS))
+        NewBSData, info = DataFromTVGen(TV_Code[1],exchange=TV_Code[0],start_date=StartDate,end_date=LastDayBS, BarTimeFrame='D')
         if len(NewBSData) > 1:
             NewBSData.drop(NewBSData.index[0],axis=0,inplace=True)
             dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewBSData.index).date)
@@ -766,3 +830,30 @@ def GetRecessionDates(startDate:datetime.date)-> pd.Series:
 # print(StartDate,EndDate)
 # data = Yahoo_Fin_PullData("^GSPC", start_date = StartDate, end_date = EndDate)
 # print(data)
+
+if __name__ == "__main__":
+
+    # tv = TvDatafeed()
+    # data = tv.get_hist("CNM2","ECONOMICS",interval=Interval.in_weekly,n_bars=1000)
+    # print(data)
+    # start_date = datetime.date(1997, 1, 1); end_date = datetime.date.today()
+    # numDays = (end_date-start_date).days; print('Number of days: ', numDays)
+    # barTarget = round(numDays/5000)
+    # if barTarget < 0.041:
+    #     timeFrame = '1H'
+    # elif barTarget < 0.165 and barTarget > 0.041:
+    #     timeFrame = '4H'
+    # elif barTarget < 1 and barTarget > 0.165:
+    #     timeFrame = '1D'
+    # elif barTarget > 1:
+    #     timeFrame = '1W'
+    # elif barTarget > 7:   
+    #     timeFrame = '1M' 
+    # print(barTarget)
+
+    data = DataFromTVGen('GOLD', 'TVC', start_date=datetime.date(1834,1,1))
+    datedif = (data.index[len(data)-1] - data.index[0]).days
+    print(data, len(data), datedif/30)
+    data.plot().set_yscale('log')
+    data.to_excel(wd + "/gold_baby.xlsx")
+    plt.show()

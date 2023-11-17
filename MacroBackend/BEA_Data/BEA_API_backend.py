@@ -301,6 +301,22 @@ class BEA_Data(BureauEconomicAnalysisClient):
         else:
             print('Load NIPA table data from BEA first.')    
 
+class Custom_FisherIndex(ctk.CTkToplevel):     #Still workinng on this page................................................................
+
+
+    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'BEA'):
+        super().__init__(master)
+        default_font = ctk.CTkFont('Arial',13)
+        self.data = pd.DataFrame(dataTable['Series_Split'])
+        self.SeriesInfo = pd.DataFrame(dataTable['SeriesInfo']).copy().squeeze()
+
+        self.catz_loadPath = ctk.StringVar(self, value="", name = 'category_loadPath' )
+        self.CD_loadPath = ctk.StringVar(self, value="", name = 'CurrentDollar_loadPath' )
+        self.PI_loadPath = ctk.StringVar(self, value="", name = 'PriceIndexes_loadPath' )
+
+        load_catz = ctk.CTkButton(self.frame3, text="Load Category Data",font=('Arial',14,'bold'),text_color='tomato',command=self.ResetBox)
+
+
 class CustomIndexWindow(ctk.CTkToplevel):
 
     def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'BEA'):
@@ -331,6 +347,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
         self.ChoiceList = []
         self.choiceIndex = ctk.StringVar(self, value="", name = 'Choice_Index')
         self.choiceIndexList = []
+        self.plotRHS = ctk.BooleanVar(self, value = False, name = "plotRHS")
 
         def ChooseSeries(event):
             data = self.data
@@ -352,11 +369,12 @@ class CustomIndexWindow(ctk.CTkToplevel):
         Operation.grid(column=0,row=0,padx=10,pady=10)
         plot = ctk.CTkButton(self.frame2, text="Show Index & components",font=('Arial',12,'bold'),text_color='gold',command=self.PlotButton)
         plot.grid(column=1,row=0,padx=10,pady=10)
+        ShowC_Index = ctk.CTkCheckBox(self.frame2, text="Show aggregated index RHS?", textvariable = self.plotRHS); ShowC_Index.grid(column=2,row=0,padx=10,pady=10, sticky = 'w')
 
         self.frame3.columnconfigure(0,weight=1); self.frame3.columnconfigure(1,weight=1)
         self.frame3.columnconfigure(2,weight=1); self.frame3.columnconfigure(3,weight=1)
 
-        Index_Name = ctk.CTkEntry(self.frame3,textvariable=self.C_Index_name); Index_Name.grid(column=0,row=0,padx=5,pady=5)
+        Index_Name = ctk.CTkEntry(self.frame3,textvariable = self.C_Index_name, variable = self.C_Index_name); Index_Name.grid(column=0,row=0,padx=5,pady=5)
         reset = ctk.CTkButton(self.frame3, text="RESET",font=('Arial',14,'bold'),text_color='tomato',command=self.ResetBox)
         reset.grid(column=1,row=0,padx=10)
         SetExport = ctk.CTkButton(self.frame3, text="Set export path",font=('Arial',14,'bold'),command=self.SetExpPath)
@@ -365,7 +383,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
         ExportC_Index.grid(column=3,row=0,padx=10)
         
         ExpPath = ctk.CTkEntry(self.frame4,textvariable=self.ExportPath,font=default_font,width=default_font.measure(self.ExportPath.get()+'                '))
-        ExpPath.pack(padx=10,pady=10)
+        ExpPath.grid(row = 1, column = 1, padx=10,pady=10)
     
     def ExportIndex(self):   #Save the custom index series to disk. 
         name = self.C_Index_name.get()
@@ -380,6 +398,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
         fig = plt.figure(figsize=(11, 5), dpi=150)
         fig.suptitle('U.S Bureau of Economic Analysis, custom Index', fontweight='bold')
         ax = fig.add_axes(rect=[0.07,0.06,0.85,0.84])
+        plot_RHS = self.plotRHS.get()
         
         seriesInfo = pd.Series(self.SeriesInfo)
         data = pd.DataFrame(self.data)
@@ -393,8 +412,9 @@ class CustomIndexWindow(ctk.CTkToplevel):
             ax.plot(data[trace],label=trace, color = colors[i]); i += 1
         ax.legend(fontsize=7,loc=2)
         axb = ax.twinx()
-        axb.plot(C_Index,label = self.C_Index_name.get()+' (right axis)',lw=2.25, color = colors[i])
-        axb.legend(fontsize=7,loc=1)
+        if plot_RHS:
+            axb.plot(C_Index,label = self.C_Index_name.get()+' (right axis)',lw=2.25, color = colors[i])
+            axb.legend(fontsize=7,loc=1)
         
         ax.set_yscale(YScale); 
         axb.set_yscale(YScale)

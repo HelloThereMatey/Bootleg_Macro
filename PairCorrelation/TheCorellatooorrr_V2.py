@@ -234,7 +234,7 @@ for i in range(int(points)):
     Percentage.iloc[i] = ((Percentage.iloc[i] - midpoint)/midpoint)*100+100
 
 # # ################################### #Plot figures #############################################################
-Ticks, tickLabs = Utilities.EqualSpacedTicks(Percentage,10,LogOrLin='log',LabOffset=-100,labSuffix='%')
+Ticks, tickLabs = Utilities.EqualSpacedTicks(10,data=Percentage,LogOrLin='log',LabOffset=-100,labSuffix='%')
 
 #Price ratio plot.
 fig = plt.figure(figsize=(10,9.5))
@@ -284,11 +284,10 @@ if scamFimode is True:
 
 XMargin = round(0.01*TimeLength)
 xleft = PriceMatrix1.index[0] - timedelta(days = XMargin); xright = PriceMatrix1.index[len(PriceMatrix1)-1] + timedelta(days = XMargin)
-ax1.set_xlim(xleft, xright)
-    
+ax1.set_xlim(xleft, xright)    
 #Price of both assets on the one graph.
-Ticks2, tickLabs2 = Utilities.EqualSpacedTicks(Series1,8,LogOrLin='log')
-Ticks3, tickLabs3 = Utilities.EqualSpacedTicks(Series2,8,LogOrLin='log')
+Ticks2, tickLabs2 = Utilities.EqualSpacedTicks(8, data = Series1,LogOrLin='log')
+Ticks3, tickLabs3 = Utilities.EqualSpacedTicks(8, data = Series2,LogOrLin='log')
 
 ax2 = fig.add_subplot(gs1[1],sharex=ax1)
 TitleString = str(asset1)+' vs left axis, '+str(asset2)+' vs right axis'

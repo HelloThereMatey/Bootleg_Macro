@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from pandas.tseries.frequencies import to_offset
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 import matplotlib.dates as mdates
@@ -9,6 +10,8 @@ import matplotlib.colors as mcolors
 import datetime
 from datetime import timedelta
 from . import Utilities
+from typing import Union
+import re
 
 Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
@@ -421,7 +424,7 @@ class BMP_Fig(Figure):
                         period = round(TheTrace['addMA'])
                         ThisTrace = pd.Series(TheTrace['Data'])
                         TheAx.plot(ThisTrace.rolling(period).mean(),label = TheTrace['Legend_Name']+' '+str(period)+'_MA',color=TheTrace['TraceColor'],lw=1)
-                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin=TheTrace['YScale'],Ymax=Ymax,Ymin=Ymin)
+                ticks, ticklabs = Utilities.EqualSpacedTicks(10, TheTrace['Data'],LogOrLin=TheTrace['YScale'],Ymax=Ymax,Ymin=Ymin)
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
                 TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)   
                 if i > 0:
@@ -509,3 +512,93 @@ def DF_DefPlot(data: pd.DataFrame, yLabel: str = "a.u", YScale:str='linear', tit
     plt.tight_layout() # This will ensure everything fits well    
 
     return fig      
+
+class TracesTop_RoC_bottom(Figure):
+
+    def __init__(self, data: Union[pd.DataFrame, pd.Series, dict] = None,  *args, botPanel: bool = False, roc_period_months: int = 12, **kwargs):
+        if data is None:
+            print("What data you wanna plot man?")
+            quit()
+        plt.rcParams['font.family'] = 'serif'
+        self.data = data
+        if type(self.data) == pd.DataFrame:
+            self.data_series = self.data[self.data.columns[0]]
+        else:
+            self.data_series = self.data.copy()    
+
+        self.bot_panel = botPanel
+        # Determine the frequency of the dataframe
+        self.data_freq = pd.infer_freq(self.data.index); print(self.data_freq)
+        # Convert the user-specified RoC period to an equivalent in terms of the data frequency
+        self.roc_period = self.convert_period_to_freq(roc_period_months)
+        print(self.roc_period)
+
+        if botPanel: 
+            kwargs['figsize']=(11,7)
+            self.gs = GridSpec(2, 1, top = 0.94, bottom=0.08,left=0.08,right=0.96, height_ratios= [2,1], hspace = 0.02)
+        else:    
+            kwargs['figsize']=(11,5.5)
+            self.gs = GridSpec(1, 1, top = 0.94, bottom=0.08,left=0.08,right=0.96)
+
+        super().__init__(*args,**kwargs)
+        self.roc_df = data.pct_change(periods = self.roc_period, fill_method=None)
+
+    def convert_period_to_freq(self, period_months) -> int:
+        # Converts a period like '3M' into the number of data frequency periods it represents
+        if self.data_freq is None:
+            raise ValueError("Data frequency could not be inferred. Please ensure the DataFrame has a DateTime index with a consistent frequency.")
+            return None
+        else:
+            print('Period to freq. function: ', self.data_freq)
+            
+            freq = Utilities.DetermineSeries_Frequency(self.data_series)
+
+            periodsInMonth = freq[1]*30.4375
+            print('Data frequency from Utilities function: ', freq[0], 'periods in 1 month: ', periodsInMonth)
+            numPeriods = period_months * periodsInMonth
+            return int(numPeriods)
+
+    def plot(self, left_traces: dict, axDeets: dict = None, right_traces: dict = None, title: str = 'Here some data'): 
+        
+        if axDeets  is None:
+            axDeets = {'yscale_top_left': 'linear', 'ylabel_top_left': 'a.u',
+                       'legend_top': {'loc': 2, 'fontsize': 'small'}
+            }
+                       
+        if self.bot_panel:
+            self.ax = self.add_subplot(self.gs[0])
+            self.ax2 = self.add_subplot(self.gs[1])
+            self.ax2.tick_params(axis='x', which = 'major', labelsize = 11) 
+            self.ax2.margins(0.02, 0.02)   
+            for axis in ['top','bottom','left','right']:
+                self.ax2.spines[axis].set_linewidth(1.5) 
+            self.ax2.plot(self.roc_df)
+        else:
+            self.ax = self.add_subplot(self.gs[0])  
+            self.ax.tick_params(axis='x', which = 'major', labelsize = 11) 
+
+        for trace in left_traces.keys():   
+            if isinstance(left_traces[trace], dict):
+                series_data = left_traces[trace].pop('Series', None)
+                if series_data is not None:
+                    self.ax.plot(series_data, **left_traces[trace])
+            else:
+                self.ax.plot(left_traces[trace])     
+
+        self.ax.set_title(title)
+        self.ax.set_yscale(axDeets['yscale_top_left'])        
+        self.ax.set_ylabel(axDeets['ylabel_top_left'], fontsize=10, fontweight='bold') 
+        self.ax.legend(**axDeets['legend_top'])
+        self.ax.margins(0.02, 0.02) 
+        for axis in ['top','bottom','left','right']:
+                self.ax.spines[axis].set_linewidth(1.5) 
+
+        if 'yscale_top_right' in axDeets.keys():
+            self.axb = self.ax.twinx()
+            self.axb.set_yscale(axDeets['yscale_top_right'])
+            if 'ylabel_top_right' in axDeets.keys():
+                self.axb.set_ylabel(axDeets['ylabel_top_right'], fontsize=10, fontweight='bold')
+  
+
+
+
