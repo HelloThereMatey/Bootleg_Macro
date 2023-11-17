@@ -225,43 +225,45 @@ def UpdateData(M2List:pd.DataFrame,M2Path:str,FXPath:str):
     DataComp = MakeDataCompFile(M2List,M2Path,FXPath); print(DataComp)   ### Step #2Make a dataframe to summarize data. 
     return DataComp    
 
-#################################### ACTIVE CODE BELOW, FUNCTIONS ABOVE. #####################################################
-msg = showinfo(title='Global M2 input data info.',message='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.'+\
-     " Must be formatted correctly. I suggest: Plebs_Macro/Global_M2/UpdateM2INfo/M2Info_Top50.xlsx, or one of the other M2Info files in that folder."+\
-         " If you use the wrong ticker & exchange codes for a particular country in your dataframe, you'll get NaNs and get f**ked on.")
-          
-filename = askopenfilename(title='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.',defaultextension='.xlsx',initialdir=wd) 
-des = filename.rsplit('.',1)[0].rsplit('_',1)[1]
-print(FDel, filename, '\n', des)
+if __name__ == "__main__":
 
-# show an "Open" dialog box and return the path to the selected file
-M2Path = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'M2_Data'); 
-FXPath = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'FX_Data') ###Change these if changing the folder structure within "Global_M2" folder.
-print('Loading global M2 information from: ',filename)
+    #################################### ACTIVE CODE BELOW, FUNCTIONS ABOVE. #####################################################
+    msg = showinfo(title='Global M2 input data info.',message='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.'+\
+        " Must be formatted correctly. I suggest: Plebs_Macro/Global_M2/UpdateM2INfo/M2Info_Top50.xlsx, or one of the other M2Info files in that folder."+\
+            " If you use the wrong ticker & exchange codes for a particular country in your dataframe, you'll get NaNs and get f**ked on.")
+            
+    filename = askopenfilename(title='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.',defaultextension='.xlsx',initialdir=wd) 
+    des = filename.rsplit('.',1)[0].rsplit('_',1)[1]
+    print(FDel, filename, '\n', des)
 
-FullList = pd.read_excel(filename)   #Step #1 load file that has info on which countries + the M2 & FX codes for data to pull from TV. 
-FullList.set_index('Country',inplace=True) #;FullList = FullList[0:3]
-print("Global M2 initial dataframe: ",FullList)
-split = filename.split(FDel); nam = split[len(split)-1]; split2 = nam.split("."); naml = split2[0]; split3 = naml.split("_"); des = split3[1]
+    # show an "Open" dialog box and return the path to the selected file
+    M2Path = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'M2_Data'); 
+    FXPath = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'FX_Data') ###Change these if changing the folder structure within "Global_M2" folder.
+    print('Loading global M2 information from: ',filename)
 
-DataComp = UpdateData(FullList,M2Path,FXPath)        #Step #2 update M2 & FX data if not already done (optional). 
-DataComp.to_excel(wd+FDel+'Datasums'+FDel+des+'_DataComp.xlsx')
-Combos = CombineDatasSimp(FullList,DataComp,M2Path,FXPath); print(Combos) ##Step #3 multiply M2 & FX datas. 
-for country in Combos.keys():
-    data = pd.DataFrame(Combos[country])
-    data.to_excel(wd+FDel+"TVDataFeed"+FDel+"FinalData"+FDel+country+".xlsx")
+    FullList = pd.read_excel(filename)   #Step #1 load file that has info on which countries + the M2 & FX codes for data to pull from TV. 
+    FullList.set_index('Country',inplace=True) #;FullList = FullList[0:3]
+    print("Global M2 initial dataframe: ",FullList)
+    split = filename.split(FDel); nam = split[len(split)-1]; split2 = nam.split("."); naml = split2[0]; split3 = naml.split("_"); des = split3[1]
 
-FullDF = MakeMasterM2DF_2(DataComp,wd+FDel+"TVDataFeed"+FDel+"FinalData"+FDel) #Step #4: put all the data in a big master DF. 
-FullDF.to_excel(wd+FDel+'M2_USD_Tables'+FDel+des+'_M2_USD.xlsx')
-GM2_ffill = FullDF['Global M2 (USD, ffill)']
+    DataComp = UpdateData(FullList,M2Path,FXPath)        #Step #2 update M2 & FX data if not already done (optional). 
+    DataComp.to_excel(wd+FDel+'Datasums'+FDel+des+'_DataComp.xlsx')
+    Combos = CombineDatasSimp(FullList,DataComp,M2Path,FXPath); print(Combos) ##Step #3 multiply M2 & FX datas. 
+    for country in Combos.keys():
+        data = pd.DataFrame(Combos[country])
+        data.to_excel(wd+FDel+"TVDataFeed"+FDel+"FinalData"+FDel+country+".xlsx")
 
-savePath = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+des+'GM2.xlsx'
-GM2_ffill.dropna(inplace=True)
-SeriesInfo = pd.Series({'units':'US Dollars','units_short': 'USD','title':'Global M2 '+des,'id':'GM2'+des,"Source":"tv"},name='SeriesInfo')
-GM2_ffill.to_excel(savePath,sheet_name='Closing_Price')
-with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
-    SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+    FullDF = MakeMasterM2DF_2(DataComp,wd+FDel+"TVDataFeed"+FDel+"FinalData"+FDel) #Step #4: put all the data in a big master DF. 
+    FullDF.to_excel(wd+FDel+'M2_USD_Tables'+FDel+des+'_M2_USD.xlsx')
+    GM2_ffill = FullDF['Global M2 (USD, ffill)']
 
-print("Alrighty. M2 & FX data have been updated successfully and the master dataframe of M2 (USD) data has been constructed and \
-    saved to: ",wd+FDel+'M2_USD_Tables'+FDel+des+'_M2_USD.xlsx'," The global M2 series by itself has also been exported to: ",savePath,". Now run 'Plot_GM2.py'\
-        or use GenericAnalyzer.py to plot GM2 series with other data.") 
+    savePath = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+des+'GM2.xlsx'
+    GM2_ffill.dropna(inplace=True)
+    SeriesInfo = pd.Series({'units':'US Dollars','units_short': 'USD','title':'Global M2 '+des,'id':'GM2'+des,"Source":"tv"},name='SeriesInfo')
+    GM2_ffill.to_excel(savePath,sheet_name='Closing_Price')
+    with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
+        SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+
+    print("Alrighty. M2 & FX data have been updated successfully and the master dataframe of M2 (USD) data has been constructed and \
+        saved to: ",wd+FDel+'M2_USD_Tables'+FDel+des+'_M2_USD.xlsx'," The global M2 series by itself has also been exported to: ",savePath,". Now run 'Plot_GM2.py'\
+            or use GenericAnalyzer.py to plot GM2 series with other data.") 

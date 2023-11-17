@@ -61,7 +61,6 @@ except Exception as e:
               Issue could also be non-standard OS. If using an OS other than windows, mac or linux you'll just need to set the folder delimeter for all path references below.")    
         quit()
 Inputs.set_index('Index',inplace=True)
-print(Inputs)
 
 NoString = 'no'
 myFredAPI_key = Inputs.loc['FRED_Key'].at['Series_Ticker']
@@ -170,7 +169,8 @@ for series in SeriesDict.keys():
             TheData = PriceImporter.Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)   
             TheData = pd.Series(TheData['Close'],name=TheSeries['Name'])     
     elif  Source == 'tv': 
-        TheData = pd.DataFrame(PriceImporter.DataFromTVGen(symbol,exchange,start_date=StartDate,end_date=EndDate,BarTimeFrame='daily'))
+        TheData, info = PriceImporter.DataFromTVGen(symbol,exchange,start_date=StartDate,end_date=EndDate)
+        print(TheData)
         dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(TheData.index).date)
         TheData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
         try:
@@ -178,6 +178,7 @@ for series in SeriesDict.keys():
         except:
             pass    
         TheData.set_index(dtIndex,inplace=True); TheData = TheData[StartDate:EndDate]
+        print('Data pulled from TV, ticker: ', ticker, ":", TheData)
         TheData = pd.Series(TheData['Close'],name=TheSeries['Name'])  ##### Just take the closing price for this application. 
         TheData = TheData.resample('D').mean(); TheData.fillna(method='ffill',inplace=True)
         TheSeries['Ticker'] = ticker
@@ -415,7 +416,7 @@ for source in DataSource:
         strList += ", "+source+"."
     else:    
         strList += ", "+source; 
-    i +=1 
+    i += 1 
 DataSourceStr = 'Source: '+strList
 Replaces = {"GNload":"Glassnode","fred":"FRED","yfinance":"Yahoo","yfinance":"Yahoo","tv":"Trading view","coingecko":"Coin gecko",
             "load_BEA":"US BEA"}

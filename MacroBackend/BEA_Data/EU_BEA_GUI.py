@@ -212,6 +212,12 @@ def CustomExport():
     else:
         print('Load data first.....')    
 
+def custom_fi():
+    if bea.Data is not None:
+        FI_window = BEA_API_backend.Custom_FisherIndex(root, bea.Data,name=bea.Data_name)
+    else:
+        print('Load data first.....') 
+
 path = ctk.StringVar(master=root,value=defPath,name='Data folder path.')
 searchTerm = ctk.StringVar(master=root,value="",name='SearchTerm')
 SearchResults = ctk.StringVar(master=root,value="",name='SearchResults')
@@ -258,6 +264,7 @@ start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=0,row=0,s
 sLabel = ctk.CTkLabel(bottom,text='Start year\nblank = "All years"',font=('Arial',10)) ; sLabel.grid(column=0,row=0,sticky='e',pady=35)
 end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=1,row=0,sticky='w',pady=5,padx=15)
 eLabel = ctk.CTkLabel(bottom,text='End year\nblank = latest data',font=('Arial',10)); eLabel.grid(column=1,row=0,sticky='e',pady=35)
+SaveBtn=ctk.CTkButton(bottom, text="Export data",command=SaveData,font=('Arial',12,'bold')); SaveBtn.grid(column=3,row=0,pady=10)
 
 options = ['linear','log']
 bottom2.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom2.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
@@ -265,10 +272,10 @@ bottom2.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom2
 drop = ctk.CTkOptionMenu(bottom2,variable=YAxis,values=options); drop.grid(column=0,sticky='w',row=0,padx=20,pady=10)
 dLabel = ctk.CTkLabel(bottom2,text='Chart Y-scale.',font=('Arial',11)); dLabel.grid(column=0,row=0,sticky='e')
 plot_button = ctk.CTkButton(bottom2, text="Preview data",font=('Arial',13,'bold'), text_color='yellow',command=plotPreview); plot_button.grid(column=1,row=0,pady=10)
-SaveBtn=ctk.CTkButton(bottom2, height=40, text="Export data",command=SaveData,font=('Arial',14,'bold')); SaveBtn.grid(column=2,row=0,pady=10)
-CustomIndex=ctk.CTkButton(bottom2, text="Export custom index",text_color='orange',command=CustomExport,font=('Arial',14,'bold')); CustomIndex.grid(column=3,row=0,pady=10)
+CustomIndex=ctk.CTkButton(bottom2, text="Individual Series Analysis",text_color='orange',command=CustomExport,font=('Arial',14,'bold')); CustomIndex.grid(column=2,row=0,pady=10)
+Custom_FI = ctk.CTkButton(bottom2, text="Custom Fisher index",command=custom_fi, text_color='orangered', font=('Arial',14,'bold')); Custom_FI.grid(column=3,row=0,pady=10)
 
 savePathDisplay =ctk.CTkEntry(bottom3,textvariable=save,width=round(0.79*win_widthT)); savePathDisplay.grid(column=0,row=0,columnspan=3,padx=10,pady=5)
-SetSavePath = ctk.CTkButton(bottom3, text="Set save path",font=('Arial',12,'bold'),command=SetSavingPath); SetSavePath.grid(column=3,row=0,padx=10,pady=5)
+SetSavePath = ctk.CTkButton(bottom3, text="Set save path",font=('Arial',12,'bold'), command=SetSavingPath); SetSavePath.grid(column=3,row=0,padx=10,pady=5)
 
 root.mainloop()
