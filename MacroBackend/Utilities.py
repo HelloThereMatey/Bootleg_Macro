@@ -623,7 +623,7 @@ def manual_frequency(series: pd.Series, threshold_multiplier=2.25):
     return resampled_series, closest_period
 
 if __name__ == "__main__":
-    series = pd.read_excel("/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/Generic_Macro/SavedData/CNLIVRR.xlsx", sheet_name="Closing_Price", index_col=0)
+    series = pd.read_excel("/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/Macro_Chartist/SavedData/CNLIVRR.xlsx", sheet_name="Closing_Price", index_col=0)
     series = series[series.columns[0]].resample('B').mean()
     
     print(series)

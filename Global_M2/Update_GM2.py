@@ -229,7 +229,7 @@ if __name__ == "__main__":
 
     #################################### ACTIVE CODE BELOW, FUNCTIONS ABOVE. #####################################################
     # msg = showinfo(title='Global M2 input data info.',message='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.'+\
-    #     " Must be formatted correctly. I suggest: Plebs_Macro/Global_M2/UpdateM2INfo/M2Info_Top50.xlsx, or one of the other M2Info files in that folder."+\
+    #     " Must be formatted correctly. I suggest: Bootleg_Macro/Global_M2/UpdateM2INfo/M2Info_Top50.xlsx, or one of the other M2Info files in that folder."+\
     #         " If you use the wrong ticker & exchange codes for a particular country in your dataframe, you'll get NaNs and get f**ked on.")
             
     # filename = askopenfilename(title='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.',defaultextension='.xlsx',initialdir=wd) 
@@ -289,7 +289,7 @@ if __name__ == "__main__":
     GM2_ffill_long28 = long28fin['Global M2 (USD, ffill)'].dropna()
     GM2_ffill_long27 = long27fin['Global M2 (USD, ffill)'].dropna()
 
-    savePath = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel
+    savePath = dir+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel
     SeriesInfo = pd.Series({'units':'US Dollars','units_short': 'USD','title':'Global M2 '+des,'id':'GM2'+des,"Source":"tv"},name='SeriesInfo')
     GM2_ffill_top50.to_excel(savePath+des+'GM2.xlsx',sheet_name='Closing_Price')
     with pd.ExcelWriter(savePath+des+'GM2.xlsx', engine='openpyxl', mode='a') as writer:  

@@ -780,7 +780,7 @@ def GetFedBillData(filePath, startDate:datetime.date,endDate:datetime.date=datet
         return Adj_ser
     
 def GetRecessionDates(startDate:datetime.date)-> pd.Series:
-    Path = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'USRECDM.xlsx'
+    Path = dir+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'USRECDM.xlsx'
     try:
         dates = pd.read_excel(Path,sheet_name='Series')
         dates.set_index('date',inplace=True)

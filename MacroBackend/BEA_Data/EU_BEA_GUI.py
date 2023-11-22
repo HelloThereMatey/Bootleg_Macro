@@ -237,7 +237,7 @@ Date = ctk.StringVar(master=root,value="",name='DataDateColumn')
 Data = ctk.StringVar(master=root,value="",name='DataColumn')
 cols = ctk.StringVar(master=root,value="",name='DataColumns')
 YAxis = ctk.StringVar(master=root,value='linear',name="Yaxis_Scale")
-savePath = wd+FDel+'Datasets'; export = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'BEA'
+savePath = wd+FDel+'Datasets'; export = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'
 save = ctk.StringVar(master=root,value=savePath,name='DataSavePath')
 ExportPath = ctk.StringVar(master=root,value=export,name='Export_Path')
 components = ctk.StringVar(master=root,value="",name='IndexComponents')

@@ -303,7 +303,7 @@ class BEA_Data(BureauEconomicAnalysisClient):
 
 class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page................................................................
 
-    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'BEA'):
+    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'):
         super().__init__(master)
         default_font = ctk.CTkFont('Arial',13)
         self.data = pd.DataFrame(dataTable['Series_Split'])
@@ -323,7 +323,7 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page......
 
 class CustomIndexWindow(ctk.CTkToplevel):
 
-    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'BEA'):
+    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'):
         super().__init__(master)
         default_font = ctk.CTkFont('Arial',13)
         self.data = pd.DataFrame(dataTable['Series_Split'])
@@ -542,7 +542,7 @@ if __name__ == "__main__":
 
     # data = pd.DataFrame(bea.NIPA_Data['Series_Split']); print(data.head(50),data.dtypes)
     # SeriesInfo = bea.NIPA_Data['SeriesInfo']
-    # loadPath = "C:/Users/jimmi/OneDrive/Documents/Documents/Scripts/VenV/Plebs_Macro/MacroBackend/BEA_Data/Datasets/T20805.xlsx"
+    # loadPath = "C:/Users/jimmi/OneDrive/Documents/Documents/Scripts/VenV/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/T20805.xlsx"
     # FullLoad = pd.read_excel(loadPath,sheet_name=None)
     # print(FullLoad.keys())
     # TheData = FullLoad['Series_Split']

@@ -8,7 +8,7 @@ import sys; sys.path.append(dire)
 ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
 from MacroBackend import PriceImporter, Charting, Utilities, Fitting
 ## You may see: 'Import "MacroBackend" could not be resolved' & it looks like MacroBackend can't be found. However, it will be found when script is run. Disregard error. 
-## You can make the error go away by adding thee MacroBackend and PLebs_Macro folder paths to you VSCode 'python.analysis extra paths' paths list. 
+## You can make the error go away by adding thee MacroBackend and Bootleg_Macro folder paths to you VSCode 'python.analysis extra paths' paths list. 
 #### The below packages need to be installed via pip/pip3 on command line. These are popular, well vetted packages all. Just use 'pip install -r requirements.txt'
 import numpy as np
 import pandas as pd
