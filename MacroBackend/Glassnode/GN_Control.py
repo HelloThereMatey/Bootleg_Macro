@@ -37,7 +37,7 @@ API_KEY = GlassNode_API.API_KEY
 defPath = wd+FDel+'Saved_Data'+FDel+'GN_MetricsList.xlsx'
 defPath = defPath.replace('\\','/')
 savePath = wd+FDel+'Saved_Data'; savePath = savePath.replace('\\','/')
-savePath2 = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'Glassnode'; savePath2 = savePath2.replace('\\','/')
+savePath2 = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'Glassnode'; savePath2 = savePath2.replace('\\','/')
 plt.rcParams.update({'font.family':'serif'})   #Font family for the preview figure. 
 
 def get_curr_screen_geometry():

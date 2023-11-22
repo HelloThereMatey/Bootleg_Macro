@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import datetime
 
-filePath = '/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/Generic_Macro/SavedData/RESPPLLOPNWW.xlsx'
+filePath = '/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/Macro_Chartist/SavedData/RESPPLLOPNWW.xlsx'
 startDate = datetime.date(2010,1,6)
 
 

@@ -225,7 +225,7 @@ class FitTrend():
             return fig
 
 if __name__ == '__main__':
-    data = pd.read_excel('/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/Generic_Macro/SavedData/BTCUSD.xlsx')
+    data = pd.read_excel('/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/Macro_Chartist/SavedData/BTCUSD.xlsx')
     data.set_index(pd.DatetimeIndex(pd.DatetimeIndex(data['date']).date),inplace=True)
     data.drop('date',axis=1,inplace=True)
     StartDate = datetime.date(2011,1,1); start = pd.Timestamp(StartDate)

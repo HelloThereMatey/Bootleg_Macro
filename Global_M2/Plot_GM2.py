@@ -1,9 +1,9 @@
 ###### Required modules/packages #####################################
 import os
-wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
-dir = os.path.dirname(wd)
+wd = os.path.dirname(__file__)  ## This gets the working direectory which is the folder where you have placed this .py file. 
+dire = os.path.dirname(wd)
 print(wd,dir)
-import sys ; sys.path.append(dir)
+import sys ; sys.path.append(dire)
 from MacroBackend import PriceImporter, Utilities, Charting ## This is one of my custom scripts holding functions for pulling price data from APIs. 
 #Your IDE might not find it before running script. 
 import pandas as pd
@@ -377,7 +377,7 @@ if __name__ == '__main__':
     PlotM2Data(FullDF,DataComp)
     Plot_GlobalM2(FullDF['Global M2 (USD, ffill)'], FullDF)
 
-    series = pd.read_excel("/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro/Generic_Macro/SavedData/Top50GM2.xlsx", sheet_name='Closing_Price', index_col=0)
+    series = pd.read_excel(dire+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'Top50GM2.xlsx', sheet_name='Closing_Price', index_col=0)
     series = series[series.columns[0]].rename('Global M2 aggregate (top 50)')
 
     fore = YoY_Forecast(series, convert_units = 10**12)

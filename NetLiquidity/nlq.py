@@ -270,7 +270,7 @@ with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:
 ################ Add the weekly remittances from Fed to TGA to the NLQ series if desired ##################################################   
 AddFedBills = Inputs.loc['Include_Remit'].at['Additional FRED Data'] 
 ChartFedBills = Inputs.loc['FED remittances'].at['Additional FRED Data'] 
-filePath = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'RESPPLLOPNWW.xlsx'
+filePath = dir+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'RESPPLLOPNWW.xlsx'
 
 if AddFedBills == 'yes':
     print("Adding weekly Fed TGA remittances to NLQ.")
