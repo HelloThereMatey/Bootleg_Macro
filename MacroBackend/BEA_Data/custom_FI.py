@@ -1,13 +1,9 @@
 import pandas as pd
 import numpy as np
 from typing import Union
-from pprint import pprint
-import sys
 import os
 fdel = os.path.sep
 import json
-sys.path.append("/Users/jamesbishop/Documents/Python/TempVenv/Plebs_Macro")
-from MacroBackend import Utilities, Charting
 
 wd = os.path.dirname(__file__)
 
@@ -16,7 +12,7 @@ from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
 from fuzzywuzzy import fuzz, process
 
-####### FUNCTIONS ##################################################################################################
+####### UTILITY FUNCTIONS ##################################################################################################
 
 def closest_column_match(search_str: str, df: pd.DataFrame):
     """
@@ -158,7 +154,8 @@ def search_key(json_dict: dict, target_key):
                 if result is not None:
                     return result
         return None        
-            
+
+######## CLASSES BELOW ############################            
 class CategoryData:
     def __init__(self, CategoryJSON_File_Path: str = None, CategoryDict: dict = None):
         if CategoryJSON_File_Path is not None:

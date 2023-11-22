@@ -8,7 +8,7 @@ import sys; sys.path.append(dire)
 ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
 from MacroBackend import PriceImporter, Charting, Utilities, Fitting
 ## You may see: 'Import "MacroBackend" could not be resolved' & it looks like MacroBackend can't be found. However, it will be found when script is run. Disregard error. 
-## You can make the error go away by adding thee MacroBackend and PLebs_Macro folder paths to you VSCode autocomplete paths list. 
+## You can make the error go away by adding thee MacroBackend and PLebs_Macro folder paths to you VSCode 'python.analysis extra paths' paths list. 
 #### The below packages need to be installed via pip/pip3 on command line. These are popular, well vetted packages all. Just use 'pip install -r requirements.txt'
 import numpy as np
 import pandas as pd
@@ -48,23 +48,36 @@ pixel = float(ScreenSettings['Pixel size (mm)'])
 figsize_px = (round(fwid/pixel),round(fhght/pixel))
 print('figsize (cm):',figsize,'figsize (pixels):',figsize_px)
 
-########## Script speciic business #############################################################################
+########## Script specific business #############################################################################
 try:
-    Inputs = pd.read_excel(wd+'/Control.xlsx')     ##Pull input parameters from the input parameters excel file. 
+    Inputs = pd.read_excel(wd+FDel+'Control.xlsx', index_col=0)     ##Pull input parameters from the input parameters excel file. 
 except Exception as e: 
-    print(e)
-    try:    
-        Inputs = pd.read_excel(wd+'\\Control.xlsx')
-    except Exception as e:
-        print(e) 
-        print("Check InputParams excel file. If name has been changed from  'NetLiquidity_InputParams.xlsx', or is not there, that is the problem.\
-              Issue could also be non-standard OS. If using an OS other than windows, mac or linux you'll just need to set the folder delimeter for all path references below.")    
-        quit()
-Inputs.set_index('Index',inplace=True)
+    print(e) 
+    print("Check InputParams excel file. If name has been changed from  'Control.xlsx', or has been moved, that is the problem.\
+            Issue could also be a non-standard OS. If using an OS other than windows, mac or linux you'll just need to set the folder delimeter for all path references below.")    
+    quit()
 
 NoString = 'no'
 myFredAPI_key = Inputs.loc['FRED_Key'].at['Series_Ticker']
 
+############ SAVE AND LOAD CHART TEMPLATES #########################################################################
+if Inputs.loc['load_template_instead'].at['Series_Ticker'] == 'yes':
+    if pd.isna(Inputs.loc['Template'].at['Series_Ticker']):
+        pass
+    else:    
+        template_file = wd+FDel+'Chart_templates'+FDel+str(Inputs.loc['Template'].at['Series_Ticker'])
+        Inputs = pd.read_excel(template_file, index_col=0)
+
+Title = Inputs.loc['CHART TITLE'].at['Series_Ticker']
+
+if Inputs.loc['OUTPUT_CONFIG'].at['Series_Ticker'] == 'yes' and Inputs.loc['load_template_instead'].at['Series_Ticker'] == 'no':   
+    templates_path = wd+FDel+'Chart_templates'
+    Inputs.to_excel(templates_path+FDel+Title+'.xlsx')
+    files = os.listdir(templates_path)
+    files_list = pd.Series(files, name = 'Previously saved chart template titles')
+    files_list.to_excel(wd+FDel+"TemplateList.xlsx", index = False)
+
+############ CREATE A DICT WITH ALL THE PARAMETERS FROM THE CONTOL EXCEL FILE #########################################################################
 DayOne = Inputs.loc['StartDate'].at['Series_Ticker']; LastDay = Inputs.loc['EndDate'].at['Series_Ticker']
 print('Data start from input file: ',DayOne,', end: ',LastDay)
 if pd.isna(DayOne) is True:
@@ -84,22 +97,24 @@ print('Pulling data for date range: ',DataStart,' to ',EndDateStr,', number of d
 print('Start date:',StartDate,', end date: ',EndDate)
 
 SeriesDict = {}; SpreadStr = "spread"; GNstr = 'GNload'; loadStr = 'load'; noStr = 'no'
-Title = Inputs.loc['CHART TITLE'].at['Series_Ticker']
 recession_bars = Inputs.loc['RECESSION_BARS'].at['Series_Ticker']
 alignZeros = Inputs.loc['Align_ZeroPos'].at['Series_Ticker']
 G_YMin = Inputs.loc['Global_Ymin'].at['Series_Ticker']
 G_YMax = Inputs.loc['Global_Ymax'].at['Series_Ticker']
 
+########## PULL OR LOAD THE DATA ###########################################################################################
+print(Inputs.index[0:6])
 for i in range(1,6):
     ticker = Inputs.loc[i].at['Series_Ticker']
     if pd.isna(ticker):
         pass
     else:
+        name = "Trace_"+str(i)
         source = Inputs.loc[i].at['Source']; Tipe = str(Inputs.loc[i].at['UnitsType']).strip()
-        color = Inputs.loc[i].at['TraceColor']; label = Inputs.loc[i].at['Legend_Name']; name = Inputs.loc[i].at['Name']
-        yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['Resample2D']
+        color = Inputs.loc[i].at['TraceColor']; label = Inputs.loc[i].at['Legend_Name']
+        yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['ReS_2_D']
         axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i-1]; MA =  Inputs.loc[i].at['Sub_MA']; LW = Inputs.loc[i].at['LineWidth']
-        convert = Inputs.loc[i].at['ConvertUnits']; Ymin = Inputs.loc[i].at['Ymin']; aMA =  Inputs.loc[i].at['Add_MA']
+        convert = Inputs.loc[i].at['Divide_data_by']; Ymin = Inputs.loc[i].at['Ymin']; aMA =  Inputs.loc[i].at['Add_MA']
         SeriesDict[name] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name,\
                             'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax,'Resample2D': resample, 'useMA': MA, 'addMA':aMA, 'LW': LW, 'Ticker_Source':ticker,
                             'ConvertUnits':convert,'Ymin': Ymin }      
@@ -302,6 +317,7 @@ for series in SeriesDict.keys():
 ###################### Change series to YoY or other annualized rate calcs if that option is chosen #################################
 normStr = 'Unaltered'; YoYStr = 'Year on year % change'; devStr = '% dev. from fit. trend'; ann3mStr = 'Annualised 3-month % change'
 ann6mStr = 'Annualised 6-month % change'; momStr = 'Month on month % change'; yoySqStr = 'YoY of Yoy, i.e YoY^2'
+cumStr = 'Rolling sum'
 
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]; 
@@ -330,6 +346,9 @@ for series in SeriesDict.keys():
     elif TraceType.upper() == yoySqStr.upper(): 
         FirstDer = Utilities.MonthPeriodAnnGrowth2(data,12) + 100
         data = Utilities.MonthPeriodAnnGrowth2(FirstDer,12) 
+    elif TraceType.upper() == cumStr.upper():
+        print('Rolling sum calculation chosen....')
+        data = data.cumsum(axis = 0)    
     elif MatchTransform is not None:  
         print('Using dev. from fitted trend transformation...')   
         start, end = MatchTransform.span()
@@ -423,6 +442,7 @@ Replaces = {"GNload":"Glassnode","fred":"FRED","yfinance":"Yahoo","yfinance":"Ya
 for word in Replaces.keys():
     DataSourceStr = DataSourceStr.replace(word,Replaces[word])
 
+####### CALL THE CHART TEMPLATE FROM Charting.py in the MacroBackend folder ############
 smolFig = plt.figure(FigureClass = Charting.BMP_Fig,margins=margins,numaxii=numAxii,DataSourceStr=DataSourceStr,figsize=figsize)
 smolFig.set_Title(Title)
 
@@ -458,7 +478,7 @@ if recession_bars == 'yes':
     else:
         ax1.text(0.4,-0.195,"Shaded vertcial bars indicate recession periods (NBER).",fontsize='small',color='blue',horizontalalignment='left', transform=ax1.transAxes)
 
-plt.show()
+plt.show()        ## This shows the matplotlib figure.
 
 
 

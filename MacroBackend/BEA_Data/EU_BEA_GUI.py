@@ -20,6 +20,8 @@ import BEA_API_backend
 ###### Determine what OS this is running on and get appropriate path delimiter. #########
 FDel = os.path.sep
 print("Operating system: ",sys.platform, "Path separator character: ", FDel)
+plt.rcParams['figure.dpi'] = 200
+#plt.rcParams['backend'] = 'TkCairo'
 
 ######### Set default font and fontsize ##################### Make this automatic and hide in utility files later on. 
 try:
@@ -39,7 +41,7 @@ except:
 OldSesh = {'OS': ScreenSettings['OS'], 'USER': ScreenSettings['USER']}
 if sys.platform == 'win32':
     username = os.environ['USERNAME']
-else:
+else: 
     username = os.environ['USER']
 SessionCheck = {'OS': sys.platform, 'USER': username}
 if SessionCheck != OldSesh:

@@ -392,7 +392,7 @@ class BMP_Fig(Figure):
                 TheAx.set_yscale(TheTrace['YScale'])
                 print(trace,TheAx, 'Use scale: ', TheTrace['YScale'])
 
-            if TheTrace['YScale'] == 'log' and TheTrace['UnitsType'] != 'Unaltered':
+            if TheTrace['YScale'] == 'log' and TheTrace['UnitsType'] not in ['Unaltered','Rolling sum']:
                 print('Using offset log axis for series: ',TheTrace['Name'])
                 TheTrace['Data'] += 100
                 if Ymin is not None:
@@ -405,7 +405,7 @@ class BMP_Fig(Figure):
                 else:        
                     TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
                 TheAx.minorticks_off()
-                ticks, ticklabs = Utilities.EqualSpacedTicks(TheTrace['Data'],10,LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax,Ymin=Ymin)
+                ticks, ticklabs = Utilities.EqualSpacedTicks(10, TheTrace['Data'], LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax,Ymin=Ymin)
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
                 TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs) 
                 if i > 0:

@@ -36,11 +36,11 @@ def PullData(FullInfo:pd.DataFrame,username=None,password=None,Rank:list=None): 
         Countries = FullInfo.index.to_list()
     for i in range(len(Countries)):
         TheCountry = Countries[i]
-        M2Sym = FullInfo['M2_Symbol'][i]
-        M2Ex = FullInfo['M2_exchange'][i]
-        FXSym = FullInfo['FX_Symbol'][i]
-        FXEx = FullInfo['FX_Exchange'][i]
-        CurrCode = FullInfo['M2_currency_code'][i]
+        M2Sym = FullInfo.iloc[i].at['M2_Symbol']
+        M2Ex = FullInfo.iloc[i].at['M2_exchange']
+        FXSym = FullInfo.iloc[i].at['FX_Symbol']
+        FXEx = FullInfo.iloc[i].at['FX_Exchange']
+        CurrCode = FullInfo.iloc[i].at['M2_currency_code']
         print(TheCountry,M2Sym,M2Ex,FXSym,FXEx)
         M2_Data = tv.get_hist(symbol=M2Sym,exchange=M2Ex,interval=Interval.in_monthly,n_bars=500)
         shitlist = []
@@ -62,8 +62,8 @@ def MakeDataCompFile(FullInfo:pd.DataFrame,M2Path:str,FXPath:str):
                 "Past Limit":[],"Present Limit":[],"FX_Symbol":[]}
     for i in range(len(FullInfo)): 
         TheCountry = FullInfo.index[i]
-        CurrCode = FullInfo['M2_currency_code'][i]
-        FXSym = FullInfo['FX_Symbol'][i]
+        CurrCode = FullInfo.iloc[i].at['M2_currency_code']
+        FXSym = FullInfo.iloc[i].at['FX_Symbol']
         M2_Data = pd.read_excel(M2Path+FDel+TheCountry+'_M2.xlsx')
         index = pd.DatetimeIndex(pd.DatetimeIndex(M2_Data[M2_Data.columns[0]]).date)
         M2_Data.set_index(index,inplace=True); l = 0
@@ -124,8 +124,8 @@ def CombineDatasSimp(FullInfo:pd.DataFrame,DataSum:pd.DataFrame,M2Path:str,FXPat
     DataDict = {}
     for i in range(len(DataSum)): #len(DataSum)   #Then saves a DF for each country. 
         Country = DataSum.index[i]; dtStr = 'datetime'
-        FXPair = DataSum['FX_Symbol'][i]
-        CurrCode = DataSum['Curr_code'][i]
+        FXPair = DataSum.iloc[i].at['FX_Symbol']
+        CurrCode = DataSum.iloc[i].at['Curr_code']
 
         M2_Data = pd.read_excel(M2Path+FDel+Country+'_M2.xlsx')
         try:
@@ -228,40 +228,80 @@ def UpdateData(M2List:pd.DataFrame,M2Path:str,FXPath:str):
 if __name__ == "__main__":
 
     #################################### ACTIVE CODE BELOW, FUNCTIONS ABOVE. #####################################################
-    msg = showinfo(title='Global M2 input data info.',message='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.'+\
-        " Must be formatted correctly. I suggest: Plebs_Macro/Global_M2/UpdateM2INfo/M2Info_Top50.xlsx, or one of the other M2Info files in that folder."+\
-            " If you use the wrong ticker & exchange codes for a particular country in your dataframe, you'll get NaNs and get f**ked on.")
+    # msg = showinfo(title='Global M2 input data info.',message='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.'+\
+    #     " Must be formatted correctly. I suggest: Plebs_Macro/Global_M2/UpdateM2INfo/M2Info_Top50.xlsx, or one of the other M2Info files in that folder."+\
+    #         " If you use the wrong ticker & exchange codes for a particular country in your dataframe, you'll get NaNs and get f**ked on.")
             
-    filename = askopenfilename(title='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.',defaultextension='.xlsx',initialdir=wd) 
-    des = filename.rsplit('.',1)[0].rsplit('_',1)[1]
-    print(FDel, filename, '\n', des)
+    # filename = askopenfilename(title='Choose Global M2 info excel file (.xlsx only) from the "UpdateM2Infos" folder.',defaultextension='.xlsx',initialdir=wd) 
+    # des = filename.rsplit('.',1)[0].rsplit('_',1)[1]
+    # print(FDel, filename, '\n', des)
+    print('Pulling M2 and FX data for the top 50 economies from TV........')
+    filename = wd+FDel+'UpdateM2Infos'+FDel+'M2Info_Top50.xlsx'
+    top33path = wd+FDel+'UpdateM2Infos'+FDel+'M2Info_Top33.xlsx'
+    long28path = wd+FDel+'UpdateM2Infos'+FDel+'M2Info_Long28.xlsx'
+    long27path = wd+FDel+'UpdateM2Infos'+FDel+'M2Info_Long27.xlsx'
 
     # show an "Open" dialog box and return the path to the selected file
     M2Path = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'M2_Data'); 
     FXPath = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'FX_Data') ###Change these if changing the folder structure within "Global_M2" folder.
     print('Loading global M2 information from: ',filename)
 
-    FullList = pd.read_excel(filename)   #Step #1 load file that has info on which countries + the M2 & FX codes for data to pull from TV. 
-    FullList.set_index('Country',inplace=True) #;FullList = FullList[0:3]
+    FullList = pd.read_excel(filename, index_col=0)   #Step #1 load file that has info on which countries + the M2 & FX codes for data to pull from TV. 
+    top33 = pd.read_excel(top33path, index_col=0)
+    long28 = pd.read_excel(long28path, index_col=0)
+    long27 = pd.read_excel(long27path, index_col=0)
+
     print("Global M2 initial dataframe: ",FullList)
     split = filename.split(FDel); nam = split[len(split)-1]; split2 = nam.split("."); naml = split2[0]; split3 = naml.split("_"); des = split3[1]
 
     DataComp = UpdateData(FullList,M2Path,FXPath)        #Step #2 update M2 & FX data if not already done (optional). 
     DataComp.to_excel(wd+FDel+'Datasums'+FDel+des+'_DataComp.xlsx')
-    Combos = CombineDatasSimp(FullList,DataComp,M2Path,FXPath); print(Combos) ##Step #3 multiply M2 & FX datas. 
+    top33Sum = MakeDataCompFile(top33,M2Path,FXPath)
+    top33Sum.to_excel(wd+FDel+'Datasums'+FDel+'Top33_DataComp.xlsx')
+    long28Sum = MakeDataCompFile(long28,M2Path,FXPath)
+    long28Sum.to_excel(wd+FDel+'Datasums'+FDel+'Long28_DataComp.xlsx')
+    long27Sum = MakeDataCompFile(long27,M2Path,FXPath)
+    long27Sum.to_excel(wd+FDel+'Datasums'+FDel+'Long27_DataComp.xlsx')
+
+    Combos = CombineDatasSimp(FullList,DataComp,M2Path,FXPath) ##Step #3 multiply M2 & FX datas. 
+    top33com = CombineDatasSimp(top33,top33Sum,M2Path,FXPath) ##Step #3 multiply M2 & FX datas. 
+    long28com = CombineDatasSimp(long28,long28Sum,M2Path,FXPath) ##Step #3 multiply M2 & FX datas. 
+    long27com = CombineDatasSimp(long27,long27Sum,M2Path,FXPath) ##Step #3 multiply M2 & FX datas. 
+
     for country in Combos.keys():
         data = pd.DataFrame(Combos[country])
         data.to_excel(wd+FDel+"TVDataFeed"+FDel+"FinalData"+FDel+country+".xlsx")
 
-    FullDF = MakeMasterM2DF_2(DataComp,wd+FDel+"TVDataFeed"+FDel+"FinalData"+FDel) #Step #4: put all the data in a big master DF. 
+    FinDataPath = wd+FDel+"TVDataFeed"+FDel+"FinalData"+FDel
+    SaveDataTo = wd+FDel+'M2_USD_Tables'+FDel
+    FullDF = MakeMasterM2DF_2(DataComp,FinDataPath) #Step #4: put all the data in a big master DF. 
     FullDF.to_excel(wd+FDel+'M2_USD_Tables'+FDel+des+'_M2_USD.xlsx')
-    GM2_ffill = FullDF['Global M2 (USD, ffill)']
 
-    savePath = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+des+'GM2.xlsx'
-    GM2_ffill.dropna(inplace=True)
+    top33fin = MakeMasterM2DF_2(top33Sum,FinDataPath) #Step #4: put all the data in a big master DF. 
+    top33fin.to_excel(SaveDataTo+'Top33_M2_USD.xlsx')
+    long28fin = MakeMasterM2DF_2(long28Sum,FinDataPath) #Step #4: put all the data in a big master DF. 
+    long28fin.to_excel(SaveDataTo+'Long28_M2_USD.xlsx')
+    long27fin = MakeMasterM2DF_2(long27Sum,FinDataPath) #Step #4: put all the data in a big master DF. 
+    long27fin.to_excel(SaveDataTo+'Long27_M2_USD.xlsx')
+
+    GM2_ffill_top50 = FullDF['Global M2 (USD, ffill)'].dropna()
+    GM2_ffill_top33 = top33fin['Global M2 (USD, ffill)'].dropna()
+    GM2_ffill_long28 = long28fin['Global M2 (USD, ffill)'].dropna()
+    GM2_ffill_long27 = long27fin['Global M2 (USD, ffill)'].dropna()
+
+    savePath = dir+FDel+'Generic_Macro'+FDel+'SavedData'+FDel
     SeriesInfo = pd.Series({'units':'US Dollars','units_short': 'USD','title':'Global M2 '+des,'id':'GM2'+des,"Source":"tv"},name='SeriesInfo')
-    GM2_ffill.to_excel(savePath,sheet_name='Closing_Price')
-    with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
+    GM2_ffill_top50.to_excel(savePath+des+'GM2.xlsx',sheet_name='Closing_Price')
+    with pd.ExcelWriter(savePath+des+'GM2.xlsx', engine='openpyxl', mode='a') as writer:  
+        SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+    GM2_ffill_top33.to_excel(savePath+'Top33_GM2.xlsx',sheet_name='Closing_Price')
+    with pd.ExcelWriter(savePath+'Top33_GM2.xlsx', engine='openpyxl', mode='a') as writer:  
+        SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+    GM2_ffill_long28.to_excel(savePath+'Long28_GM2.xlsx',sheet_name='Closing_Price')
+    with pd.ExcelWriter(savePath+'Long28_GM2.xlsx', engine='openpyxl', mode='a') as writer:  
+        SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+    GM2_ffill_long27.to_excel(savePath+'Long27_GM2.xlsx',sheet_name='Closing_Price')
+    with pd.ExcelWriter(savePath+'Long27_GM2.xlsx', engine='openpyxl', mode='a') as writer:  
         SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
 
     print("Alrighty. M2 & FX data have been updated successfully and the master dataframe of M2 (USD) data has been constructed and \

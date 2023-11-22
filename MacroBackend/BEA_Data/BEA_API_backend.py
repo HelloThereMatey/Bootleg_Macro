@@ -301,8 +301,7 @@ class BEA_Data(BureauEconomicAnalysisClient):
         else:
             print('Load NIPA table data from BEA first.')    
 
-class Custom_FisherIndex(ctk.CTkToplevel):     #Still workinng on this page................................................................
-
+class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page................................................................
 
     def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Generic_Macro'+FDel+'SavedData'+FDel+'BEA'):
         super().__init__(master)
@@ -314,7 +313,12 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still workinng on this page.....
         self.CD_loadPath = ctk.StringVar(self, value="", name = 'CurrentDollar_loadPath' )
         self.PI_loadPath = ctk.StringVar(self, value="", name = 'PriceIndexes_loadPath' )
 
-        load_catz = ctk.CTkButton(self.frame3, text="Load Category Data",font=('Arial',14,'bold'),text_color='tomato',command=self.ResetBox)
+        self.set_load_paths = ctk.CTkButton(self, text="Load Category Data",font=('Arial',14,'bold'),command=self.set_paths)
+        self.set_load_paths.pack(padx=15,pady=15)
+
+    def set_paths(self):
+        
+        self.catz_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=wd,title="Choose .json file that contains lists of the aggregates and categories to use for your Fisher Index"))
 
 
 class CustomIndexWindow(ctk.CTkToplevel):
