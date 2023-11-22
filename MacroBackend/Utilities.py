@@ -11,6 +11,33 @@ import json
 from typing import Union, Tuple, List
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+from openpyxl import load_workbook
+
+def append_to_column(workbook_path, sheet_name:str = 'Sheet1', column:str = 'A', data_list: list = []):
+    """
+    Appends a list of strings to a specified column in an Excel sheet using openpyxl.
+
+    :param workbook_path: Path to the Excel workbook.
+    :param sheet_name: Name of the sheet to append data to.
+    :param column: Column letter to append data to.
+    :param data_list: List of strings to append.
+    """
+    # Load the workbook and select the sheet
+    workbook = load_workbook(workbook_path)
+    sheet = workbook[sheet_name]
+
+    # Find the first empty row in the specified column
+    row = 1
+    while sheet[f"{column}{row}"].value is not None:
+        row += 1
+
+    # Append data to the column
+    for item in data_list:
+        sheet[f"{column}{row}"].value = item
+        row += 1
+
+    # Save the workbook
+    workbook.save(workbook_path)
 
 def count_zeros_after_decimal(series: pd.Series = None, value: float = None) -> int:
     if series is not None:
@@ -26,8 +53,7 @@ def count_zeros_after_decimal(series: pd.Series = None, value: float = None) -> 
 
 def EqualSpacedTicks(numTicks, data: Union[pd.Series, pd.DataFrame] = None,
         LogOrLin:str='linear',LabOffset=None,labPrefix:str=None,labSuffix:str=None,Ymin:float=None,Ymax:float=None):
-    
-    print('Equal spaced ticks function, data: ', data)
+     
     if data is not None:
         if Ymin is None:
             Ymin = data.min()
