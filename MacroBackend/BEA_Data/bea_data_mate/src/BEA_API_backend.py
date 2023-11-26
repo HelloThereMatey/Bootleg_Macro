@@ -19,6 +19,7 @@ import tkinter.font as tkFont
 from tkinter import filedialog
 from MacroBackend import Utilities
 from pprint import pprint
+import custom_FI
 
 Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
@@ -303,23 +304,36 @@ class BEA_Data(BureauEconomicAnalysisClient):
 
 class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page................................................................
 
-    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'):
+    def __init__(self, master, exportPath:str = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'):
         super().__init__(master)
-        default_font = ctk.CTkFont('Arial',13)
-        self.data = pd.DataFrame(dataTable['Series_Split'])
-        self.SeriesInfo = pd.DataFrame(dataTable['SeriesInfo']).copy().squeeze()
+        self.default_font = ctk.CTkFont('Arial',13)
 
-        self.catz_loadPath = ctk.StringVar(self, value="", name = 'category_loadPath' )
-        self.CD_loadPath = ctk.StringVar(self, value="", name = 'CurrentDollar_loadPath' )
-        self.PI_loadPath = ctk.StringVar(self, value="", name = 'PriceIndexes_loadPath' )
+        self.catz_loadPath = ctk.StringVar(self, value=wd+FDel+"Categories"+FDel+'PCE.json', name = 'category_loadPath' )
+        self.CD_loadPath = ctk.StringVar(self, value=wd+FDel+"Datasets"+FDel+"Annual"+FDel+'U20405.xlsx', name = 'CurrentDollar_loadPath' )
+        self.PI_loadPath = ctk.StringVar(self, value=wd+FDel+"Datasets"+FDel+"Annual"+FDel+'U20404.xlsx', name = 'PriceIndexes_loadPath' )
 
         self.set_load_paths = ctk.CTkButton(self, text="Load Category Data",font=('Arial',14,'bold'),command=self.set_paths)
-        self.set_load_paths.pack(padx=15,pady=15)
+        self.set_load_paths.pack(side = 'left', padx=15,pady=15)
+
+        self.run_calc = ctk.CTkButton(self, text="Calculate FI",font=('Arial',14,'bold'),command=self.calc_FI)
+        self.run_calc.pack(side = 'right', padx=15, pady=15)
+
+        catzPath = ctk.CTkEntry(self,textvariable=self.catz_loadPath,font=self.default_font,width=self.default_font.measure(self.catz_loadPath.get())+20)
+        catzPath.pack(side = 'bottom', padx=15,pady=5)
+        cdPath = ctk.CTkEntry(self,textvariable=self.CD_loadPath,font=self.default_font,width=self.default_font.measure(self.CD_loadPath.get())+20)
+        cdPath.pack(side = 'bottom', padx=15,pady=5)
+        piPath = ctk.CTkEntry(self,textvariable=self.PI_loadPath,font=self.default_font,width=self.default_font.measure(self.PI_loadPath.get())+20)
+        piPath.pack(side = 'bottom', padx=15,pady=5)
 
     def set_paths(self):
         
         self.catz_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=wd,title="Choose .json file that contains lists of the aggregates and categories to use for your Fisher Index"))
+        self.CD_loadPath .set(filedialog.askopenfilename(parent=self,initialdir=wd,title="Choose .xlsx file that contains the current dollar estimates data downloaded from BEA."))
+        self.PI_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=wd,title="Choose .xlsx file that contains the price index data downloaded from BEA."))
 
+    def calc_FI(self):
+        self.FI_obj = custom_FI.BEA_FisherIndex(self.CD_loadPath, self.PI_loadPath, self.catz_loadPath)
+        print(self.FI_obj.PCE_Data)
 
 class CustomIndexWindow(ctk.CTkToplevel):
 

@@ -115,9 +115,10 @@ for i in range(1,6):
         yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['ReS_2_D']
         axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i-1]; MA =  Inputs.loc[i].at['Sub_MA']; LW = Inputs.loc[i].at['LineWidth']
         convert = Inputs.loc[i].at['Divide_data_by']; Ymin = Inputs.loc[i].at['Ymin']; aMA =  Inputs.loc[i].at['Add_MA']
+        new_startDate = Inputs.loc[i].at['Limit_StartDate']
         SeriesDict[name] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name,\
-                            'YScale': yscale,'axlabel': axlabel,'Ymax': Ymax,'Resample2D': resample, 'useMA': MA, 'addMA':aMA, 'LW': LW, 'Ticker_Source':ticker,
-                            'ConvertUnits':convert,'Ymin': Ymin }      
+                            'YScale': yscale,'axlabel': axlabel,'Ymax': float(Ymax),'Resample2D': resample, 'useMA': MA, 'addMA':aMA, 'LW': LW, 'Ticker_Source':ticker,
+                            'ConvertUnits':convert,'Ymin': float(Ymin), "start_date": new_startDate}      
 
 SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
 numAxii = numSeries
@@ -309,7 +310,7 @@ for series in SeriesDict.keys():
             data = data.rolling(ma).mean(); data.dropna(inplace=True)
             TheSeries['Data'] = data
             label = str(TheSeries['Legend_Name'])
-            label += " "+str(ma)+' day MA'
+            label += " "+str(ma)+' period MA'
             TheSeries['Legend_Name'] = label
         except:
             print('Sub_MA must be an integer if you want to use an MA.')    
@@ -362,7 +363,10 @@ for series in SeriesDict.keys():
     
     else:
         pass    
-    TheSeries['Data'] = data
+    if pd.isna(TheSeries["start_date"]):
+        TheSeries['Data'] = data
+    else:
+        TheSeries['Data'] = data[TheSeries["start_date"]::]
 
 ######## Look at the Y-range of each series and adjust Y-axis so that the 0-position of each chart will align if chosen. #######################
 if alignZeros == 'yes':
