@@ -238,8 +238,7 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     ax.tick_params(axis='y',which='major',width=0.5,labelsize='small')     #All this to get y custom evenly spaced log ticks. 
     ax.tick_params(axis='x',which='both',width=0,labelsize=0) 
 
-    #ax1.set_title(CorrString, fontsize=13,alpha=1)
-    ax1.text(0.55,-0.33,CorrString,horizontalalignment='center',verticalalignment='center', transform=ax.transAxes,fontsize=12)
+    ax1.text(0.45,-0.33,CorrString,horizontalalignment='center',verticalalignment='center', transform=ax.transAxes,fontsize=12)
     ax1.set_ylabel('Correlation', fontweight = 'bold'); i = 0
     for column in CorrDF.columns:
         numCCAvs = len(CorrDF.columns)
@@ -250,7 +249,7 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
         i += 1
     ax1.legend(loc=1, fontsize='small',bbox_to_anchor=(1.09, 0.9),framealpha=1)
     if ExtraAssets is True:
-        ax1.text(x=NetLiquidity.index[(round(len(NetLiquidity)/4)*3)-12],y=(-1.09),s='Correlation between net liquidity & '+FAName)
+        ax1.text(x=NetLiquidity.index[(round((len(NetLiquidity)/4)*2.5))-12],y=(-1.09),s='Correlation between net liquidity & '+FAName)
     ax1.set_ylim(-1.2, 1.1)
     for axis in ['top','bottom','left','right']:
             ax1.spines[axis].set_linewidth(1.5)  
@@ -355,15 +354,15 @@ class BMP_Fig(Figure):
         self.ax1.tick_params(axis='x',which='both',labelsize=12)
           
         if bot < 0.14: 
-            self.ax1.text(-0.03, -0.135 , 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
+            self.ax1.text(-0.03, -0.135 , 'Charts by The Macro Bootlegger (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
             self.ax1.text(1, -0.135 , DataSourceStr,fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
         else:
-            self.ax1.text(-0.03, -0.195, 'Charts by the Bootleg Macro Pleb (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)  
+            self.ax1.text(-0.03, -0.195, 'Charts by The Macro Bootlegger (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)  
             self.ax1.text(1, -0.195 , DataSourceStr,fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)       
     
     def AddTraces(self,Traces:dict): #Traces is a nested dict with details of each trace such as color, linewidth etc. 
         i = 0; AxList =  self.axes
-        locList = [(-0.025,-0.105),(0.375,-0.105),(0.7,-0.105),(-0.025,-0.16),(0.375,-0.16)]
+        locList = [(-0.025,-0.105),(0.375,-0.105),(0.75,-0.105),(-0.025,-0.16),(0.375,-0.16)]
         for trace in Traces.keys():
             TheTrace = Traces[trace]
             data = TheTrace['Data']; name = TheTrace['Name']; Ylabel = TheTrace['axlabel']

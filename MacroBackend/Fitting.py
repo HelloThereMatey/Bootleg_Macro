@@ -39,10 +39,16 @@ class FitFunction():
         return 10**(a*np.log(x)-b)
         #return np.exp((a*np.log(x)-b))
 
+    # def logistic_func(self, x, K, A, r):  # Define logistic function
+    #     self.funcName = "Logistic"
+    #     return K / (1 + A * np.exp(-r * x))
+    # # Fit logistic function to data
+
     def logistic_func(self, x, K, A, r):  # Define logistic function
         self.funcName = "Logistic"
-        return K / (1 + A * np.exp(-r * x))
-    # Fit logistic function to data
+        # Scale x for stability
+        x_scaled = x / 1000  # Adjust the scaling factor as needed
+        return K / (1 + A * np.exp(-r * x_scaled))
 
 #### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
 def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
@@ -102,6 +108,7 @@ class FitTrend():
     def __init__(self, data: pd.Series) -> None:
         self.name = data.name
         self.original_data = data
+        self.data_max = data.max()
 
     def fitExpTrend(self):
         index = self.original_data.index.to_numpy()
@@ -116,6 +123,7 @@ class FitTrend():
         for ex in x:
             fit_y.append(np.exp(b+a*ex))
         fitY = pd.Series(fit_y,index=index,name=self.original_data.name+" exp_fit") 
+        #fitY *= self.data_max  #Expand data back to the range of thee orginial. 
         TrendDev = ((self.original_data - fitY)/fitY)*100; print('Dev from trend max, min: ',TrendDev.max(),TrendDev.min())
         self.fit = fitY
         fit_res = ((self.original_data - fitY)**2).sum(); print("Residual squared: ", fit_res)
@@ -133,6 +141,7 @@ class FitTrend():
         x = np.linspace(1,len(data),len(data)); y = data.to_numpy(); yLog = np.log(y)
         f = func.functions[FitFunc][0]; funcName = FitFunc
         LogOrLin = func.functions[FitFunc][1]
+        print(f, funcName, LogOrLin)
         if funcName == "Exponential":
             self.fitExpTrend()
             return
@@ -141,15 +150,17 @@ class FitTrend():
                 popt, pcov = curve_fit(f,x,y)
                 fit = f(x,*popt)
             except Exception as error:    
-                print('Devo, fit failed bro.. error message: ',error,'\n',"Try running fit again with LogOrLin set to 'log'") 
-                quit()   
+                print('Devo, fit failed bro.. error message: ',error,'\n',"Trying run fit again with LogOrLin set to 'log'") 
+                popt, pcov = curve_fit(f,x,yLog)
+                fit = f(x,*popt)
         elif LogOrLin == 'log':
             try:
                 popt, pcov = curve_fit(f,x,yLog)
                 fit = np.exp(f(x,*popt))
             except Exception as error:    
-                print('Devo, fit failed bro.. error message: ',error,'\n',"Try running fit again with LogOrLin set to 'linear'") 
-                quit()                 
+                print('Devo, fit failed bro.. error message: ',error,'\n',"Trying run fit again with LogOrLin set to 'linear'") 
+                popt, pcov = curve_fit(f,x,y)
+                fit = f(x,*popt)
          
         Fit = pd.Series(fit,index=data.index,name=data.name+" "+funcName+" fit")   
         print('Trendline fitted to data: ',data.name,' ',funcName,' function used, optimized fitting parameters: ',popt)  
@@ -164,7 +175,7 @@ class FitTrend():
                         "p_cov": pcov,
                         "R_Squared": r2}
         if funcName == "ExpLog":
-            self.fit[0:round(0.02*len(self.fit))] = np.nan
+            self.fit[0:round(0.02*len(self.fit))] = np.nan   ##This is here to remove the first 2% of the curve where it flies upwards.
             self.PctDev[0:round(0.02*len(self.PctDev))] = np.nan
         elif funcName == "Exp_Base10":
             print("Note: 'Exp_Base10 fit was not working last timme I checked. Use 'Exponential' instead.")    
@@ -194,9 +205,9 @@ class FitTrend():
 
             if yaxis == 'log':
                 ax1.set_yscale('log'); axb.set_yscale('log')
-                lTicks, lTickLabs = Utilities.EqualSpacedTicks(self.original_data, numTicks=10, LogOrLin='log')
+                lTicks, lTickLabs = Utilities.EqualSpacedTicks(10, self.original_data, LogOrLin='log')
                 pct += 100
-                rTicks, rTickLabs = Utilities.EqualSpacedTicks(pct, numTicks=10, LogOrLin='log',LabOffset=-100,labSuffix="%")
+                rTicks, rTickLabs = Utilities.EqualSpacedTicks(10, pct, LogOrLin='log',LabOffset=-100,labSuffix="%")
                 ax1.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
                 ax1.set_yticks(lTicks); ax1.set_yticklabels(lTickLabs)
                 ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,left=True,labelleft=True)
@@ -225,14 +236,13 @@ class FitTrend():
             return fig
 
 if __name__ == '__main__':
-    data = pd.read_excel('/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/Macro_Chartist/SavedData/BTCUSD.xlsx')
+    data = pd.read_excel('/Users/jamesbishop/Documents/Python/Bootleg_Macro/Macro_Chartist/SavedData/BTCUSD.xlsx')
     data.set_index(pd.DatetimeIndex(pd.DatetimeIndex(data['date']).date),inplace=True)
     data.drop('date',axis=1,inplace=True)
-    StartDate = datetime.date(2011,1,1); start = pd.Timestamp(StartDate)
+    StartDate = datetime.date(2012,1,1); start = pd.Timestamp(StartDate)
     data = data[start::]; data = pd.Series(data.squeeze(),name="BTC (USD)")
     print(data)
     fit = FitTrend(data)
     fit.FitData(FitFunc='Logistic')
-
     figure = fit.ShowFit(yaxis='log')
     plt.show()

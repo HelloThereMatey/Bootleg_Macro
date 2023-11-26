@@ -812,13 +812,13 @@ if __name__ == "__main__":
 
     ################################ SPECIFY THE PATHS TO THE EXCEL FILES CONTAINING THE DATA FROM BEA ##################################################
     
-    PCELoadPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/U20405.xlsx"
-    PricesLoadPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/U20404.xlsx"
-    QuantisLoadPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/U20403.xlsx"
+    PCELoadPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/bea_data_mate/Datasets/MonthlyData/U20405.xlsx"
+    PricesLoadPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/bea_data_mate/Datasets/MonthlyData/U20404.xlsx"
+    QuantisLoadPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/bea_data_mate/Datasets/MonthlyData/U20403.xlsx"
     Catz_json = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/BEA_Studies/PCE.json'
 
-    pctPricesPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/T20807.xlsx"
-    AltPrice_Indexes = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/T20804.xlsx"
+    pctPricesPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/bea_data_mate/Datasets/MonthlyData/T20807.xlsx"
+    AltPrice_Indexes = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/bea_data_mate/Datasets/MonthlyData/T20804.xlsx"
     SavePath = "/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/BEA_Studies/Series/FinalExportedIndexes"
 
     # GoodsFromBase = BEA_FisherIndex(PCELoadPath, PricesLoadPath, Catz_json, nearestAggregate="Goods", IndexName="Goods",

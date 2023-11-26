@@ -38,6 +38,7 @@ except:
         tkVars.ExportVars(dir+FDel+'SystemInfo')
         ScreenSettings = tkVars.ScreenData
 
+####### GET OS AND PLATFORM INFORMATION ########################################
 OldSesh = {'OS': ScreenSettings['OS'], 'USER': ScreenSettings['USER']}
 if sys.platform == 'win32':
     username = os.environ['USERNAME']
@@ -55,7 +56,7 @@ if SessionCheck != OldSesh:
         tkVars.ExportVars(dir+FDel+'SystemInfo')
         ScreenSettings = tkVars.ScreenData
 
-defCharWid = ScreenSettings['Def_font']['char_width (pixels)']; 
+defCharWid = ScreenSettings['Def_font']['char_width (pixels)']; ###Width of an average character for tkinter widgets. 
 defCharH = ScreenSettings['Def_font']['char_height (pixels)']
 screen_width = ScreenSettings['Screen_width']; screen_height = ScreenSettings['Screen_height']
 win_widthT = round(0.6*screen_width); win_heightT = round(0.5*screen_height)
@@ -65,25 +66,27 @@ print(ScreenSettings,win_widthT,win_heightT,win_widChars,win_HChars)
 
 # Initalize the new BEA client.
 api_key='779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC'
-defPath = wd+FDel+'Datasets'+FDel+'BEAAPI_Info.xlsx'
+defPath = wd+FDel+'Datasets'+FDel+'BEAAPI_Info.xlsx' ## This deafult path should lead to an excel file that has info on BEAAPI.
 bea = BEA_API_backend.BEA_Data(api_key=api_key,BEA_Info_filePath=defPath)
 
 ######## Tkinter initialization #########################################
 root = ctk.CTk()
 default_font = tkFont.nametofont("TkDefaultFont")
 root.title('Bureau of Economic Analysis Data Downloader')
-#root.geometry(str(win_widthT)+'x'+str(win_heightT))
+
+## Arrange the sections on the GUI as grid. 
 root.columnconfigure(0,weight=1,minsize=win_widthT)
 root.rowconfigure(0,weight=3); root.rowconfigure(1,weight=4); root.rowconfigure(2,weight=3)
 root.rowconfigure(3,weight=3); root.rowconfigure(4,weight=3)
 
+## Define the sections on the GUI as grid. 
 top = ctk.CTkFrame(root,width=win_widthT); top.grid(column=0,row=0,padx=10,pady=5)
 middle = ctk.CTkFrame(root,width=win_widthT); middle.grid(column=0,row=1,padx=10,pady=5)
 bottom = ctk.CTkFrame(root,width=win_widthT); bottom.grid(column=0,row=2,padx=10,pady=5)
 bottom2 = ctk.CTkFrame(root,width=win_widthT); bottom2.grid(column=0,row=3,padx=10,pady=5)
 bottom3 = ctk.CTkFrame(root,width=win_widthT); bottom3.grid(column=0,row=4,padx=10,pady=5)
 
-def SearchBtn():
+def SearchBtn():   #Search through a dataframe containing data that can be pulled from BEA API.
     loadPath = path.get(); term = searchTerm.get()
     print("Search term original: ",term)
     TheDataSet = DataSet.get()
@@ -215,11 +218,10 @@ def CustomExport():
         print('Load data first.....')    
 
 def custom_fi():
-    if bea.Data is not None:
-        FI_window = BEA_API_backend.Custom_FisherIndex(root, bea.Data,name=bea.Data_name)
-    else:
-        print('Load data first.....') 
+    FI_window = BEA_API_backend.Custom_FisherIndex(root)
 
+
+######## Define and arange the features on the GUI window 
 path = ctk.StringVar(master=root,value=defPath,name='Data folder path.')
 searchTerm = ctk.StringVar(master=root,value="",name='SearchTerm')
 SearchResults = ctk.StringVar(master=root,value="",name='SearchResults')
@@ -280,4 +282,10 @@ Custom_FI = ctk.CTkButton(bottom2, text="Custom Fisher index",command=custom_fi,
 savePathDisplay =ctk.CTkEntry(bottom3,textvariable=save,width=round(0.79*win_widthT)); savePathDisplay.grid(column=0,row=0,columnspan=3,padx=10,pady=5)
 SetSavePath = ctk.CTkButton(bottom3, text="Set save path",font=('Arial',12,'bold'), command=SetSavingPath); SetSavePath.grid(column=3,row=0,padx=10,pady=5)
 
-root.mainloop()
+##Put this into a functin so that the GUI won't run until fuunction called.
+def Run_BEA_GUI(window: ctk.CTk):
+## Run the loop that brings up the GUI and keeps it there.
+    window.mainloop()
+
+if __name__ == "__main__":
+    Run_BEA_GUI(root)
