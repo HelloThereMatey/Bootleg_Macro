@@ -207,33 +207,30 @@ for series in SeriesDict.keys():
         TheData = TheData.resample('D').mean()
     elif Source == 'spread':
         add = ticker.split('+'); subtract = ticker.split('-'); multiply = ticker.split('*'); divide = ticker.split('/')
+        print(ticker, add, subtract, multiply, divide, len(add), len(subtract), len(divide), len(multiply))
         print('Spread chosen for series at position',TheIndex)
         try:
             if len(add) > 1:
-                tick1 = Inputs.loc[int(add[0])].at['Name']; tick2 = Inputs.loc[int(add[1])].at['Name']
-                series1 = SeriesDict[tick1]; series2 = SeriesDict[tick2]; Series1 = pd.Series(series1['Data']); Series2 = pd.Series(series2['Data'])
-                TheData = Series1+Series2
-                print('Series',TheIndex,'is series',tick1,'plus',tick2)
+                series1 = SeriesDict["Trace_"+str(add[0])]['Data']; series2 = SeriesDict["Trace_"+str(add[1])]['Data']
+                TheData = series1+series2
+                print('Series',TheIndex,'is series',"Trace_"+str(add[0]),'plus',"Trace_"+str(add[1]))
             elif len(subtract) > 1:
-                tick1 = Inputs.loc[int(subtract[0])].at['Name']; tick2 = Inputs.loc[int(subtract[1])].at['Name']
-                series1 = SeriesDict[tick1]; series2 = SeriesDict[tick2]; Series1 = pd.Series(series1['Data']); Series2 = pd.Series(series2['Data'])
-                TheData = Series1-Series2
-                print('Series',TheIndex,'is series',tick1,'minus',tick2)
+                series1 = SeriesDict["Trace_"+str(subtract[0])]['Data']; series2 = SeriesDict["Trace_"+str(subtract[1])]['Data']
+                TheData = series1-series2
+                print('Series',TheIndex,'is series',"Trace_"+str(subtract[0]),'minus',"Trace_"+str(subtract[1]))
             elif len(multiply) > 1:
-                tick1 = Inputs.loc[int(multiply[0])].at['Name']; tick2 = Inputs.loc[int(multiply[1])].at['Name']
-                series1 = SeriesDict[tick1]; series2 = SeriesDict[tick2]; Series1 = pd.Series(series1['Data']); Series2 = pd.Series(series2['Data'])
-                TheData = Series1*Series2 
-                print('Series',TheIndex,'is series',tick1,'times',tick2)   
+                series1 = SeriesDict["Trace_"+str(multiply[0])]['Data']; series2 = SeriesDict["Trace_"+str(multiply[1])]['Data']
+                TheData = series1*series2
+                print('Series',TheIndex,'is series',"Trace_"+str(multiply[0]),'minus',"Trace_"+str(multiply[1]))  
             elif len(divide) > 1:
-                tick1 = Inputs.loc[int(divide[0])].at['Name']; tick2 = Inputs.loc[int(divide[1])].at['Name']
-                series1 = SeriesDict[tick1]; series2 = SeriesDict[tick2]; Series1 = pd.Series(series1['Data']); Series2 = pd.Series(series2['Data'])
-                TheData = Series1/Series2   
-                print('Series',TheIndex,'is series',tick1,'divided by',tick2) 
+                series1 = SeriesDict["Trace_"+str(divide[0])]['Data']; series2 = SeriesDict["Trace_"+str(divide[1])]['Data']
+                TheData = series1/series2
+                print('Series',TheIndex,'is series',"Trace_"+str(divide[0]),'minus',"Trace_"+str(divide[1]))  
             else:
                 print("If using Source = spread, you must input Series_Ticker as i/j, where i & j are the index numbers of two series already in the chart.")  
             TheData.dropna(inplace=True)      
         except Exception as e:
-            print(e)
+            print("Something went wrong with the spread calculation, command: ",ticker,"error: ", e)
             print("If using Source = spread, you must input Series_Ticker as i/j, where i & j are the index numbers of two series already in the chart.")     
             quit()      
     else:
@@ -478,12 +475,8 @@ if recession_bars == 'yes':
     for i in range(len(start_dates)):
         ax1.axvspan(start_dates[i],end_dates[i],color='blue',alpha=0.25,label="Recessions (NBER)")
     if Bot < 0.14: 
-        ax1.text(0.4,-0.135 ,"Shaded vertcial bars indicate recession periods (NBER).",fontsize='small',color='blue',horizontalalignment='left', transform=ax1.transAxes)
+        ax1.text(0.35,-0.135 ,"Shaded vertcial bars indicate recession periods (NBER).",fontsize='small',color='blue',horizontalalignment='left', transform=ax1.transAxes)
     else:
-        ax1.text(0.4,-0.195,"Shaded vertcial bars indicate recession periods (NBER).",fontsize='small',color='blue',horizontalalignment='left', transform=ax1.transAxes)
+        ax1.text(0.35,-0.195,"Shaded vertcial bars indicate recession periods (NBER).",fontsize='small',color='blue',horizontalalignment='left', transform=ax1.transAxes)
 
 plt.show()        ## This shows the matplotlib figure.
-
-
-
-

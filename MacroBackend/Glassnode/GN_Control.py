@@ -26,7 +26,7 @@ try:
     with open(wd+FDel+'system_settings.json') as f:      ##Load file containg display specific dimensions for the particular screen & OS. 
         system_set = f.read()
     system_set = json.loads(system_set); print(system_set)
-    print('Settings for result box dimensions loaded from: ',wd+FDel+'system_settings.json')
+    print('Settings for result box dimensions loaded from: ',wd+FDel+'ScreenData.json')
 except Exception as e:
     print(e)
     system_set = {'os': 'undetermined', 'res_width': 58, 'res_height': 16}
@@ -117,6 +117,7 @@ StartDate = StringVar(master=root,value="",name='StartDate')
 EndDate = StringVar(master=root,value="",name='EndDate')
 dataForm =  IntVar(master=root,value=0,name='Pandas data format')
 add_BTC = BooleanVar(master=root,value=False,name='GraphBTC')
+Ser_Info = StringVar(master=root,value="",name='Series Info')
 
 ############ BUTTON FUNCTIONS ################################################################################################
 def LoadPathBtn():
@@ -209,6 +210,7 @@ def getGNData():
     for char in ridEm.keys():
         ep = ep.replace(char,ridEm[char])
     params = {'a':assChoice.get(),'i':resChoice.get(),'f':formChoice.get(),'api_key': API_KEY} 
+    
     start = StartDate.get(); end = EndDate.get(); 
     if len(start) > 1:
       startD = datetime.datetime.strptime(start,"%Y-%m-%d")
@@ -226,8 +228,13 @@ def getGNData():
         print('End date will be now.')      
     
     series = pd.Series(GlassNode_API.GetMetric(ep,API_KEY,params=params),name=name)
-    print(type(series))
-    
+    Info = {"Asset": assChoice.get(),'Data frequency':resChoice.get(),'Data format':formChoice.get(),
+            'units': "a.u", 'units_short': "a.u", 'title': name.upper(),'Legend_Name': name.upper(), 'id': name,
+            'Source': "GlassNode"
+            }
+    info = json.dumps(Info)
+    Ser_Info.set(info); print(info)
+
     try:
         series = series.astype(float)
         SerOrDF = 'series'
@@ -344,7 +351,11 @@ def SaveData():
     saveName = Save+FDel+name+'.xlsx'
     print(data,saveName)
     data.index.rename('Date',inplace=True)
-    data.to_excel(saveName)      
+    data.to_excel(saveName, sheet_name="Closing_Price") 
+    SeriesInfo = pd.Series(dict(json.loads(Ser_Info.get())), name = "SeriesInfo")
+    SeriesInfo.index.rename("Property")
+    with pd.ExcelWriter(saveName, engine='openpyxl', mode='a') as writer:  
+        SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
 
 #def GetBTCUSD():    
 
