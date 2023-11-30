@@ -419,6 +419,10 @@ def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate 
 
 def PullFredSeries(series:str,apikey:str,start="1776-07-04",filetype="&file_type=json",outputDataName:str=None,end=datetime.date.today().strftime('%Y-%m-%d'),
                    Con2Bil:bool = False): 
+    if len(apikey) < 2: 
+        print("Looks like you have not input your FRED API key. You need this to get the data from FRED. Save your key into Bootleg_Macro/MacroBackend/SystemInfo/API_Keys.json first.")
+        quit()
+    
     series_header = "https://api.stlouisfed.org/fred/series?series_id="      ##This pulls data series from FRED API. 
     r = requests.get(series_header+series+"&observation_start="+start+"&api_key="+apikey+filetype)
     df = pd.json_normalize(r.json())

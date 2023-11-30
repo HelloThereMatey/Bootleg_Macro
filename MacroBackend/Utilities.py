@@ -13,6 +13,9 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 
+wd = os.path.dirname(__file__) 
+fdel = os.path.sep
+
 def append_to_column(workbook_path, sheet_name:str = 'Sheet1', column:str = 'A', data_list: list = []):
     """
     Appends a list of strings to a specified column in an Excel sheet using openpyxl.
@@ -410,11 +413,10 @@ class TkinterSizingVars():
         self.root = tk.Tk()
         #self.allCharsStr = "abcdefghijklmnopqrstuvwxyz " !@#$%^&*=-,.|()?+[]\/~1234567890 ><"";
         self.allCharsStr = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        self.FDel = os.path.sep
         
     def SetScreenInfoFile(self):
         ###### Determine what OS this is running on and get appropriate path delimiter. #########
-        print("Operating system: ",sys.platform, "Path separator character: ", self.FDel)
+        print("Operating system: ",sys.platform, "Path separator character: ", fdel)
         if sys.platform == 'win32':
             username = os.environ['USERNAME']
         else:
@@ -464,8 +466,8 @@ class TkinterSizingVars():
                     'char_height (pixels)': default_font.metrics("linespace")}
         return defFontInfo
     
-    def ExportVars(self,folder:str):
-        filePath = folder+self.FDel+"ScreenData.json"
+    def ExportVars(self,folder = wd + fdel + 'SystemInfo'):
+        filePath = folder+fdel+"ScreenData.json"
         with open(filePath, 'w') as f:
             json.dump(self.ScreenData, f, indent=4)
 
@@ -622,10 +624,79 @@ def manual_frequency(series: pd.Series, threshold_multiplier=2.25):
     resampled_series = series.resample(freq).mean()  # Replace .mean() with an appropriate aggregation function if needed
     return resampled_series, closest_period
 
+class api_keys():
+
+    def __init__(self, JSONpath: str = wd+fdel+"SystemInfo"):
+
+        keyFile = None; default_keyFile = None
+        self.keys = None
+        self.path = JSONpath
+
+        try: 
+            print('Looking for api keys in SystemInfo folder...', JSONpath+fdel+'API_Keys.json')
+            keyFile = open(self.path+fdel+'API_Keys.json')
+            default_keyFile = open(JSONpath+fdel+'API_Keys_demo.json')
+        except Exception as e:
+            print('Error loading API keys, ', e)
+            pass    
+        if keyFile is not None and default_keyFile is not None:
+            print('API_keys found but the "API_Keys_demo.json" file is still present... Delete that file to silence this warning.')
+            self.keys = json.load(keyFile)
+        elif keyFile is not None and default_keyFile is None:    
+            self.keys = json.load(keyFile)
+        elif default_keyFile is not None and keyFile is None:    
+            print("No file: 'API_Keys.json' found in 'MacroBackend/SystemInfo'folder. However 'API_Keys_demo.json' was found. \nYou need to paste in your API keys\
+                  into 'API_Keys_demo.json', save the filee and then get rid of the '_demo' to leave the file named as 'API_Keys.json'. After this your API keys\
+                  should be available to access data from GlassNode, BEA and/or FRED. Alternatively you can paste the keys in here now and we'll save them into API_Key.json file.\
+                  \nDo you have 1 or more of the API keys ready to paste into the terminal?")
+            if input('Enter y for yes or n for no.').upper() == 'N':
+                print('Go get one or more of those keys and then re-run script.')
+                quit()    
+            else: 
+                self.MakeKeyFile(fileName='API_Keys.json')
+        else:
+            print("No file: 'API_Keys.json' found in 'MacroBackend/SystemInfo'folder. You need to have API keys saved into that .json file in dict format with keynames 'fred', 'glassnode' and"+\
+                  "\n'bea', in order to be able to access data from those sources. You can paste the keys in here now and we'll save them into API_Key.json file.\
+                  \nDo you have 1 or more of the API keys ready to paste into the terminal?")
+            if input('Enter y for yes or n for no.').upper() == 'N':
+                print('Go get one or more of those keys and then re-run script.')
+                quit()    
+            else: 
+                self.MakeKeyFile(fileName='API_Keys.json')   
+
+    def MakeKeyFile(self, fileName: str = 'API_Keys.json'):
+        if self.keys is not None:
+            print('API_Keys.json was found in MacroBackend/SystemInfo folder. Do you want to overwrite?')    
+            if input('Enter y for yes or n for no.').upper() == 'N':
+                return
+        
+        fredKey = input('Paste in your FRED API key and hit enter. Hit enter with no input to skip.')
+        bea_key = input('Paste in your BEA API key and hit enter. Hit enter with no input to skip.')
+        gn_key = input('Paste in your GlassNode API key and hit enter. Hit enter with no input to skip.')
+
+        keyData = {'fred': fredKey,
+                   'bea': bea_key,
+                   'glassnode': gn_key}
+        
+        with open(self.path+fdel+fileName, 'w') as f:
+            json.dump(keyData, f, indent=4)
+
+        self.reload_keys()    
+
+    def reload_keys(self):
+        keyFile = open(self.path+fdel+'API_Keys.json')
+        self.keys = json.load(keyFile)
+
 if __name__ == "__main__":
-    series = pd.read_excel("/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/Macro_Chartist/SavedData/CNLIVRR.xlsx", sheet_name="Closing_Price", index_col=0)
-    series = series[series.columns[0]].resample('B').mean()
+    # series = pd.read_excel("/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/Macro_Chartist/SavedData/CNLIVRR.xlsx", sheet_name="Closing_Price", index_col=0)
+    # series = series[series.columns[0]].resample('B').mean()
     
-    print(series)
-    SeriesFreq = DetermineSeries_Frequency(series)
-    print(SeriesFreq)
+    # print(series)
+    # SeriesFreq = DetermineSeries_Frequency(series)
+    # print(SeriesFreq)
+
+    keyz = api_keys(JSONpath='/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/SystemInfo')
+    print(keyz.keys)
+    keyz.MakeKeyFile(fileName='API_Keys_test.json')
+    keyz.reload_keys()
+    print(keyz.keys)

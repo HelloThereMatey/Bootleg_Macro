@@ -1,11 +1,13 @@
 import os
 wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
-dir = os.path.dirname(wd); parent = os.path.dirname(dir)
-print('Working directory: ',wd,', parent folder',dir, 'level above that: ',parent)
-import sys; sys.path.append(parent); sys.path.append(dir); print(sys.path)
+parent = os.path.dirname(wd); grandpa = os.path.dirname(parent); ancestor = os.path.dirname(grandpa)
+print('Working directory: ',wd,', parent folder',parent, 'level above that: ', grandpa)
+import sys;
+sys.path.append(parent); sys.path.append(grandpa); sys.path.append(ancestor); print(sys.path)
 from MacroBackend import Utilities ## Don't worry if your IDE shows that this module can't be found, it should stil work. 
 
 import customtkinter as ctk
+ctk.set_appearance_mode("light")
 import tkinter as tk
 import tkinter.ttk as ttk
 import tkinter.font as tkFont
@@ -15,37 +17,29 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 import datetime
-import BEA_API_backend
+from bea_data_mate import BEA_API_backend
 
 ###### Determine what OS this is running on and get appropriate path delimiter. #########
 FDel = os.path.sep
 print("Operating system: ",sys.platform, "Path separator character: ", FDel)
-plt.rcParams['figure.dpi'] = 200
-#plt.rcParams['backend'] = 'TkCairo'
 
 ######### Set default font and fontsize ##################### Make this automatic and hide in utility files later on. 
+No_ScreenSettings = False; OldSesh = None
 try:
-    ScreenSetFile = open(dir+FDel+'SystemInfo'+FDel+'ScreenData.json')
+    ScreenSetFile = open(grandpa+FDel+'SystemInfo'+FDel+'ScreenData.json')
     ScreenSettings = dict(json.load(ScreenSetFile))
-except:
-    SingleDisplay = messagebox.askyesno(title='GUI sizing steup',message='Script has detected that this is the first time this script has been run on this system.\
-        Script will now measure screen size to correctly size GUI. You must run this process with only a single display running on the system. \
-            Make sure that you set system to single display mode first and then run script. You can go back to multiple screens after running the script once.\
-                Is system set to single display mode?')
-    if SingleDisplay is True:
-        tkVars = Utilities.TkinterSizingVars()
-        tkVars.SetScreenInfoFile()
-        tkVars.ExportVars(dir+FDel+'SystemInfo')
-        ScreenSettings = tkVars.ScreenData
+    OldSesh = {'OS': ScreenSettings['OS'], 'USER': ScreenSettings['USER']}
+except: 
+    No_ScreenSettings = True    
 
 ####### GET OS AND PLATFORM INFORMATION ########################################
-OldSesh = {'OS': ScreenSettings['OS'], 'USER': ScreenSettings['USER']}
 if sys.platform == 'win32':
     username = os.environ['USERNAME']
 else: 
     username = os.environ['USER']
 SessionCheck = {'OS': sys.platform, 'USER': username}
-if SessionCheck != OldSesh:
+
+if OldSesh is None or SessionCheck != OldSesh or No_ScreenSettings:
     SingleDisplay = messagebox.askyesno(title='GUI sizing steup',message='Script has detected that this is the first time this script has been run on this system.\
         Script will now measure screen size to correctly size GUI. You must run this process with only a single display running on the system. \
             Make sure that you set system to single display mode first and then run script. You can go back to multiple screens after running the script once.\
@@ -53,7 +47,7 @@ if SessionCheck != OldSesh:
     if SingleDisplay is True:
         tkVars = Utilities.TkinterSizingVars()
         tkVars.SetScreenInfoFile()
-        tkVars.ExportVars(dir+FDel+'SystemInfo')
+        tkVars.ExportVars()
         ScreenSettings = tkVars.ScreenData
 
 defCharWid = ScreenSettings['Def_font']['char_width (pixels)']; ###Width of an average character for tkinter widgets. 
@@ -65,8 +59,9 @@ win_widChars = round(win_widthT/defCharWid); win_HChars = round(win_heightT/defC
 print(ScreenSettings,win_widthT,win_heightT,win_widChars,win_HChars)
 
 # Initalize the new BEA client.
-api_key='779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC'
-defPath = wd+FDel+'Datasets'+FDel+'BEAAPI_Info.xlsx' ## This deafult path should lead to an excel file that has info on BEAAPI.
+keyz = Utilities.api_keys()
+api_key= keyz.keys['bea']
+defPath = parent+FDel+'Datasets'+FDel+'BEAAPI_Info.xlsx' ## This deafult path should lead to an excel file that has info on BEAAPI.
 bea = BEA_API_backend.BEA_Data(api_key=api_key,BEA_Info_filePath=defPath)
 
 ######## Tkinter initialization #########################################
@@ -220,7 +215,6 @@ def CustomExport():
 def custom_fi():
     FI_window = BEA_API_backend.Custom_FisherIndex(root)
 
-
 ######## Define and arange the features on the GUI window 
 path = ctk.StringVar(master=root,value=defPath,name='Data folder path.')
 searchTerm = ctk.StringVar(master=root,value="",name='SearchTerm')
@@ -250,12 +244,12 @@ C_Index = ctk.StringVar(master=root,value="",name='Custom_index_name')
 pathBar = ctk.CTkEntry(top,width=round(0.95*win_widthT),textvariable=path); pathBar.grid(column=0,row=0,columnspan=5,padx=10,pady=5)
 choose_ds = ctk.CTkOptionMenu(top, values = bea.DSTables, variable=DataSet); choose_ds.grid(column=0,row=1,padx=5,pady=10)
 searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=1,row=1,padx=5,pady=5)
-btn=ctk.CTkButton(top, text="Search for data",command=SearchBtn,font=('Arial',12)); btn.grid(column=2,row=1,padx=5,pady=10)
+btn=ctk.CTkButton(top, text="Search for data",text_color='black',command=SearchBtn,font=('Arial',12)); btn.grid(column=2,row=1,padx=5,pady=10)
 flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',12,'bold')) ; flabel.grid(column=3,row=1,pady=10)
 freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=4,row=1,padx=30,pady=10)
 
 # Create a text box to display the results
-result_box = tk.Listbox(middle,listvariable=SearchResults, font = default_font, height=round(250/defCharH), width=win_widChars)
+result_box = tk.Listbox(middle,listvariable=SearchResults, font = default_font, height=round(250/defCharH), width=win_widChars, background="white", foreground="black")
 result_box.bind('<Double-1>', MakeChoice)
 print(result_box.config)
 result_box.pack(padx=30,pady=15)
@@ -263,24 +257,24 @@ result_box.pack(padx=30,pady=15)
 # ########### Start and end dates #################################
 bottom.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 bottom.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(3,weight=1,minsize=np.floor(win_widthT/4)*0.97)
-GetDataBtn = ctk.CTkButton(bottom, text="Get data series",height=35,command=PullBEASeries,font=('Arial',13,'bold')); GetDataBtn.grid(column=2,row=0,pady=5)
+GetDataBtn = ctk.CTkButton(bottom, text="Get data series", text_color='black',command=PullBEASeries,font=('Arial',13,'bold')); GetDataBtn.grid(column=2,row=0,pady=5)
 start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=0,row=0,sticky='w',pady=5,padx=15)
 sLabel = ctk.CTkLabel(bottom,text='Start year\nblank = "All years"',font=('Arial',10)) ; sLabel.grid(column=0,row=0,sticky='e',pady=35)
 end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=1,row=0,sticky='w',pady=5,padx=15)
 eLabel = ctk.CTkLabel(bottom,text='End year\nblank = latest data',font=('Arial',10)); eLabel.grid(column=1,row=0,sticky='e',pady=35)
-SaveBtn=ctk.CTkButton(bottom, text="Export data",command=SaveData,font=('Arial',12,'bold')); SaveBtn.grid(column=3,row=0,pady=10)
+SaveBtn=ctk.CTkButton(bottom, text="Export data",text_color='black', command=SaveData,font=('Arial',12,'bold')); SaveBtn.grid(column=3,row=0,pady=10)
 
 options = ['linear','log']
 bottom2.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom2.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 bottom2.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom2.columnconfigure(3,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 drop = ctk.CTkOptionMenu(bottom2,variable=YAxis,values=options); drop.grid(column=0,sticky='w',row=0,padx=20,pady=10)
 dLabel = ctk.CTkLabel(bottom2,text='Chart Y-scale.',font=('Arial',11)); dLabel.grid(column=0,row=0,sticky='e')
-plot_button = ctk.CTkButton(bottom2, text="Preview data",font=('Arial',13,'bold'), text_color='yellow',command=plotPreview); plot_button.grid(column=1,row=0,pady=10)
+plot_button = ctk.CTkButton(bottom2, text="Preview data", text_color='yellow', font=('Arial',13,'bold'),command=plotPreview); plot_button.grid(column=1,row=0,pady=10)
 CustomIndex=ctk.CTkButton(bottom2, text="Individual Series Analysis",text_color='orange',command=CustomExport,font=('Arial',14,'bold')); CustomIndex.grid(column=2,row=0,pady=10)
-Custom_FI = ctk.CTkButton(bottom2, text="Custom Fisher index",command=custom_fi, text_color='orangered', font=('Arial',14,'bold')); Custom_FI.grid(column=3,row=0,pady=10)
+Custom_FI = ctk.CTkButton(bottom2, text="Custom Fisher index",command=custom_fi, text_color='tomato', font=('Arial',14,'bold')); Custom_FI.grid(column=3,row=0,pady=10)
 
 savePathDisplay =ctk.CTkEntry(bottom3,textvariable=save,width=round(0.79*win_widthT)); savePathDisplay.grid(column=0,row=0,columnspan=3,padx=10,pady=5)
-SetSavePath = ctk.CTkButton(bottom3, text="Set save path",font=('Arial',12,'bold'), command=SetSavingPath); SetSavePath.grid(column=3,row=0,padx=10,pady=5)
+SetSavePath = ctk.CTkButton(bottom3, text="Set save path",text_color='white', font=('Arial',13,'bold'), command=SetSavingPath); SetSavePath.grid(column=3,row=0,padx=10,pady=5)
 
 ##Put this into a functin so that the GUI won't run until fuunction called.
 def Run_BEA_GUI(window: ctk.CTk):

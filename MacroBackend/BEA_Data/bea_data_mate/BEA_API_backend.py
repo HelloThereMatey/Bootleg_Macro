@@ -1,8 +1,10 @@
 import os
-wd = os.path.dirname(__file__); Dir = os.path.dirname(wd); FDel = os.path.sep
-parent = os.path.dirname(Dir)
+wd = os.path.dirname(__file__) 
+FDel = os.path.sep
+parent = os.path.dirname(wd); grampa = os.path.dirname(parent); ancestor = os.path.dirname(grampa)
 import sys
-sys.path.append(parent)
+sys.path.append(grampa); sys.path.append(ancestor)
+
 from pybea.client import BureauEconomicAnalysisClient
 import pandas as pd
 import numpy as np
@@ -243,7 +245,9 @@ class BEA_Data(BureauEconomicAnalysisClient):
 
     def BEAPreviewPlot(self, data: pd.DataFrame = None, YScale:str='linear', seriesInfo: pd.Series=None, title: str = None):
         plt.rcParams['font.family'] = 'serif'
-        fig = plt.figure(figsize=(11, 5), dpi=150)
+        plt.rcParams['figure.dpi'] = 200
+        plt.rcParams['backend'] = 'tkagg'
+        fig = plt.figure(figsize=(11, 5), dpi = 150)
         fig.suptitle('U.S Bureau of Economic Analysis', fontweight='bold')
         ax = fig.add_axes(rect=[0.07,0.06,0.67,0.84])
         
@@ -376,11 +380,12 @@ class CustomIndexWindow(ctk.CTkToplevel):
             self.choiceIndexList.append(len(self.ChoiceList)-1)
             self.choiceIndex.set(self.choiceIndexList)
         
-        SeriesList = tk.Listbox(self.frame1,listvariable=self.components, width=0, font=('Arial',12)); SeriesList.bind('<Double-1>',ChooseSeries)
+        SeriesList = tk.Listbox(self.frame1,listvariable=self.components, width=0, font=('Arial',12), foreground='black', background='white')
+        SeriesList.bind('<Double-1>',ChooseSeries)
         SeriesList.grid(column=0,row=0,padx=30,pady=30,ipadx=15,ipady=10)
-        ChosenSeries = tk.Listbox(self.frame1,listvariable=self.choices, width=0, font=('Arial',12))
+        ChosenSeries = tk.Listbox(self.frame1,listvariable=self.choices, width=0, font=('Arial',12), foreground='black', background='white')
         ChosenSeries.grid(column=1,row=0,padx=30,pady=30,ipadx=15,ipady=10)
-        indexBox = tk.Listbox(self.frame1,listvariable=self.choiceIndex, width=0, font=('Arial',12),justify='center')
+        indexBox = tk.Listbox(self.frame1,listvariable=self.choiceIndex, width=0, font=('Arial',12),justify='center', foreground='black', background='white')
         indexBox.grid(column=2,row=0,padx=15,pady=30,ipadx=5,ipady=10)
 
         Operation = ctk.CTkEntry(self.frame2,textvariable=self.operationString,font=default_font,width=round(default_font.measure(self.ExportPath.get())/2))
@@ -413,6 +418,9 @@ class CustomIndexWindow(ctk.CTkToplevel):
        
     def PlotIndex(self, C_Index:pd.Series, YScale:str='linear', title: str = None):     #Chart template.
         plt.rcParams['font.family'] = 'serif'
+        plt.rcParams['figure.dpi'] = 200
+        plt.rcParams['backend'] = 'tkagg'
+        
         fig = plt.figure(figsize=(11, 5), dpi=150)
         fig.suptitle('U.S Bureau of Economic Analysis, custom Index', fontweight='bold')
         ax = fig.add_axes(rect=[0.07,0.06,0.85,0.84])
@@ -513,70 +521,13 @@ class CustomIndexWindow(ctk.CTkToplevel):
         self.ExportPath.set(folder_selected)  
 
 if __name__ == "__main__":
-    api_key='779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC'
+    keyz = Utilities.api_keys(JSONpath=grampa+FDel+'SystemInfo')
+    api_key = keyz.keys['bea']
     dataset = "NIPA"
     parameterName = "Tablename"
    
     filepath = wd+"/Datasets/BEAAPI_Info.xlsx"
 
-    # # Initalize the new Client.
-    # bea = BEA_Data(api_key=api_key,BEA_Info_filePath=filepath, Refresh_Info=False)
-    # print(bea.BEAAPI_InfoTables)
-    # print(bea.DataSetList, bea.SheetsList, bea.DSTables)
-
     bilp = BureauEconomicAnalysisClient(api_key=api_key)
     data = bilp.national_income_and_product_accounts(table_name='T20600', year = ["2022", "2023"], frequency= ["M"])
-    #tCode = 'T20805'
-    # tCode = 'T11705'
-    print(data["BEAAPI"])
-    # frequency="Q"
-    # print("Pulling data from BEA API for: ",tCode)
-    # results = {}; 
-
-    # yearList = []
-    # yearStr = ""
-    # yearOne = 2000
-    # endYear = datetime.datetime.today().year
     
-    # for i in range(yearOne,endYear+1,1):
-    #     yearList.append(str(i))
-    #     if i < endYear:
-    #         yearStr += str(i)+','
-    #     else:
-    #         yearStr += str(i)
-    # print(yearList,yearStr)    
- 
-    # bea.Get_NIPA_Data(tCode,frequency=frequency,year=year)
-
-
-    # test = "https://apps.bea.gov/api/data/?&SeriesId=30&UserID="+api_key+"&method=GetData&DataSetName=MNE&Year="+yearStr+"&Country=650,699\
-    #     &DirectionOfInvestment=Outward&Classification=Country&ResultFormat=json"
-    # r = requests.get(test).json()
-    # pprint(r)
-
-    # data = pd.DataFrame(bea.NIPA_Data['Series_Split']); print(data.head(50),data.dtypes)
-    # SeriesInfo = bea.NIPA_Data['SeriesInfo']
-    # loadPath = "C:/Users/jimmi/OneDrive/Documents/Documents/Scripts/VenV/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/T20805.xlsx"
-    # FullLoad = pd.read_excel(loadPath,sheet_name=None)
-    # print(FullLoad.keys())
-    # TheData = FullLoad['Series_Split']
-    # SeriesInfo = FullLoad['SeriesInfo']
-    # Notes = FullLoad['Notes']
-    # TheData.set_index(TheData.columns[0],inplace=True); SeriesInfo.set_index(SeriesInfo.columns[0],inplace=True)
-    # SeriesInfo = pd.Series(SeriesInfo.squeeze(),name='SeriesInfo'); TheData.index.rename('TimePeriod',inplace=True)
-    # TabName = str(Notes['NoteText'][0])
-    # tDesc = TabName.split('[')[0]
-    # print(tDesc,TheData,SeriesInfo)
-    
-    # fig = bea.BEAPreviewPlot(data=TheData,YScale="log",seriesInfo=SeriesInfo,title=tDesc)
-    # plt.show()
-    # bea.Export_BEA_Data(['T20805_PCE_M'])
-    # ############# Export data to Excel. 
-    # savePath = wd+"/Datasets/"+tCode+".xlsx"
-
-    # def BringItUp():
-    # exportWindow = CustomIndexWindow(main, FullLoad,tDesc)  
-    # main = ctk.CTk()
-    # but = ctk.CTkButton(main, text='WINDOW',command=BringItUp)
-    # but.pack()
-    # main.mainloop()
