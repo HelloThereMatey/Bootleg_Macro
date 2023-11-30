@@ -363,9 +363,11 @@ class CustomIndexWindow(ctk.CTkToplevel):
         self.ExportPath = ctk.StringVar(self, value= exportPath, name = 'Export_path')
         self.C_Index_name = ctk.StringVar(self, value="Custom_Index", name = 'Export_name')
         self.operationString = ctk.StringVar(self, value="", name = 'Operation_String')
+        checkBoxLab = ctk.StringVar(self, value="Plot agg. index RHS?", name = 'RHS_plot')
 
         self.frame1 = ctk.CTkFrame(self); self.frame2 = ctk.CTkFrame(self); self.frame3 = ctk.CTkFrame(self); self.frame4 = ctk.CTkFrame(self)
-        self.frame1.pack(pady=20,padx=20); self.frame2.pack(pady=20,padx=20); self.frame3.pack(pady=20,padx=20); self.frame4.pack(pady=20,padx=20)
+        self.frame1.grid(column=0,row=0,pady=20,padx=20); self.frame2.grid(column=0,row=1,pady=20,padx=20); 
+        self.frame3.grid(column=0,row=2,pady=20,padx=20); self.frame4.grid(column=0,row=3,pady=20,padx=20)
         self.ChoiceList = []
         self.choiceIndex = ctk.StringVar(self, value="", name = 'Choice_Index')
         self.choiceIndexList = []
@@ -388,25 +390,31 @@ class CustomIndexWindow(ctk.CTkToplevel):
         indexBox = tk.Listbox(self.frame1,listvariable=self.choiceIndex, width=0, font=('Arial',12),justify='center', foreground='black', background='white')
         indexBox.grid(column=2,row=0,padx=15,pady=30,ipadx=5,ipady=10)
 
+        op_label = ctk.CTkLabel(self.frame2,text = 'Math operation to run on series: e.g (0+1)/(2-3)')
+        op_label.grid(column=0,row=0,padx=5,pady=1)
         Operation = ctk.CTkEntry(self.frame2,textvariable=self.operationString,font=default_font,width=round(default_font.measure(self.ExportPath.get())/2))
-        Operation.grid(column=0,row=0,padx=10,pady=10)
+        Operation.grid(column=0,row=1,padx=10,pady=10)
         plot = ctk.CTkButton(self.frame2, text="Show Index & components",font=('Arial',12,'bold'),text_color='gold',command=self.PlotButton)
-        plot.grid(column=1,row=0,padx=10,pady=10)
-        ShowC_Index = ctk.CTkCheckBox(self.frame2, text="Show aggregated index RHS?", textvariable = self.plotRHS); ShowC_Index.grid(column=2,row=0,padx=10,pady=10, sticky = 'w')
+        plot.grid(column=1,row=1,padx=10,pady=10)
+        ShowC_Index = ctk.CTkCheckBox(self.frame2, textvariable=checkBoxLab, variable = self.plotRHS); 
+        ShowC_Index.grid(column=2,row=1,padx=10,pady=10)
 
         self.frame3.columnconfigure(0,weight=1); self.frame3.columnconfigure(1,weight=1)
         self.frame3.columnconfigure(2,weight=1); self.frame3.columnconfigure(3,weight=1)
 
-        Index_Name = ctk.CTkEntry(self.frame3,textvariable = self.C_Index_name, variable = self.C_Index_name); Index_Name.grid(column=0,row=0,padx=5,pady=5)
-        reset = ctk.CTkButton(self.frame3, text="RESET",font=('Arial',14,'bold'),text_color='tomato',command=self.ResetBox)
-        reset.grid(column=1,row=0,padx=10)
+        name_label = ctk.CTkLabel(self.frame3,text = 'Name for custom index')
+        name_label.grid(column=0,row=0,padx=5,pady=1)
+        Index_Name = ctk.CTkEntry(self.frame3,textvariable = self.C_Index_name)
+        Index_Name.grid(column=0,row=1,padx=5,pady=2)
+        reset = ctk.CTkButton(self.frame3, text="RESET",font=('Arial',13,'bold'),text_color='tomato',command=self.ResetBox)
+        reset.grid(column=1,row=1,padx=10, pady = 2)
         SetExport = ctk.CTkButton(self.frame3, text="Set export path",font=('Arial',14,'bold'),command=self.SetExpPath)
-        SetExport.grid(column=2,row=0)
+        SetExport.grid(column=2,row=1,padx=10, pady = 2)
         ExportC_Index = ctk.CTkButton(self.frame3,font=('Arial',14,'bold'),text='Export Index',text_color='lime',command=self.ExportIndex) 
-        ExportC_Index.grid(column=3,row=0,padx=10)
+        ExportC_Index.grid(column=3,row=1,padx=10, pady = 10)
         
         ExpPath = ctk.CTkEntry(self.frame4,textvariable=self.ExportPath,font=default_font,width=default_font.measure(self.ExportPath.get()+'                '))
-        ExpPath.grid(row = 1, column = 1, padx=10,pady=10)
+        ExpPath.grid(row = 0, column = 0, padx=10,pady=10)
     
     def ExportIndex(self):   #Save the custom index series to disk. 
         name = self.C_Index_name.get()
