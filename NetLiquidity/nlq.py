@@ -24,8 +24,8 @@ wd = os.path.dirname(__file__)  ## This gets the working directory which is the 
 dir = os.path.dirname(wd)
 print(wd,dir)
 import sys ; sys.path.append(dir)
-from MacroBackend import PriceImporter ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
-from MacroBackend import Charting    ##This script has all the matplotlib chart formatting code. That code is ugly, best to put it in a second file like this. 
+from MacroBackend import PriceImporter, Utilities, Charting ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
+ ##This script has all the matplotlib chart formatting code. That code is ugly, best to put it in a second file like this. 
 ## You may see: 'Import "MacroBackend" could not be resolved' & it looks like MacroBackend can't be found. However, it will be found when script is run. Disregard error. 
 #### The below packages need to be installed via pip/pip3 on command line. These are popular, well vetted packages all. Just use 'pip install -r requirements.txt'
 import numpy as np
@@ -59,6 +59,9 @@ Inputs.set_index('Index',inplace=True)
 ########### Actual script starts from here down #######################################################################
 NoString = 'no'
 myFredAPI_key = Inputs.loc['API Key'].at['Additional FRED Data']
+if pd.isna(myFredAPI_key):
+    keys = Utilities.api_keys()
+    myFredAPI_key = keys.keys['fred']
 SaveFREDData = Inputs.loc['SaveFREDData'].at['Additional FRED Data']
 NLQ_Color = Inputs.loc['NLQ_Color'].at['Additional FRED Data']
 print('FRED API key: ',myFredAPI_key,', Save FRED data to: ',str(wd+FDel+'FRED_Data'))

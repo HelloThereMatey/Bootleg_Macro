@@ -59,6 +59,9 @@ except Exception as e:
 
 NoString = 'no'
 myFredAPI_key = Inputs.loc['FRED_Key'].at['Series_Ticker']
+if pd.isna(myFredAPI_key):
+    keys = Utilities.api_keys()
+    myFredAPI_key = keys.keys['fred']
 
 ############ SAVE AND LOAD CHART TEMPLATES #########################################################################
 if Inputs.loc['load_template_instead'].at['Series_Ticker'] == 'yes':
