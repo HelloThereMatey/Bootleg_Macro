@@ -393,11 +393,11 @@ class CustomIndexWindow(ctk.CTkToplevel):
         op_label = ctk.CTkLabel(self.frame2,text = 'Math operation to run on series: e.g (0+1)/(2-3)')
         op_label.grid(column=0,row=0,padx=5,pady=1)
         Operation = ctk.CTkEntry(self.frame2,textvariable=self.operationString,font=default_font,width=round(default_font.measure(self.ExportPath.get())/2))
-        Operation.grid(column=0,row=1,padx=10,pady=10)
+        Operation.grid(column=0,row=1,padx=10,pady=2)
         plot = ctk.CTkButton(self.frame2, text="Show Index & components",font=('Arial',12,'bold'),text_color='gold',command=self.PlotButton)
-        plot.grid(column=1,row=1,padx=10,pady=10)
+        plot.grid(column=1,row=1,padx=10,pady=2)
         ShowC_Index = ctk.CTkCheckBox(self.frame2, textvariable=checkBoxLab, variable = self.plotRHS); 
-        ShowC_Index.grid(column=2,row=1,padx=10,pady=10)
+        ShowC_Index.grid(column=2,row=1,padx=10,pady=2)
 
         self.frame3.columnconfigure(0,weight=1); self.frame3.columnconfigure(1,weight=1)
         self.frame3.columnconfigure(2,weight=1); self.frame3.columnconfigure(3,weight=1)
@@ -411,7 +411,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
         SetExport = ctk.CTkButton(self.frame3, text="Set export path",font=('Arial',14,'bold'),command=self.SetExpPath)
         SetExport.grid(column=2,row=1,padx=10, pady = 2)
         ExportC_Index = ctk.CTkButton(self.frame3,font=('Arial',14,'bold'),text='Export Index',text_color='lime',command=self.ExportIndex) 
-        ExportC_Index.grid(column=3,row=1,padx=10, pady = 10)
+        ExportC_Index.grid(column=3,row=1,padx=10, pady = 2)
         
         ExpPath = ctk.CTkEntry(self.frame4,textvariable=self.ExportPath,font=default_font,width=default_font.measure(self.ExportPath.get()+'                '))
         ExpPath.grid(row = 0, column = 0, padx=10,pady=10)

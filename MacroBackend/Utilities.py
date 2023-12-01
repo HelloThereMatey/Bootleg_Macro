@@ -471,6 +471,42 @@ class TkinterSizingVars():
         with open(filePath, 'w') as f:
             json.dump(self.ScreenData, f, indent=4)
 
+class HoverInfo(tk.Menu):
+    def __init__(self, parent, text, command=None):
+        self._com = command
+        super().__init__(parent)
+        if not isinstance(text, str):
+            raise TypeError('Trying to initialise a Hover Menu with a non string type: ' + text.__class__.__name__)
+        toktext=re.split('\n', text)
+        for t in toktext:
+            self.add_command(label = t)
+
+        self._displayed=False
+        self.master.bind("<Enter>",self.Display )
+        self.master.bind("<Leave>",self.Remove )
+
+    def __del__(self):
+       self.master.unbind("<Enter>")
+       self.master.unbind("<Leave>")
+
+    def Display(self,event):
+       if not self._displayed:
+          self._displayed=True
+          self.post(event.x_root+2, event.y_root+2)
+       if self._com != None:
+          self.master.unbind_all("<Return>")
+          self.master.bind_all("<Return>", self.Click)
+
+    def Remove(self, event):
+     if self._displayed:
+       self._displayed=False
+       self.unpost()
+     if self._com != None:
+       self.unbind_all("<Return>")
+
+    def Click(self, event):
+       self._com()
+
 def Search_df(df:Union[pd.DataFrame, pd.Series], searchTerm:str):
     matches = []; match_indices = []; match_col = []; i = 0
     matchDF = pd.DataFrame()
