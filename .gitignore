@@ -1,7 +1,7 @@
 /.vscode
 /.git
 /Macro_Chartist/SavedData/*
-Macro_Chartist/Chart_templates/*
+/Macro_Chartist/Chart_templates/*
 /Macro_Chartist/YoYBiz/*
 /Global_M2/M2_USD_Tables/*
 /Global_M2/TVDataFeed/*
@@ -11,7 +11,6 @@ Macro_Chartist/Chart_templates/*
 !/MacroBackend/SystemInfo/API_Keys_demo.json
 /MacroBackend/tvDatafeedz/*
 /MacroBackend/Glassnode/Saved_Data/*
-/MacroBackend/bea_data_mate_mate_mate!/Datasets/*
 /NetLiquidity/NLQ_Data/*
 /NetLiquidity/FRED_Data/*
 /NetLiquidity/CompAssets/*
