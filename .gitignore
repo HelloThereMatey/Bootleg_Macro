@@ -1,6 +1,7 @@
 /.vscode
 /.git
 /Macro_Chartist/SavedData/*
+Macro_Chartist/Chart_templates/*
 /Macro_Chartist/YoYBiz/*
 /Global_M2/M2_USD_Tables/*
 /Global_M2/TVDataFeed/*
@@ -19,4 +20,4 @@
 *.DS_Store
 **/__pycache__
 **/.DS_Store
-.DS_Store
+.DS_Store/
