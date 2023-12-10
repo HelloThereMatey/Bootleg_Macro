@@ -243,14 +243,15 @@ C_Index = ctk.StringVar(master=root,value="",name='Custom_index_name')
 
 ########### Search bar and tings.
 pathBar = ctk.CTkEntry(top,width=round(0.95*win_widthT),textvariable=path); pathBar.grid(column=0,row=0,columnspan=5,padx=10,pady=5)
+dsLabel = ctk.CTkLabel(top, text = 'DATASET', font=('Arial', 12, 'bold')); dsLabel.grid(column=0,row=1,padx=5)
+choose_ds = ctk.CTkOptionMenu(top, values = bea.DSTables, variable=DataSet); choose_ds.grid(column=0,row=2,padx=5,pady=2)
+choose_ds = ctk.CTkOptionMenu(top, values = bea.DSTables, variable=DataSet); choose_ds.grid(column=0,row=2,padx=5,pady=2)
 searchLabel = ctk.CTkLabel(top, text = 'Enter search term/s separated by ","', font=('Arial', 11)); searchLabel.grid(column=1,row=1,padx=5)
 searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=1,row=2,padx=5,pady=2)
-dsLabel = ctk.CTkLabel(top, text = 'DATASET', font=('Arial', 12, 'bold')); searchLabel.grid(column=0,row=1,padx=5)
-choose_ds = ctk.CTkOptionMenu(top, values = bea.DSTables, variable=DataSet); choose_ds.grid(column=0,row=2,padx=5,pady=2)
 searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=1,row=2,padx=5,pady=2)
 btn=ctk.CTkButton(top, text="Search for data",text_color='black',command=SearchBtn,font=('Arial',12, 'bold'),border_width=1)
 btn.grid(column=2,row=2,padx=5,pady=2)
-btn_hover = Utilities.HoverInfo(btn, text = "Search through the BEA data \ntables in the current DATASET.")
+#btn_hover = Utilities.HoverInfo(btn, text = "Search through the BEA data \ntables in the current DATASET.")
 flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',12,'bold')) ; flabel.grid(column=4,row=1)
 freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=4,row=2,padx=30,pady=2)
 

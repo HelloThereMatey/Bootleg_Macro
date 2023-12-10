@@ -21,9 +21,9 @@ months, it just doesn't achieve legitimancy due to the legal grey area in which 
 ####### Required modules/packages #####################################
 import os
 wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
-dir = os.path.dirname(wd)
-print(wd,dir)
-import sys ; sys.path.append(dir)
+parent = os.path.dirname(wd)
+print(wd,parent)
+import sys ; sys.path.append(parent)
 from MacroBackend import PriceImporter, Utilities, Charting ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
  ##This script has all the matplotlib chart formatting code. That code is ugly, best to put it in a second file like this. 
 ## You may see: 'Import "MacroBackend" could not be resolved' & it looks like MacroBackend can't be found. However, it will be found when script is run. Disregard error. 
@@ -273,7 +273,7 @@ with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:
 ################ Add the weekly remittances from Fed to TGA to the NLQ series if desired ##################################################   
 AddFedBills = Inputs.loc['Include_Remit'].at['Additional FRED Data'] 
 ChartFedBills = Inputs.loc['FED remittances'].at['Additional FRED Data'] 
-filePath = dir+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'RESPPLLOPNWW.xlsx'
+filePath = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'RESPPLLOPNWW.xlsx'
 
 if AddFedBills == 'yes':
     print("Adding weekly Fed TGA remittances to NLQ.")
@@ -290,6 +290,7 @@ if AddFedBills == 'yes':
     NetLiquidity3 -= FedBills
     MainLabel += ' + Fed remittances '
 
+outName = 'US_NLQ'
 ########## Load data for other CB balance sheets to calculate a global liquidity index in USD terms ###########################
 LoadECB = Inputs.loc['Include_ECB'].at['Additional FRED Data']
 LoadBOJ = Inputs.loc['Include_BOJ'].at['Additional FRED Data']
@@ -307,6 +308,7 @@ else:
         ECB_USD = PriceImporter.ReSampleToRefIndex(ECB_USD,Findex,'D')
     NetLiquidity = pd.Series((NetLiquidity+ECB_USD),name='NLQ'); NetLiquidity2 = pd.Series((NetLiquidity2+ECB_USD),name='NLQ')
     NetLiquidity3 = pd.Series((NetLiquidity3+ECB_USD),name='NLQ')     
+    outName += "_ECB"
     MainLabel += " + ECB"  
     with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
         NetLiquidity.to_excel(writer, sheet_name='Weekly_plusECB')
@@ -321,6 +323,7 @@ else:
         BOJ_USD = PriceImporter.ReSampleToRefIndex(BOJ_USD,Findex,'D')   
     NetLiquidity = pd.Series((NetLiquidity+BOJ_USD),name='NLQ + BOJ'); NetLiquidity2 = pd.Series((NetLiquidity2+BOJ_USD),name='NLQ + BOJ')
     NetLiquidity3 = pd.Series((NetLiquidity3+BOJ_USD),name='NLQ + BOJ')  
+    outName += "_BOJ"
     MainLabel += " + BOJ" 
     with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
         NetLiquidity.to_excel(writer, sheet_name='Weekly_plusBOJ')
@@ -336,6 +339,7 @@ else:
     NetLiquidity = pd.Series((NetLiquidity+PBoC_USD),name='NLQ'); NetLiquidity2 = pd.Series((NetLiquidity2+PBoC_USD),name='NLQ')
     NetLiquidity3 = pd.Series((NetLiquidity3+PBoC_USD),name='NLQ')     
     MainLabel += " + PBoC"
+    outName += "_PBoC"
     with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
         NetLiquidity.to_excel(writer, sheet_name='Weekly_plusPBoC')
         NetLiquidity2.to_excel(writer, sheet_name='Resamp_plusPBoC')
@@ -350,10 +354,26 @@ else:
     NetLiquidity = pd.Series((NetLiquidity+BoE_USD),name='NLQ'); NetLiquidity2 = pd.Series((NetLiquidity2+BoE_USD),name='NLQ')
     NetLiquidity3 = pd.Series((NetLiquidity3+BoE_USD),name='NLQ')     
     MainLabel += " + BoE" 
+    outName += "_BoE"
     with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
         NetLiquidity.to_excel(writer, sheet_name='Weekly_plusBoE')
         NetLiquidity2.to_excel(writer, sheet_name='Resamp_plusBoE')
         NetLiquidity3.to_excel(writer, sheet_name='TGAData_PlusBoE') 
+if pd.isna(LoadSNB) or str(LoadSNB).upper() == NoString.upper():  
+    pass
+else:  
+    SNBData = PriceImporter.GetCBAssets_USD("ECONOMICS,CHBBS","FX_IDC,CHFUSD",DataStart,SerName='SNB')
+    SNB_USD = SNBData[0]; SNB_USD_Info = SNBData[1]; OtherBalSheets += 1 
+    if len(Findex.difference(SNB_USD.index)) > 0:
+        SNB_USD = PriceImporter.ReSampleToRefIndex(SNB_USD,Findex,'D')
+    NetLiquidity = pd.Series((NetLiquidity+SNB_USD),name='NLQ'); NetLiquidity2 = pd.Series((NetLiquidity2+SNB_USD),name='NLQ')
+    NetLiquidity3 = pd.Series((NetLiquidity3+SNB_USD),name='NLQ')     
+    MainLabel += " + SNB" 
+    outName += "_SNB"
+    with pd.ExcelWriter(savePath, engine='openpyxl', mode='a',if_sheet_exists='replace') as writer:  
+        NetLiquidity.to_excel(writer, sheet_name='Weekly_plusBoE')
+        NetLiquidity2.to_excel(writer, sheet_name='Resamp_plusBoE')
+        NetLiquidity3.to_excel(writer, sheet_name='TGAData_PlusBoE')         
 if OtherBalSheets > 0:
     MainLabel += " bal. sheets (left axis)"   
 
@@ -389,6 +409,15 @@ dic = {"id":"Net Liquidity",'title':"Net liquidity = WALCL - WTREGEN - RRPONTSYD
 dic2 = {"id":"TGA balance",'title':"Treasury General Account Balance (billions of USD)","units_short":"bil. of USD-$",'frequency':'Daily'}
 Info = pd.Series(dic)
 Info2 = pd.Series(dic2)
+NLQ_Info = {"id":"CB bal. sheets",'title':"Central bank Balance sheet aggregate","units_short":"bil. of USD-$",
+            'frequency':'Daily', 'Source': 'tv', 'LegendName': MainLabel, 'name': outName}
+
+############### SAVE FINAL DATA ##########################################################
+savePath = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+outName+'.xlsx'
+print('Saving aggregated NLQ as: ',savePath)
+NetLiquidity3.to_excel(savePath,sheet_name='Closing_Price')
+with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
+    pd.Series(NLQ_Info).to_excel(writer, sheet_name='SeriesInfo')
 
 ##### This is the code for plotting the original weekly series with all data sourced from FRED ########################
 FontFamily = Inputs.loc['FontFamily'].at['Additional FRED Data']
@@ -442,7 +471,7 @@ else:
     if Norm2DXY is True:
         G_Elements = Charting.GNLQ_ElementsChart(NetLiquidity3,'Global CB money Elements',YScale='linear',ECB=ECB_USD,BOJ=BOJ_USD,PBoC=PBoC_USD) #BoE=BoE_USD
     else:
-        G_Elements = Charting.GNLQ_ElementsChart(NetLiquidity3,'Global CB money Elements',YScale='linear',US_NLQ=USD_NetLiq,ECB=ECB_USD,BOJ=BOJ_USD,PBoC=PBoC_USD)    
+        G_Elements = Charting.GNLQ_ElementsChart(NetLiquidity3,'Global CB money Elements',YScale='linear',US_NLQ=USD_NetLiq,ECB=ECB_USD,BOJ=BOJ_USD,PBoC=PBoC_USD,SNB=SNB_USD)    
     
 ########### For the other two NLQ series that have daily frequency, we can optionally transform them to YoY Delta%. ##########
 TracesType = Inputs.loc['TracesType'].at['Additional FRED Data']     ##This does a YoY Delta% tarnsformation to the data if that is set in the inputs file. 

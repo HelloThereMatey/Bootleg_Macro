@@ -118,10 +118,10 @@ for i in range(1,6):
         yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['ReS_2_D']
         axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i-1]; MA =  Inputs.loc[i].at['Sub_MA']; LW = Inputs.loc[i].at['LineWidth']
         convert = Inputs.loc[i].at['Divide_data_by']; Ymin = Inputs.loc[i].at['Ymin']; aMA =  Inputs.loc[i].at['Add_MA']
-        new_startDate = Inputs.loc[i].at['Limit_StartDate']
+        new_startDate = Inputs.loc[i].at['Limit_StartDate']; show = Inputs.loc[i].at['SHOW/HIDE']
         SeriesDict[name] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name,\
                             'YScale': yscale,'axlabel': axlabel,'Ymax': float(Ymax),'Resample2D': resample, 'useMA': MA, 'addMA':aMA, 'LW': LW, 'Ticker_Source':ticker,
-                            'ConvertUnits':convert,'Ymin': float(Ymin), "start_date": new_startDate}      
+                            'ConvertUnits':convert,'Ymin': float(Ymin), "start_date": new_startDate, "show_hide": show}      
 
 SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
 numAxii = numSeries
@@ -266,7 +266,7 @@ for series in SeriesDict.keys():
     print('Data pull function, data series name: ',TheSeries['Name'],'Datatype:  ',type(TheData2))    
     TheData2 = TheData2[StartDate:EndDate]
     TheSeries['Data'] = TheData2
-    TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.   
+    TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.  
     SeriesDict[series] = TheSeries
     if pd.isna(TheSeries['axlabel']):
        print("No axis label entered using the designation from SeriesInfo for series: ",TheSeries['Legend_Name'], SeriesInfo)

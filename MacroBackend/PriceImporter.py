@@ -197,6 +197,7 @@ def ReSampleToRefIndex(data,index,freq:str):   #This function will resample and 
     return data
 
 def pullyfseries(ticker,start:str="2020-01-01",interval="1d"):
+    #yf.download
     asset = yf.ticker.Ticker(ticker=ticker)
     PriceData = asset.history(period="1d",start=start,interval=interval)
     PriceData = pd.DataFrame(PriceData)

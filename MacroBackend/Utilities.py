@@ -3,6 +3,7 @@ import pandas as pd
 import datetime
 import tkinter as tk
 import tkinter.font as tkfont
+import customtkinter as ctk
 import operator
 import sys
 import os
@@ -474,7 +475,8 @@ class TkinterSizingVars():
 class HoverInfo(tk.Menu):
     def __init__(self, parent, text, command=None):
         self._com = command
-        super().__init__(parent)
+        super().__init__(parent, font = tkfont.Font(family= 'Arial', size=10, weight='normal',
+                slant='roman', underline=False,overstrike=False), tearoff=0, relief='flat', type = 'normal')
         if not isinstance(text, str):
             raise TypeError('Trying to initialise a Hover Menu with a non string type: ' + text.__class__.__name__)
         toktext=re.split('\n', text)
@@ -506,6 +508,22 @@ class HoverInfo(tk.Menu):
 
     def Click(self, event):
        self._com()
+
+class HoverInfo2(ctk.CTkLabel):
+    def __init__(self, parent, text, command=None):
+        self._com = command
+        super().__init__(parent, font = ('Arial', 10))
+        if not isinstance(text, str):
+            raise TypeError('Trying to initialise a Hover label with a non string type: ' + text.__class__.__name__)
+
+        self._displayed=False
+        self.master.bind("<Enter>", self.place())
+        self.master.bind("<Leave>",self.destroy())
+
+    def __del__(self):
+       self.master.unbind("<Enter>")
+       self.master.unbind("<Leave>")
+    
 
 def Search_df(df:Union[pd.DataFrame, pd.Series], searchTerm:str):
     matches = []; match_indices = []; match_col = []; i = 0

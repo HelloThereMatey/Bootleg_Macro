@@ -108,7 +108,8 @@ def NLQ_ElementsChart(FedBal:pd.Series,RevRep:pd.Series,TGA:pd.Series,title:str,
     ax.minorticks_on();  axb.minorticks_on() 
 
 #######. MatPlotLib Section. Making good figs with MPL takes many lines of code dagnammit.  ###################
-def GNLQ_ElementsChart(GNLQ:pd.Series,title:str,YScale='linear',US_NLQ:pd.Series=None,ECB:pd.Series=None,BOJ:pd.Series=None,PBoC:pd.Series=None,BoE:pd.Series=None):
+def GNLQ_ElementsChart(GNLQ:pd.Series,title:str,YScale='linear',US_NLQ:pd.Series=None,ECB:pd.Series=None,
+                       BOJ:pd.Series=None,PBoC:pd.Series=None,BoE:pd.Series=None, SNB:pd.Series=None):
     ######## Figure to plot all the elements of the the global liquidity, much like the Fed NLQ elements. 
     fig = plt.figure(num=title,figsize=(9,8), tight_layout=True)
     ax = fig.add_subplot(); axb = ax.twinx()
@@ -124,6 +125,8 @@ def GNLQ_ElementsChart(GNLQ:pd.Series,title:str,YScale='linear',US_NLQ:pd.Series
         pboc = axb.plot(PBoC,color="red",label='PBoC bal. sheet (right)',lw=1.5)
     if BoE is not None:
         boe = axb.plot(BoE,color="brown",label='BoE bal. sheet (right)',lw=1.5)
+    if SNB is not None:
+        snb = axb.plot(SNB,color="fuchsia",label='SNB bal. sheet (right)',lw=1.5)
     
     if YScale == "log":
         ax.set_yscale('log')
@@ -347,6 +350,7 @@ class BMP_Fig(Figure):
         self.ax1 = self.axes[0]; axDict = {}
         for axis in ['top','bottom','left','right']:
             self.ax1.spines[axis].set_linewidth(1.5)
+        #for trace in Traces.keys():
         for i in range(1,numaxii,1):
             axDict['ax'+str(i)] = self.ax1.twinx()
         self.ax1.minorticks_on()
@@ -365,6 +369,9 @@ class BMP_Fig(Figure):
         locList = [(-0.025,-0.105),(0.375,-0.105),(0.75,-0.105),(-0.025,-0.16),(0.375,-0.16)]
         for trace in Traces.keys():
             TheTrace = Traces[trace]
+            if TheTrace['show_hide'] == 'Hide':
+                continue
+            
             data = TheTrace['Data']; name = TheTrace['Name']; Ylabel = TheTrace['axlabel']
             print(name,Ylabel)
             if Ylabel == 'nan':
