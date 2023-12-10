@@ -317,17 +317,17 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page......
         self.PI_loadPath = ctk.StringVar(self, value=wd+FDel+"Datasets"+FDel+"Annual"+FDel+'U20404.xlsx', name = 'PriceIndexes_loadPath' )
 
         self.set_load_paths = ctk.CTkButton(self, text="Load Category Data",font=('Arial',14,'bold'),command=self.set_paths)
-        self.set_load_paths.pack(side = 'left', padx=15,pady=15)
+        self.set_load_paths.grid(column = 0, row = 0,padx=15,pady=15)
 
         self.run_calc = ctk.CTkButton(self, text="Calculate FI",font=('Arial',14,'bold'),command=self.calc_FI)
-        self.run_calc.pack(side = 'right', padx=15, pady=15)
+        self.run_calc.grid(column = 1, row = 0,padx=15,pady=15)
 
         catzPath = ctk.CTkEntry(self,textvariable=self.catz_loadPath,font=self.default_font,width=self.default_font.measure(self.catz_loadPath.get())+20)
-        catzPath.pack(side = 'bottom', padx=15,pady=5)
+        catzPath.grid(column = 0, row = 1,padx=5,pady=10, columnspan = 2)
         cdPath = ctk.CTkEntry(self,textvariable=self.CD_loadPath,font=self.default_font,width=self.default_font.measure(self.CD_loadPath.get())+20)
-        cdPath.pack(side = 'bottom', padx=15,pady=5)
+        cdPath.grid(column = 0, row = 2,padx=5,pady=10, columnspan = 2)
         piPath = ctk.CTkEntry(self,textvariable=self.PI_loadPath,font=self.default_font,width=self.default_font.measure(self.PI_loadPath.get())+20)
-        piPath.pack(side = 'bottom', padx=15,pady=5)
+        piPath.grid(column = 0, row = 3,padx=5,pady=10, columnspan = 2)
 
     def set_paths(self):
         
@@ -336,12 +336,12 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page......
         self.PI_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=wd,title="Choose .xlsx file that contains the price index data downloaded from BEA."))
 
     def calc_FI(self):
-        self.FI_obj = custom_FI.BEA_FisherIndex(self.CD_loadPath, self.PI_loadPath, self.catz_loadPath)
+        self.FI_obj = custom_FI.BEA_FisherIndex(self.CD_loadPath.get(), self.PI_loadPath.get(), self.catz_loadPath.get())
         print(self.FI_obj.PCE_Data)
 
 class CustomIndexWindow(ctk.CTkToplevel):
 
-    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'):
+    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = ancestor+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'):
         super().__init__(master)
         default_font = ctk.CTkFont('Arial',13)
         self.data = pd.DataFrame(dataTable['Series_Split'])

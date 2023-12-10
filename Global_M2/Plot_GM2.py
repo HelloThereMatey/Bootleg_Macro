@@ -2,7 +2,8 @@
 import os
 wd = os.path.dirname(__file__)  ## This gets the working direectory which is the folder where you have placed this .py file. 
 dire = os.path.dirname(wd)
-print(wd,dir)
+print(wd,dire)
+fdel = os.path.sep
 import sys ; sys.path.append(dire)
 from MacroBackend import PriceImporter, Utilities, Charting ## This is one of my custom scripts holding functions for pulling price data from APIs. 
 #Your IDE might not find it before running script. 
@@ -326,6 +327,15 @@ class YoY_Forecast(object):
         ax.grid(visible = True, which = 'major', axis = 'both', lw = 0.75, ls = ":")
         ax2.grid(visible = True, which = 'major', axis = 'both', lw = 0.75, ls = ":")
 
+    def save_em(self, savePath: str = dire + fdel + 'Macro_Chartist' + fdel + 'SavedData'):
+        for forecast in self.forecasted.keys():
+            SeriesInfo = pd.Series({'units':'US Dollars','units_short': 'USD','title':forecast,'id':forecast,"Source":"tv"},name='SeriesInfo')
+            saveName = savePath+fdel+forecast+'.xlsx'
+            pd.Series(self.forecasted[forecast], name = forecast).to_excel(saveName, sheet_name='Closing_Price')
+            with pd.ExcelWriter(saveName, engine='openpyxl', mode='a') as writer:  
+                SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+
+
 if __name__ == '__main__':
 
     # test = PriceImporter.DataFromTVGen('AAPL', exchange = 'NASDAQ', start_date= "2023-06-01", BarTimeFrame='W')
@@ -384,4 +394,5 @@ if __name__ == '__main__':
     print(fore.series)
     fore.MakeForecastSeries(multiplesList = [-3, -2, -1, 0, 1, 2, 3])
     fore.PlotEm('Forecasting GM2 based on constant MoM changes', ax_ylabel='USD (trillions of dollaridoos)')
+    fore.save_em()
     plt.show()
