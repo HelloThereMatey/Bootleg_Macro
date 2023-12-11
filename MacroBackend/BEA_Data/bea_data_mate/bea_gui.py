@@ -216,6 +216,10 @@ def CustomExport():
 def custom_fi():
     FI_window = BEA_API_backend.Custom_FisherIndex(root)
 
+def open_info_window(title: str, info_text: str):
+    info_window = Utilities.InfoWindow(root, title, info_text)
+    info_window.open()  
+
 ######## Define and arange the features on the GUI window 
 path = ctk.StringVar(master=root,value=defPath,name='Data folder path.')
 searchTerm = ctk.StringVar(master=root,value="",name='SearchTerm')
@@ -246,12 +250,18 @@ pathBar = ctk.CTkEntry(top,width=round(0.95*win_widthT),textvariable=path); path
 dsLabel = ctk.CTkLabel(top, text = 'DATASET', font=('Arial', 12, 'bold')); dsLabel.grid(column=0,row=1,padx=5)
 choose_ds = ctk.CTkOptionMenu(top, values = bea.DSTables, variable=DataSet); choose_ds.grid(column=0,row=2,padx=5,pady=2)
 choose_ds = ctk.CTkOptionMenu(top, values = bea.DSTables, variable=DataSet); choose_ds.grid(column=0,row=2,padx=5,pady=2)
+DatasetInfo = "BEA API has some 13 or so different datasets that you can choose to pull data from.\n Currently only the NIPA, NIPA details and Fixed Asset\
+    datasets are supported. These are: \n NIPA: National Income and Product Accounts. \n This is the most important dataset available at BEA, containing data tables \n\
+such as GDP and components and PCE. \n NIPA_Details: This has the same NIPA data in more detail. \n Fixed__Assets: \nThis has fixed investment data such as manufacturing construction."
+
+helpBtn = ctk.CTkButton(top, width = round(defCharWid*2), height = round(defCharWid*3), text = "?", 
+                        command = lambda: open_info_window("Choose BEA Dataset", DatasetInfo)); helpBtn.grid(column=0, sticky = 'e', row=2,padx=2,pady=2)
 searchLabel = ctk.CTkLabel(top, text = 'Enter search term/s separated by ","', font=('Arial', 11)); searchLabel.grid(column=1,row=1,padx=5)
 searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=1,row=2,padx=5,pady=2)
 searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=1,row=2,padx=5,pady=2)
 btn=ctk.CTkButton(top, text="Search for data",text_color='black',command=SearchBtn,font=('Arial',12, 'bold'),border_width=1)
 btn.grid(column=2,row=2,padx=5,pady=2)
-#btn_hover = Utilities.HoverInfo(btn, text = "Search through the BEA data \ntables in the current DATASET.")
+btn_hover = Utilities.HoverInfo(btn, text = "Search through the BEA data \ntables in the current DATASET.")
 flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',12,'bold')) ; flabel.grid(column=4,row=1)
 freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=4,row=2,padx=30,pady=2)
 
@@ -265,6 +275,8 @@ result_box.pack(padx=30,pady=15)
 bottom.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 bottom.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(3,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 GetDataBtn = ctk.CTkButton(bottom, text="Get data series", text_color='black',command=PullBEASeries,font=('Arial',13,'bold'),border_width=1); GetDataBtn.grid(column=2,row=0,pady=5)
+hovInfo = Utilities.HoverInfo(GetDataBtn, text = "Get selected data table from BEA API")
+
 start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=0,row=0,sticky='w',pady=5,padx=15)
 sLabel = ctk.CTkLabel(bottom,text='Start year\nblank = "All years"',font=('Arial',10)) ; sLabel.grid(column=0,row=0,sticky='e',pady=35)
 end = ctk.CTkEntry(bottom,textvariable=EndDate); end.grid(column=1,row=0,sticky='w',pady=5,padx=15)

@@ -472,58 +472,102 @@ class TkinterSizingVars():
         with open(filePath, 'w') as f:
             json.dump(self.ScreenData, f, indent=4)
 
-class HoverInfo(tk.Menu):
+class HoverInfo(tk.Toplevel):
     def __init__(self, parent, text, command=None):
+        super().__init__(parent, bg='white', padx=1, pady=1)
+        self.transient(parent)
+        self.overrideredirect(True)
+        self.text = text
         self._com = command
-        super().__init__(parent, font = tkfont.Font(family= 'Arial', size=10, weight='normal',
-                slant='roman', underline=False,overstrike=False), tearoff=0, relief='flat', type = 'normal')
-        if not isinstance(text, str):
-            raise TypeError('Trying to initialise a Hover Menu with a non string type: ' + text.__class__.__name__)
-        toktext=re.split('\n', text)
-        for t in toktext:
-            self.add_command(label = t)
+        self.label = tk.Label(self, text=text, justify=tk.LEFT, background='#ffffe0', relief=tk.SOLID, borderwidth=1, font=tkfont.Font(family='Arial', size=10))
+        self.label.pack(ipadx=1, ipady=1)
+        self._displayed = False
+        self.parent = parent
+        self.parent.bind("<Enter>", self.display)
+        self.parent.bind("<Leave>", self.remove)
 
-        self._displayed=False
-        self.master.bind("<Enter>",self.Display )
-        self.master.bind("<Leave>",self.Remove )
+        # Hide the tooltip initially
+        self.withdraw()
 
-    def __del__(self):
-       self.master.unbind("<Enter>")
-       self.master.unbind("<Leave>")
+    def display(self, event):
+        if not self._displayed:
+            self._displayed = True
+            x, y, cx, cy = self.parent.bbox("anchor")
+            x += self.parent.winfo_rootx() + 25
+            y += self.parent.winfo_rooty() + 25
+            self.geometry(f'+{x}+{y}')
+            self.deiconify()
+        if self._com is not None:
+            self.parent.bind("<Return>", self.click)
 
-    def Display(self,event):
-       if not self._displayed:
-          self._displayed=True
-          self.post(event.x_root+2, event.y_root+2)
-       if self._com != None:
-          self.master.unbind_all("<Return>")
-          self.master.bind_all("<Return>", self.Click)
+    def remove(self, event):
+        if self._displayed:
+            self._displayed = False
+            self.withdraw()
+        if self._com is not None:
+            self.parent.unbind("<Return>")
 
-    def Remove(self, event):
-     if self._displayed:
-       self._displayed=False
-       self.unpost()
-     if self._com != None:
-       self.unbind_all("<Return>")
-
-    def Click(self, event):
-       self._com()
-
-class HoverInfo2(ctk.CTkLabel):
-    def __init__(self, parent, text, command=None):
-        self._com = command
-        super().__init__(parent, font = ('Arial', 10))
-        if not isinstance(text, str):
-            raise TypeError('Trying to initialise a Hover label with a non string type: ' + text.__class__.__name__)
-
-        self._displayed=False
-        self.master.bind("<Enter>", self.place())
-        self.master.bind("<Leave>",self.destroy())
-
-    def __del__(self):
-       self.master.unbind("<Enter>")
-       self.master.unbind("<Leave>")
+    def click(self, event):
+        if self._com:
+            self._com()
     
+class InfoWindow:
+    def __init__(self, parent, title, info_text):
+        self.parent = parent
+        self.title = title
+        self.info_text = info_text
+        self.window = None
+
+    def open(self):
+        if self.window is not None:
+            return  # Prevent opening multiple windows
+
+        self.window = tk.Toplevel(self.parent)
+        self.window.title(self.title)
+        #self.window.geometry("300x200")  # Adjust the size as needed
+
+        text = tk.Text(self.window, wrap='word', font = tkfont.nametofont("TkDefaultFont"))
+        text.insert('1.0', self.info_text)
+        text.config(state='disabled', bg=self.window.cget('bg'))  # Making the Text widget read-only
+        text.pack(expand=True, fill='both', padx=10, pady=10)
+
+        close_button = tk.Button(self.window, text="Close", command=self.close)
+        close_button.pack(pady=5)
+
+    def close(self):
+        self.window.destroy()
+        self.window = None
+
+class Tooltip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tip_window = None
+
+    def show_tooltip(self):
+        if self.tip_window or not self.text:
+            return
+        x, y, _, _ = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry("+%d+%d" % (x, y))
+        label = tk.Label(tw, text=self.text, justify=tk.LEFT,
+                         background="#ffffe0", relief=tk.SOLID, borderwidth=1,
+                         font=("tahoma", "8", "normal"))
+        label.pack(ipadx=1)
+
+    def hide_tooltip(self):
+        tw = self.tip_window
+        self.tip_window = None
+        if tw:
+            tw.destroy()  
+
+def create_tooltip(widget, text):
+    tooltip = Tooltip(widget, text)
+    widget.bind("<Enter>", lambda e: tooltip.show_tooltip())
+    widget.bind("<Leave>", lambda e: tooltip.hide_tooltip())
 
 def Search_df(df:Union[pd.DataFrame, pd.Series], searchTerm:str):
     matches = []; match_indices = []; match_col = []; i = 0
