@@ -25,7 +25,7 @@ elif platform == "darwin":
 elif platform == "win32":
     FDel = '\\' #Windows...
 
-def CoinGeckoPriceHistory(CoinID,TimeLength):
+def CoinGeckoPriceHistory(CoinID: str, TimeLength: int):
     #Call CoinGecko API:
     print("Pinging coin gecko API, requesting data for asset: "+CoinID)
     url = r'https://api.coingecko.com/api/v3/coins/'+CoinID+r'/market_chart?vs_currency=usd&days='+str(TimeLength)+r'&interval=daily' 

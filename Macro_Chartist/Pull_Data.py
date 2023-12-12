@@ -12,6 +12,7 @@ from MacroBackend import PriceImporter, Utilities
 import datetime
 import pandas as pd
 import pandas_datareader as pdr
+import quandl
 
 class get_data_failure(Exception):
     pass
@@ -58,12 +59,13 @@ class dataset(object):
                                 'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
                                 'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                 'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
-                                'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver']
+                                'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'glassnode']
         
-        self.pd_dataReader = list(set(self.supported_sources) - set(['fred', 'yfinance', 'tv', 'coingecko']))
-        print(self.pd_dataReader)
+        self.pd_dataReader = list(set(self.supported_sources) - set(['fred', 'yfinance', 'tv', 'coingecko', 'quandl']))
+        self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
         
-        self.api_keys = Utilities.api_keys(JSONpath = parent + fdel + 'MacroBackend' + fdel + 'SystemInfo').keys
+        self.keyz = Utilities.api_keys(JSONpath = parent + fdel + 'MacroBackend' + fdel + 'SystemInfo')
+        self.api_keys = dict(self.keyz.keys)
         self.data = None
         self.data_freq = data_freq
         self.source = source
@@ -72,6 +74,7 @@ class dataset(object):
             print("Your specified source is not supported, get the fuck out of town you cunt.") 
             quit()
         
+        self.check_key()
         self.data_code = data_code
         self.exchange_code = exchange_code
         self.start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
@@ -81,6 +84,18 @@ class dataset(object):
 
         self.pull_data()
 
+    def check_key(self):
+        print("Checking API keys: ", self.api_keys)
+        if self.source in self.keySources and self.source not in self.api_keys.keys():
+            print("No API key found for your source: ", self.source, "do you have the key at hand ready to paste into terminal?")
+            if input("y/n?") == 'y':
+                self.keyz.add_key(self.source)
+            else:
+                print("You need an API key too get data from ", self.source)    
+            quit()
+        else:
+            return    
+        
     def pull_data(self):
         if ',' in self.data_code:    #Ths is for tickers that are formulated for tvdataFeed format: ticker,exchange.
             split = self.data_code.split(',', maxsplit=1)
@@ -133,6 +148,15 @@ class dataset(object):
             TheData = pd.Series(TheData['Close'], name = self.dataName) 
             self.data = TheData
 
+        elif self.source == 'quandl':
+            if quandl.ApiConfig.api_key == self.api_keys['quandl']:
+                print('quandl key already set: ', quandl.ApiConfig.api_key)    
+            else:    
+                quandl.ApiConfig.api_key = self.api_keys['quandl']
+                print('quandl API key set just now: ', quandl.ApiConfig.api_key) 
+            print(self.start_date, self.end_date)
+            self.data = quandl.get(self.exchange_code+'/'+self.data_code, start_date = self.start_date, end_date = self.end_date)
+
         elif self.source in self.pd_dataReader:
             print("Attempting to pull data from source: ", self.source, ', for ticker; ', self.data_code, 'using pandas datareader.')
             data = pdr.DataReader(self.data_code, self.source, start = self.start_date, end = self.end_date)
@@ -148,8 +172,9 @@ class dataset(object):
 
 if __name__ == "__main__":
     
-    me_data = dataset(source = 'iex-tops', data_code = 'AAPL', start_date = '2016-01-01')
+    me_data = dataset(source = 'quandl', data_code = 'AAPL', exchange_code='WIKI',start_date = '2015-01-01')
     print(me_data.data, me_data.dataName)
+    print(me_data.data.iloc[len(me_data.data)-1])
 
 
 
