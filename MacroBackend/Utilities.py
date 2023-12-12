@@ -724,24 +724,29 @@ def manual_frequency(series: pd.Series, threshold_multiplier=2.25):
 
 class api_keys():
 
-    def __init__(self, JSONpath: str = wd+fdel+"SystemInfo"):
+    def __init__(self, JSONpath: str = wd+fdel+"SystemInfo", keyfileName: str = 'API_Keys.json'):
 
         keyFile = None; default_keyFile = None
         self.keys = None
         self.path = JSONpath
+        self.keyFileName = keyfileName
 
         try: 
-            print('Looking for api keys in SystemInfo folder...', JSONpath+fdel+'API_Keys.json')
-            keyFile = open(self.path+fdel+'API_Keys.json')
-            default_keyFile = open(JSONpath+fdel+'API_Keys_demo.json')
+            print('Looking for api keys in SystemInfo folder...', JSONpath+fdel+self.keyFileName)
+            keyFile = open(self.path+fdel+self.keyFileName)
+            try:
+                default_keyFile = open(JSONpath+fdel+'API_Keys_demo.json')
+            except:
+                pass    
         except Exception as e:
             print('Error loading API keys, ', e)
             pass    
         if keyFile is not None and default_keyFile is not None:
             print('API_keys found but the "API_Keys_demo.json" file is still present... Delete that file to silence this warning.')
             self.keys = json.load(keyFile)
-        elif keyFile is not None and default_keyFile is None:    
+        elif keyFile is not None and default_keyFile is None:   
             self.keys = json.load(keyFile)
+            print("Key file found: ", self.keys)
         elif default_keyFile is not None and keyFile is None:    
             print("No file: 'API_Keys.json' found in 'MacroBackend/SystemInfo'folder. However 'API_Keys_demo.json' was found. \nYou need to paste in your API keys\
                   into 'API_Keys_demo.json', save the filee and then get rid of the '_demo' to leave the file named as 'API_Keys.json'. After this your API keys\
@@ -771,10 +776,12 @@ class api_keys():
         fredKey = input('Paste in your FRED API key and hit enter. Hit enter with no input to skip.')
         bea_key = input('Paste in your BEA API key and hit enter. Hit enter with no input to skip.')
         gn_key = input('Paste in your GlassNode API key and hit enter. Hit enter with no input to skip.')
+        quandl_key = input('Paste in your Quandl (NASDAQ data link) API key and hit enter. Hit enter with no input to skip.')
 
         keyData = {'fred': fredKey,
                    'bea': bea_key,
-                   'glassnode': gn_key}
+                   'glassnode': gn_key,
+                   'quandl': quandl_key}
         
         with open(self.path+fdel+fileName, 'w') as f:
             json.dump(keyData, f, indent=4)
@@ -782,8 +789,17 @@ class api_keys():
         self.reload_keys()    
 
     def reload_keys(self):
-        keyFile = open(self.path+fdel+'API_Keys.json')
+        keyFile = open(self.path+fdel+self.keyFileName)
         self.keys = json.load(keyFile)
+
+    def add_key(self, source: str = 'Unknown'):
+        print(f"Here you can paste in your API key for the new source: {source}.")    
+        new_key = input(f"Enter your API key for {source}")
+
+        self.keys[source] = new_key
+        with open(self.path+fdel+self.keyFileName, 'w') as f:
+            json.dump(self.keys, f, indent=4)
+        self.reload_keys()    
 
 if __name__ == "__main__":
     # series = pd.read_excel("/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/Macro_Chartist/SavedData/CNLIVRR.xlsx", sheet_name="Closing_Price", index_col=0)
