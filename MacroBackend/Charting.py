@@ -195,7 +195,7 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     axb.legend(handles=Handles,labels=Labels, loc=1,fontsize='small',bbox_to_anchor=(0.98,1.06),framealpha=1)
     LastAxes = axList[numCAs-1]
     LastAxes.add_artist(legend_1); LastAxes.set_ylabel(RightLabel,fontweight='bold'); LastAxes.axis('on')
-    ax.set_title('BM Pleb CB Global Liquidity Index', fontweight='bold')
+    ax.set_title('                         Bootleg Macro CB Global Liquidity Index', fontweight='bold')
     ax.set_ylabel(YLabel, fontweight='bold')
     for axis in ['top','bottom','left','right']:
                 ax.spines[axis].set_linewidth(1.5)        
@@ -589,7 +589,7 @@ class TracesTop_RoC_bottom(Figure):
                 if series_data is not None:
                     self.ax.plot(series_data, **left_traces[trace])
             else:
-                self.ax.plot(left_traces[trace])     
+                self.ax.plot(left_traces[trace], label = trace)     
 
         self.ax.set_title(title)
         self.ax.set_yscale(axDeets['yscale_top_left'])        

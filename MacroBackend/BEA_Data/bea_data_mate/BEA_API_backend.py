@@ -335,9 +335,26 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page......
         self.CD_loadPath .set(filedialog.askopenfilename(parent=self,initialdir=wd,title="Choose .xlsx file that contains the current dollar estimates data downloaded from BEA."))
         self.PI_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=wd,title="Choose .xlsx file that contains the price index data downloaded from BEA."))
 
-    def calc_FI(self):
         self.FI_obj = custom_FI.BEA_FisherIndex(self.CD_loadPath.get(), self.PI_loadPath.get(), self.catz_loadPath.get())
+        self.base_catz = ctk.StringVar(self, value = self.FI_obj.BaseCatz, name = 'ListComponents')
+        self.toExclude = ctk.StringVar(self, value = "", name = 'excluded')
+        self.exclude = []
+
+        def ChooseASeries(event):
+            curs = catz_all.curselection()
+            self.exclude.append(self.FI_obj.BaseCatz[curs[0]])
+            self.toExclude.set(self.exclude)
+
+        catz_all = tk.Listbox(self,listvariable = self.base_catz, width=0, font=('Arial',12), foreground='black', background='white')
+        catz_all.bind('<Double-1>',ChooseASeries)
+        catz_all.grid(column=0,row=4,padx=30,pady=30,ipadx=15,ipady=10)
+        excluded = tk.Listbox(self, listvariable =  self.toExclude, width=0, font=('Arial',12), foreground='black', background='white')
+        excluded.grid(column=1,row=4,padx=30,pady=30,ipadx=15,ipady=10)
+
+    def calc_FI(self):
+        print(self.FI_obj.BaseCatz)
         print(self.FI_obj.PCE_Data)
+        print(self.exclude)
 
 class CustomIndexWindow(ctk.CTkToplevel):
 
@@ -384,7 +401,8 @@ class CustomIndexWindow(ctk.CTkToplevel):
         
         SeriesList = tk.Listbox(self.frame1,listvariable=self.components, width=0, font=('Arial',12), foreground='black', background='white')
         SeriesList.bind('<Double-1>',ChooseSeries)
-        SeriesList.grid(column=0,row=0,padx=30,pady=30,ipadx=15,ipady=10)
+        # label = ctk.CTkLabel(self, text="Columns in NIPA table", font = ('Arial', 12))
+        # SeriesList.grid(column=0,row=0,padx=30,pady=5,ipadx=15,ipady=10) ; label.grid(column=0,row=0,sticky='n',padx=3,pady=3)
         ChosenSeries = tk.Listbox(self.frame1,listvariable=self.choices, width=0, font=('Arial',12), foreground='black', background='white')
         ChosenSeries.grid(column=1,row=0,padx=30,pady=30,ipadx=15,ipady=10)
         indexBox = tk.Listbox(self.frame1,listvariable=self.choiceIndex, width=0, font=('Arial',12),justify='center', foreground='black', background='white')
