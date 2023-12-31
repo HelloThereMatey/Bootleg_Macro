@@ -9,6 +9,7 @@ sys.path.append(parent)
 
 ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
 from MacroBackend import PriceImporter, Utilities
+from MacroBackend.Glassnode import GlassNode_API
 import datetime
 import pandas as pd
 import pandas_datareader as pdr
@@ -60,8 +61,9 @@ class dataset(object):
                                 'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                 'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
                                 'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'glassnode']
+        self.added_sources = ['fred', 'yfinance', 'tv', 'coingecko', 'quandl', 'glassnode']
         
-        self.pd_dataReader = list(set(self.supported_sources) - set(['fred', 'yfinance', 'tv', 'coingecko', 'quandl']))
+        self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
         self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
         
         self.keyz = Utilities.api_keys(JSONpath = parent + fdel + 'MacroBackend' + fdel + 'SystemInfo')
@@ -157,6 +159,12 @@ class dataset(object):
             print(self.start_date, self.end_date)
             self.data = quandl.get(self.exchange_code+'/'+self.data_code, start_date = self.start_date, end_date = self.end_date)
 
+        elif self.source == 'glassnode':
+            # For GlassNode we need the data_code. specification to be in thee format METRIC,ASSET,TIME_RESOLUTION
+            splitted = self.data_code.split(',')
+            
+            params = {'a':splitted[1].strip(),'i':splitted[2].strip(),'f':'json','api_key': self.api_keys['glassnode']} 
+            data = GlassNode_API.GetMetric()
         elif self.source in self.pd_dataReader:
             print("Attempting to pull data from source: ", self.source, ', for ticker; ', self.data_code, 'using pandas datareader.')
             data = pdr.DataReader(self.data_code, self.source, start = self.start_date, end = self.end_date)

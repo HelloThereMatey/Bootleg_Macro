@@ -187,7 +187,7 @@ def ReSampleToRefIndex(data,index,freq:str):   #This function will resample and 
     data.drop(data.columns[0],axis=1,inplace=True)
     data = data.reindex(index=index)
     data.fillna(method='ffill',inplace=True)
-    print('Resampling this one: ',data)
+    #print('Resampling this one: ',data)
     data = data.resample(freq).mean()
     data.fillna(method='ffill',inplace=True)
     data.fillna(method='bfill',inplace=True)
@@ -644,11 +644,12 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
     BSData.dropna(inplace=True); BSData.index.rename('datetime',inplace=True) 
     LastDayBS = BSData.index[len(BSData)-1]; LastDayBS = LastDayBS.date()
     FirstDayBS = BSData.index[0]; FirstDayBS = FirstDayBS.date()  
-    print(StartDate,FirstDayBS,EndDate,LastDayBS) 
+    print("Data requested for period: \n",StartDate,EndDate,"\n, existing data start, end: ",FirstDayBS,LastDayBS) 
 
     if LastDayBS < EndDate or FirstDayBS > StartDate:
         print('BSData not up to date, pulling new data for '+TV_Code[1]+' from TV......')
         NewBSData, info = DataFromTVGen(TV_Code[1],exchange=TV_Code[0],start_date=StartDate,end_date=LastDayBS, BarTimeFrame='D')
+        print("Latest data from TV for: ",TV_Code[1],NewBSData)
         if len(NewBSData) > 1:
             NewBSData.drop(NewBSData.index[0],axis=0,inplace=True)
             dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(NewBSData.index).date)
@@ -660,9 +661,12 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
             else:
                 NewBSData = NewBSData[LastDayBS::]
                 print('BS Data to add: ',NewBSData)  
-            print('Last date in new BS data: ',NewBSData.index[len(NewBSData)-1],'Last date in existing BS data: ',BSData.index[len(BSData)-1])
-            BSData = pd.concat([BSData,NewBSData],axis=0)
-            BSData.to_excel(BSDataPath)
+            if NewBSData.empty:   
+                print('No new data to add for the bal. sheet', TV_Code[1])
+            else:     
+                print('Last date in new BS data: ',NewBSData.index[len(NewBSData)-1],'Last date in existing BS data: ',BSData.index[len(BSData)-1])
+                BSData = pd.concat([BSData,NewBSData],axis=0)
+                BSData.to_excel(BSDataPath)
         else:
             pass    
 

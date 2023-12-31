@@ -173,9 +173,8 @@ class CategoryData:
         for level, value in self.levels.items():
             val = int(level[len(level)-1])
             setattr(self, f"Aggregate_level_{val}", value)
-            #self.aggregate_level[int(level)+1] = value
 
-    def find_category_levels(self):
+    def find_category_levels(self) -> dict:
         levels = {}
 
         def max_depth(d, level=0):
@@ -808,17 +807,17 @@ if __name__ == "__main__":
                     "Rental value of farm dwellings (22)", 
                     "Group housing (23)",
                     "Electricity (27)",
-                    "Natural gas (28)"]
+                    "Natural gas (28)", "Gambling (91)", "Life insurance (110)", "Dental services (45)"]
 
     ################################ SPECIFY THE PATHS TO THE EXCEL FILES CONTAINING THE DATA FROM BEA ##################################################
     
-    PCELoadPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/bea_data_mate/Datasets/MonthlyData/U20405.xlsx"
-    PricesLoadPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/bea_data_mate/Datasets/MonthlyData/U20404.xlsx"
-    QuantisLoadPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/bea_data_mate/Datasets/MonthlyData/U20403.xlsx"
+    PCELoadPath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/U20405.xlsx"
+    PricesLoadPath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/U20404.xlsx"
+    QuantisLoadPath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/U20403.xlsx"
     Catz_json = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/BEA_Studies/PCE.json'
 
-    pctPricesPath = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/bea_data_mate/Datasets/MonthlyData/T20807.xlsx"
-    AltPrice_Indexes = "/Users/jamesbishop/Documents/Python/TempVenv/Bootleg_Macro/MacroBackend/bea_data_mate/Datasets/MonthlyData/T20804.xlsx"
+    pctPricesPath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/T20807.xlsx"
+    AltPrice_Indexes = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/T20804.xlsx"
     SavePath = "/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/BEA_Studies/Series/FinalExportedIndexes"
 
     # GoodsFromBase = BEA_FisherIndex(PCELoadPath, PricesLoadPath, Catz_json, nearestAggregate="Goods", IndexName="Goods",
@@ -835,17 +834,19 @@ if __name__ == "__main__":
     # Services.PlotIndexSet(title="Services from base categories")
     # Services.export_index_data(SavePath)
 
-    # ServExHous = BEA_FisherIndex(PCELoadPath, PricesLoadPath, Catz_json, IndexName="Services_ExHousingExEnergy", nearestAggregate="Services", excludeList=excludeList,
-    #                              studyTitle = 'PCE Services excluding Housing & Energy')
-    # ServExHous.LoadRefData(refIndexName="PCE services excluding energy and housing", AltPriceIndexesPath=AltPrice_Indexes, pctPricesPath=pctPricesPath)
+    ServExHous = BEA_FisherIndex(PCELoadPath, PricesLoadPath, Catz_json, IndexName="Services_ExRandom", nearestAggregate="Services", excludeList=excludeList,
+                                 studyTitle = 'PCE Services excluding Housing, Energy, Gambling, life insurance & Dental')
+    ServExHous.LoadRefData(refIndexName="PCE services excluding energy and housing", AltPriceIndexesPath=AltPrice_Indexes, pctPricesPath=pctPricesPath)
     # ServExHous.Calculate_FI()
-    # ServExHous.PlotIndexSet(title="Services excluding housing & Energy")
+    # ServExHous.PlotIndexSet(title="Services excluding Housing, Energy, Gambling, life insurance & Dental", manual_metricName="Services ex. Housing, Energy, Gambling, life insurance & Dental",
+    #                         official_metricName="PCE services")
     # ServExHous.export_index_data(SavePath)
-    customIndexName = 'Services_ExHousingExEnergy'
-    ReproducedIndexName = 'Services'
+   
+    # customIndexName = 'Services_ExHousingExEnergyEx'
+    # ReproducedIndexName = 'Services'
 
-    comp1 = index_comparison(customIndex_loadpath = SavePath+fdel+customIndexName+".xlsx", ReproducedIndex_loadpath = SavePath+fdel+ReproducedIndexName+".xlsx", customIndexName = customIndexName,
-                     ReproducedIndexName=ReproducedIndexName)
-    comp1.plot_comparison(title = 'Services Excluding Housing & Energy vs Services (manually calculated indexes)')
+    # comp1 = index_comparison(customIndex_loadpath = SavePath+fdel+customIndexName+".xlsx", ReproducedIndex_loadpath = SavePath+fdel+ReproducedIndexName+".xlsx", customIndexName = customIndexName,
+    #                  ReproducedIndexName=ReproducedIndexName)
+    # comp1.plot_comparison(title = 'Services Excluding Housing & Energy vs Services (manually calculated indexes)')
 
     plt.show()

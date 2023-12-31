@@ -96,7 +96,7 @@ def MonthPeriodAnnGrowth(data:pd.Series,months:int): ###### Calculate the X mont
     print('Calculating the',months,'month annualized % change for the series: ',data.name)
     print('Frequency of input time series, ',data.name,':',freq)    
     split = freq.split('-')
-    MonthlyList = ['M','SM','BM','CBM','MS','SMS','BMS','CBMS']
+    MonthlyList = ['M','SM','BM','CBM','MS','SMS','BMS','CBMS', 'WOM']
     QuarterList = ['Q','BQ','QS','BQS']
     AnnualList = ['A', 'Y','BA', 'BY', 'AS', 'YS','BAS', 'BYS']
 
@@ -126,7 +126,7 @@ def MonthPeriodAnnGrowth(data:pd.Series,months:int): ###### Calculate the X mont
         period = months*4
         MA = DeltaPC.rolling(period).mean()
         MA *= 52.18/period
-    elif any(split[0] == monthly for monthly in MonthlyList):
+    elif any(split[0] == monthly for monthly in MonthlyList):       
         print('Monthly frequency period.')
         period = months
         MA = DeltaPC.rolling(period).mean()
@@ -172,7 +172,7 @@ def MonthPeriodAnnGrowth2(data,months:int): ###### Calculate the X month annuali
         split = freq.split('-')
     else:
         split = freq    
-    MonthlyList = ['M','SM','BM','CBM','MS','SMS','BMS','CBMS']
+    MonthlyList = ['M','SM','BM','CBM','MS','SMS','BMS','CBMS', 'WOM']
     QuarterList = ['Q','BQ','QS','BQS']
     AnnualList = ['A', 'Y','BA', 'BY', 'AS', 'YS','BAS', 'BYS']
 
@@ -472,6 +472,48 @@ class TkinterSizingVars():
         with open(filePath, 'w') as f:
             json.dump(self.ScreenData, f, indent=4)
 
+# class HoverInfo(tk.Toplevel):
+#     def __init__(self, parent, text, command=None):
+#         super().__init__(parent, bg='white', padx=1, pady=1)
+#         self.transient(parent)
+#         self.overrideredirect(True)
+#         self.text = text
+#         self._com = command
+#         self.label = tk.Label(self, text=text, justify=tk.LEFT, background='#ffffe0', relief=tk.SOLID, borderwidth=1, font=tkfont.Font(family='Arial', size=10))
+#         self.label.pack(ipadx=1, ipady=1)
+#         self._displayed = False
+#         self.parent = parent
+#         self.parent.bind("<Enter>", self.display)
+#         self.parent.bind("<Leave>", self.remove)
+
+#         # Hide the tooltip initially
+#         self.withdraw()
+
+#     def display(self, event):
+#         if not self._displayed:
+#             self._displayed = True
+#             x, y, cx, cy = self.parent.bbox("anchor")
+#             x += self.parent.winfo_rootx() + 25
+#             y += self.parent.winfo_rooty() + 25
+#             self.geometry(f'+{x}+{y}')
+#             self.deiconify()
+#         if self._com is not None:
+#             self.parent.bind("<Return>", self.click)
+
+#     def remove(self, event):
+#         if self._displayed:
+#             self._displayed = False
+#             self.withdraw()
+#         if self._com is not None:
+#             self.parent.unbind("<Return>")
+
+#     def click(self, event):
+#         if self._com:
+#             self._com()
+
+import tkinter as tk
+import tkinter.font as tkfont
+
 class HoverInfo(tk.Toplevel):
     def __init__(self, parent, text, command=None):
         super().__init__(parent, bg='white', padx=1, pady=1)
@@ -485,6 +527,9 @@ class HoverInfo(tk.Toplevel):
         self.parent = parent
         self.parent.bind("<Enter>", self.display)
         self.parent.bind("<Leave>", self.remove)
+
+        # Bind the Esc key to the remove method
+        self.bind_all("<Return>", self.remove)
 
         # Hide the tooltip initially
         self.withdraw()
@@ -500,16 +545,18 @@ class HoverInfo(tk.Toplevel):
         if self._com is not None:
             self.parent.bind("<Return>", self.click)
 
-    def remove(self, event):
+    def remove(self, event=None):
         if self._displayed:
             self._displayed = False
             self.withdraw()
         if self._com is not None:
             self.parent.unbind("<Return>")
+        self.withdraw()    
 
     def click(self, event):
         if self._com:
             self._com()
+
     
 class InfoWindow:
     def __init__(self, parent, title, info_text):
@@ -633,7 +680,7 @@ def CheckIndexDifference(series1:Union[pd.DataFrame, pd.Series], series2:Union[p
     return differences
     
 def DetermineSeries_Frequency(series: pd.Series):
-    MonthlyList = ['M','SM','BM','CBM','MS','SMS','BMS','CBMS']
+    MonthlyList = ['M','SM','BM','CBM','MS','SMS','BMS','CBMS', 'WOM']
     QuarterList = ['Q','BQ','QS','BQS']
     AnnualList = ['A', 'Y','BA', 'BY', 'AS', 'YS','BAS', 'BYS']
     multiplier = 1

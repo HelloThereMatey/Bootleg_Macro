@@ -1,7 +1,7 @@
 import os
 wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
 parent = os.path.dirname(wd); grandpa = os.path.dirname(parent); ancestor = os.path.dirname(grandpa)
-print('Working directory: ',wd,', parent folder',parent, 'level above that: ', grandpa)
+print('Working directory: ',wd,'\n, parent folder',parent, '\nlevel above that: ', grandpa, '\nnext one up: ',ancestor)
 import sys;
 sys.path.append(parent); sys.path.append(grandpa); sys.path.append(ancestor); print(sys.path)
 from MacroBackend import Utilities ## Don't worry if your IDE shows that this module can't be found, it should stil work. 
@@ -238,7 +238,8 @@ Date = ctk.StringVar(master=root,value="",name='DataDateColumn')
 Data = ctk.StringVar(master=root,value="",name='DataColumn')
 cols = ctk.StringVar(master=root,value="",name='DataColumns')
 YAxis = ctk.StringVar(master=root,value='linear',name="Yaxis_Scale")
-savePath = wd+FDel+'Datasets'; export = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'
+savePath = parent+FDel+'Datasets'; export = ancestor+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'
+
 save = ctk.StringVar(master=root,value=savePath,name='DataSavePath')
 ExportPath = ctk.StringVar(master=root,value=export,name='Export_Path')
 components = ctk.StringVar(master=root,value="",name='IndexComponents')
