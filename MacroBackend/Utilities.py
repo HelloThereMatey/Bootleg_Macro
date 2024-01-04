@@ -680,9 +680,6 @@ def CheckIndexDifference(series1:Union[pd.DataFrame, pd.Series], series2:Union[p
     return differences
     
 def DetermineSeries_Frequency(series: pd.Series):
-    MonthlyList = ['M','SM','BM','CBM','MS','SMS','BMS','CBMS', 'WOM']
-    QuarterList = ['Q','BQ','QS','BQS']
-    AnnualList = ['A', 'Y','BA', 'BY', 'AS', 'YS','BAS', 'BYS']
     multiplier = 1
 
     frequency_dict = {
@@ -712,6 +709,8 @@ def DetermineSeries_Frequency(series: pd.Series):
     
     freq = pd.infer_freq(series.index)
     print('Frequency determination function for series: ', series.name, ' frequency: ', freq)
+    if len(freq.split("-")) > 1:
+        freq = freq.split("-")[0]
     
     if freq is None:
         print("Couldn't discern frequency in the regular manner, trying manual process....")
