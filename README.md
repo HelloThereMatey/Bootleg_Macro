@@ -57,11 +57,7 @@ This script pulls daily data for the TGA from the treasury along with series fro
 #### A more detailed usage guide can be found here in my twitter threads about the NLQ script: 
 https://twitter.com/Tech_Pleb/status/1619542486208372737?s=20&t=lwqXKHnHwTkcF2V1RMnzBg
 https://twitter.com/Tech_Pleb/status/1622916354008584192?s=20&t=k0nnXAlNTvv5iiISzwvyAA
-- Since V1.1 the script uses the tkinter package. It may be necessary to install this using the command:
-sudo apt-get install python3-tk
-- That will install tkinter. This fixes a bug where matplotlib does not display the figures. On windows use python inplace of python3. 
 
-     
 #### TROUBLESHOOTING:
  - If you get an error message "UserWarning: Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.", you have a
   version of python that does not inculde the tkinter package. 
