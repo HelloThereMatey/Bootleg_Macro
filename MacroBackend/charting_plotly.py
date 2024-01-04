@@ -8,6 +8,126 @@ if __name__ == '__main__':
 else:
     from . import Utilities
 
+def fit_trendlines(fig, fit_specs: dict, line_style: dict = None):
+    """
+    Fit polynomial trendlines to traces in a Plotly figure.
+    
+    Parameters:
+    - fig: Plotly Figure object
+    - fit_specs: dict {series_name: [order, start, end], ...}
+      - order: int, polynomial degree
+      - start/end: datetime-like, date string, or int index (None = use all data)
+    - line_style: dict of line styling (dash, width, color, etc.)
+    
+    Returns: modified fig with fitted trendline traces added
+    """
+    if line_style is None:
+        line_style = {'dash': 'dash', 'width': 2}
+    
+    # Get figure x-limits for extending trendlines
+    all_x = []
+    for trace in fig.data:
+        if trace.x is not None:
+            all_x.extend(list(trace.x))
+    
+    if not all_x:
+        return fig
+    
+    # Determine if datetime or numeric
+    try:
+        x_range = pd.to_datetime(all_x)
+        is_datetime = True
+        xlim = [x_range.min(), x_range.max()]
+    except:
+        x_range = np.array(all_x, dtype=float)
+        is_datetime = False
+        xlim = [x_range.min(), x_range.max()]
+    
+    # Process each fit specification
+    for series_name, spec in fit_specs.items():
+        order = int(spec[0])
+        start = spec[1] if len(spec) > 1 else None
+        end = spec[2] if len(spec) > 2 else None
+        
+        # Find matching trace
+        trace = None
+        for t in fig.data:
+            if getattr(t, 'name', None) == series_name:
+                trace = t
+                break
+        
+        if trace is None or trace.x is None or trace.y is None:
+            continue
+        
+        # Convert to arrays
+        x = np.array(trace.x)
+        y = np.array(trace.y, dtype=float)
+        
+        # Handle datetime conversion for fitting
+        if is_datetime:
+            x_dt = pd.to_datetime(x)
+            x_num = (x_dt - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
+            x_num = x_num.astype(float)
+        else:
+            x_num = x.astype(float)
+        
+        # Apply start/end slicing
+        mask = np.ones(len(x), dtype=bool)
+        if start is not None:
+            if isinstance(start, int):
+                mask[:start] = False
+            else:
+                if is_datetime:
+                    start_dt = pd.to_datetime(start)
+                    mask &= (x_dt >= start_dt)
+                else:
+                    mask &= (x_num >= float(start))
+        
+        if end is not None:
+            if isinstance(end, int):
+                mask[end+1:] = False
+            else:
+                if is_datetime:
+                    end_dt = pd.to_datetime(end)
+                    mask &= (x_dt <= end_dt)
+                else:
+                    mask &= (x_num <= float(end))
+        
+        x_fit = x_num[mask]
+        y_fit = y[mask]
+        
+        if len(x_fit) < order + 1:
+            continue
+        
+        # Fit polynomial
+        coeffs = np.polyfit(x_fit, y_fit, order)
+        poly = np.poly1d(coeffs)
+        
+        # Generate extended x range across full chart limits
+        if is_datetime:
+            x_extend_dt = pd.date_range(xlim[0], xlim[1], periods=200)
+            x_extend_num = (x_extend_dt - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
+            x_extend_num = x_extend_num.astype(float)
+            x_plot = x_extend_dt
+        else:
+            x_extend_num = np.linspace(xlim[0], xlim[1], 200)
+            x_plot = x_extend_num
+        
+        y_plot = poly(x_extend_num)
+        
+        # Add trendline trace
+        import plotly.graph_objects as go
+        fig.add_trace(go.Scatter(
+            x=x_plot,
+            y=y_plot,
+            mode='lines',
+            name=f"{series_name} (trend {order})",
+            line=line_style,
+            showlegend=True
+        ))
+    
+    return fig
+
 # Assuming yrange_bot is a tuple or list with two elements: (min_y, max_y)
 def yrange_margin(yrange: list, margin_percentage=0.03):
     min_y, max_y = yrange
@@ -144,6 +264,63 @@ def plotly_twoPart_fig(plot_dict: dict, recessions: str = "us"):
         fig.update_xaxes(showgrid=True, gridcolor='black', gridwidth=0.5, showline=True, linewidth=2, linecolor='black', ticks='outside', row=2, col=1, griddash='dot')
 
     return fig
+
+def add_vlines_and_pct_change(fig, watchlist, date1, date2, series_id, color='red', date_format=None):
+    """
+    Add two vertical lines at date1 and date2 to fig and compute % change for series_id.
+    Uses fig.add_vline to draw vertical lines.
+    """
+    d1 = pd.to_datetime(date1)
+    d2 = pd.to_datetime(date2)
+
+    def _series_from_watchlist_or_fig(sid, fig):
+        try:
+            s = watchlist["watchlist_datasets"][sid].copy()
+            s.index = pd.to_datetime(s.index)
+            return s.dropna()
+        except Exception:
+            for tr in fig.data:
+                name = getattr(tr, "name", "")
+                if name == sid or sid in str(name):
+                    x = pd.to_datetime(np.array(tr.x))
+                    y = np.array(tr.y, dtype=float)
+                    return pd.Series(y, index=x).dropna()
+        raise KeyError(f"Series '{sid}' not found in watchlist or figure traces.")
+
+    s = _series_from_watchlist_or_fig(series_id, fig)
+
+    def _value_at_or_nearest(series, dt):
+        dt = pd.to_datetime(dt)
+        if dt in series.index:
+            return float(series.loc[dt])
+        before = series.loc[:dt].dropna()
+        if not before.empty:
+            return float(before.iloc[-1])
+        after = series.loc[dt:].dropna()
+        if not after.empty:
+            return float(after.iloc[0])
+        raise ValueError(f"No valid data in series around {dt}")
+
+    v1 = _value_at_or_nearest(s, d1)
+    v2 = _value_at_or_nearest(s, d2)
+    pct = (v2 / v1 - 1) * 100 if v1 != 0 else float("inf")
+
+    # add vertical lines using add_vline; ensure they are drawn above traces
+    fig.add_vline(x=d1, line=dict(color=color, dash="dash", width=1), layer='above')
+    fig.add_vline(x=d2, line=dict(color=color, dash="dash", width=1), layer='above')
+
+    fmt = (lambda dt: pd.to_datetime(dt).strftime(date_format)) if date_format else (lambda dt: str(pd.to_datetime(dt).date()))
+    fig.add_annotation(x=d1, xref="x", y=0.03, yref="paper",
+                       text=f"{fmt(d1)}", showarrow=False, bgcolor="white", font=dict(color=color), yanchor="top")
+    fig.add_annotation(x=d2, xref="x", y=0.03, yref="paper",
+                       text=f"{fmt(d2)}", showarrow=False, bgcolor="white", font=dict(color=color), yanchor="top")
+
+    summary_text = f"{series_id} change: {pct:+.2f}% ({v1:.2f} → {v2:.2f})"
+    fig.add_annotation(x=0.92, xref="paper", y=1.03, yref="paper",
+                       text=summary_text, showarrow=False, bgcolor="white",
+                       xanchor="right", font=dict(color=color))
+
+    return {"value_at_date1": v1, "value_at_date2": v2, "pct_change": pct}
 
 def plotly_multiline(df: pd.DataFrame, 
                      x_col: str = None,

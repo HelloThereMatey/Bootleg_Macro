@@ -1224,42 +1224,57 @@ class Watchlist(dict):
                     print("Zero alignment skipped: right axis doesn't cross zero")
                 else:
                     # Both axes cross zero - proceed with alignment
-                    # Calculate the proportion of negative vs positive range for each axis
+                    # Strategy: choose a target zero position (as fraction from bottom) and adjust both axes
+                    # to place zero at exactly that fraction by expanding whichever range needs it.
+                    
                     left_negative_range = abs(left_min)
                     left_positive_range = left_max
-                    
                     right_negative_range = abs(right_min)
                     right_positive_range = right_max
                     
-                    # Calculate zero position as fraction from bottom (0=bottom, 1=top)
-                    left_zero_position = left_negative_range / (left_negative_range + left_positive_range)
-                    right_zero_position = right_negative_range / (right_negative_range + right_positive_range)
+                    # Current zero positions as fraction from bottom (0=bottom, 1=top)
+                    left_zero_frac = left_negative_range / (left_negative_range + left_positive_range)
+                    right_zero_frac = right_negative_range / (right_negative_range + right_positive_range)
                     
-                    print(f"Left zero position: {left_zero_position:.3f}, Right zero position: {right_zero_position:.3f}")
+                    print(f"Original left zero position: {left_zero_frac:.3f}, right zero position: {right_zero_frac:.3f}")
                     
-                    # Align by adjusting ranges to match the larger zero fraction
-                    if abs(left_zero_position - right_zero_position) > 0.01:  # Only adjust if difference is meaningful
-                        target_zero_position = max(left_zero_position, right_zero_position)
-                        
-                        if left_zero_position < target_zero_position:
-                            # Expand left axis negative range to match target zero position
-                            # target_zero_position = new_negative_range / (new_negative_range + left_positive_range)
-                            # Solving for new_negative_range:
-                            new_left_negative = (target_zero_position * left_positive_range) / (1 - target_zero_position)
-                            new_left_min = -new_left_negative
-                            fig.update_layout(yaxis=dict(range=[new_left_min, left_max]))
-                            print(f"Adjusted left axis range: [{new_left_min:.2f}, {left_max:.2f}]")
-                            print(f"New left zero position: {new_left_negative / (new_left_negative + left_positive_range):.3f}")
-                        
-                        if right_zero_position < target_zero_position:
-                            # Expand right axis negative range to match target zero position
-                            new_right_negative = (target_zero_position * right_positive_range) / (1 - target_zero_position)
-                            new_right_min = -new_right_negative
-                            fig.update_layout(yaxis2=dict(range=[new_right_min, right_max]))
-                            print(f"Adjusted right axis range: [{new_right_min:.2f}, {right_max:.2f}]")
-                            print(f"New right zero position: {new_right_negative / (new_right_negative + right_positive_range):.3f}")
-                    else:
-                        print("Zero positions are already well-aligned")
+                    # Choose target zero fraction: use the larger one so we expand ranges rather than shrink data
+                    target_zero_frac = max(left_zero_frac, right_zero_frac)
+                    
+                    # For perfect alignment, we need: target_zero_frac = neg_range / (neg_range + pos_range)
+                    # Solving for the new negative range: neg_range = target * pos_range / (1 - target)
+                    # We keep the positive range (max value) unchanged and expand the negative range.
+                    
+                    new_left_min = left_min
+                    new_left_max = left_max
+                    new_right_min = right_min
+                    new_right_max = right_max
+                    
+                    # Adjust left axis if needed
+                    if abs(left_zero_frac - target_zero_frac) > 0.001:
+                        if target_zero_frac > 0 and target_zero_frac < 1:
+                            required_left_neg = (target_zero_frac * left_positive_range) / (1 - target_zero_frac)
+                            new_left_min = -required_left_neg
+                            print(f"Adjusting left axis: new range [{new_left_min:.2f}, {new_left_max:.2f}]")
+                    
+                    # Adjust right axis if needed
+                    if abs(right_zero_frac - target_zero_frac) > 0.001:
+                        if target_zero_frac > 0 and target_zero_frac < 1:
+                            required_right_neg = (target_zero_frac * right_positive_range) / (1 - target_zero_frac)
+                            new_right_min = -required_right_neg
+                            print(f"Adjusting right axis: new range [{new_right_min:.2f}, {new_right_max:.2f}]")
+                    
+                    # Apply the new ranges to both axes
+                    fig.update_layout(
+                        yaxis=dict(range=[new_left_min, new_left_max]),
+                        yaxis2=dict(range=[new_right_min, new_right_max])
+                    )
+                    
+                    # Verify final alignment
+                    final_left_zero_frac = abs(new_left_min) / (abs(new_left_min) + new_left_max)
+                    final_right_zero_frac = abs(new_right_min) / (abs(new_right_min) + new_right_max)
+                    print(f"Final left zero position: {final_left_zero_frac:.4f}, right zero position: {final_right_zero_frac:.4f}")
+                    print(f"Zero alignment complete. Target position: {target_zero_frac:.4f}")
 
         # Compute layout width/height (pixels) with precedence:
         # 1) explicit width/height args (pixels)
