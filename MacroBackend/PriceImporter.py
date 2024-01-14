@@ -17,13 +17,8 @@ from sys import platform
 import re
 
 wd = os.path.dirname(os.path.realpath(__file__))
-dir = os.path.dirname(wd)
-if platform == "linux" or platform == "linux2":
-    FDel = '/' # linux
-elif platform == "darwin":
-    FDel = '/' # OS X
-elif platform == "win32":
-    FDel = '\\' #Windows...
+parent = os.path.dirname(wd)
+fdel = os.path.sep
 
 def CoinGeckoPriceHistory(CoinID: str, TimeLength: int):
     #Call CoinGecko API:
@@ -232,7 +227,7 @@ def PullDailyAssetData(ticker:str,PriceAPI:str,startDate:str,endDate:str=None): 
     AssetData = []
 
     if PriceAPI == 'coingecko':
-        CoinID = getCoinID(ticker,InputTablePath=wd+FDel+'AllCG.xlsx')
+        CoinID = getCoinID(ticker,InputTablePath=wd+fdel+'AllCG.xlsx')
         AssetData = CoinGeckoPriceHistory(CoinID[1],TimeLength=TimeLength) 
         AssetData.rename({"Price (USD)":"Close"},axis=1,inplace=True)
     elif PriceAPI == 'yfinance':
@@ -467,8 +462,8 @@ def PullFredSeries(series:str,apikey:str,start="1776-07-04",filetype="&file_type
         SeriesInfo['units'] =  'Billions of U.S. Dollars'; SeriesInfo['units_short'] =  'Bil. of U.S. $' 
    
     if outputDataName is not None:
-        df2.to_excel(wd+FDel+outputDataName+".xlsx")
-        #dfraw.to_excel(wd+FDel+outputDataName+"_raw.xlsx")
+        df2.to_excel(wd+fdel+outputDataName+".xlsx")
+        #dfraw.to_excel(wd+fdel+outputDataName+"_raw.xlsx")
     endDate = datetime.datetime.strptime(end,'%Y-%m-%d'); startChart = datetime.datetime.strptime(start,'%Y-%m-%d')
     TheData = TheData[startChart:endDate]    
     return SeriesInfo, TheData    
@@ -578,7 +573,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
     else:
         EndDate = datetime.date.today()   
 
-    FXDataPath = dir+FDel+'GlobalReserves'+FDel+'FXData'+FDel+FXSymbol[1]+'.xlsx' ### Get FX data for currency pair.
+    FXDataPath = parent+fdel+'GlobalReserves'+fdel+'FXData'+fdel+FXSymbol[1]+'.xlsx' ### Get FX data for currency pair.
     if os.path.isfile(FXDataPath):
         FXData = pd.read_excel(FXDataPath)
         print('FXData for '+FXSymbol[1]+', loaded from file.')
@@ -627,7 +622,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
     
     print('FX Data: ',FXData)
  
-    BSDataPath = dir+FDel+'GlobalReserves'+FDel+'BalSheets'+FDel+TV_Code[1]+'.xlsx'
+    BSDataPath = parent+fdel+'GlobalReserves'+fdel+'BalSheets'+fdel+TV_Code[1]+'.xlsx'
     if os.path.isfile(BSDataPath):
         BSData = pd.read_excel(BSDataPath)
         print('Bal sheet Data for '+TV_Code[1]+', loaded from file.')
@@ -789,7 +784,7 @@ def GetFedBillData(filePath, startDate:datetime.date,endDate:datetime.date=datet
         return Adj_ser
     
 def GetRecessionDates(startDate:datetime.date)-> pd.Series:
-    Path = dir+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'USRECDM.xlsx'
+    Path = parent+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'USRECDM.xlsx'
     try:
         dates = pd.read_excel(Path,sheet_name='Series')
         dates.set_index('date',inplace=True)
@@ -811,7 +806,14 @@ def GetRecessionDates(startDate:datetime.date)-> pd.Series:
         dates.to_excel(Path,sheet_name='Series')
         with pd.ExcelWriter(Path, engine='openpyxl', mode='a') as writer:  
             SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
-    return dates       
+    return dates     
+
+def export_series_to_chartist(series: pd.Series, SeriesInfo: pd.Series):
+    savePath = wd+fdel+parent+fdel+'Macro_Chartist'+fdel+'SavedData'
+    series.to_excel(savePath, sheet_name='Closing_Price')
+    with pd.ExcelWriter(savePath, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:  
+        SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+    return    
 
 """WORLD BANK API DATA STUFF. """
 # print(wb.series.info(id="FM.LBL.BMNY.ZG"))
