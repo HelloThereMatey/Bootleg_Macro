@@ -14,30 +14,25 @@ import os
 from sys import platform
 
 wd = os.path.dirname(os.path.realpath(__file__))
-dir = os.path.dirname(wd); parent = os.path.dirname(dir)
-if platform == "linux" or platform == "linux2":
-    FDel = '/' # linux
-elif platform == "darwin":
-    FDel = '/' # OS X#
-elif platform == "win32":
-    FDel = '/' #Windows...
+parent = os.path.dirname(wd); grandpa = os.path.dirname(parent)
+fdel = os.path.sep
 
 try:
-    with open(wd+FDel+'system_settings.json') as f:      ##Load file containg display specific dimensions for the particular screen & OS. 
+    with open(wd+fdel+'system_settings.json') as f:      ##Load file containg display specific dimensions for the particular screen & OS. 
         system_set = f.read()
     system_set = json.loads(system_set); print(system_set)
-    print('Settings for result box dimensions loaded from: ',wd+FDel+'ScreenData.json')
+    print('Settings for result box dimensions loaded from: ',wd+fdel+'ScreenData.json')
 except Exception as e:
     print(e)
     system_set = {'os': 'undetermined', 'res_width': 58, 'res_height': 16}
 
-print('System information: ',platform,', directory delimiter: ', FDel, ', working directory: ', wd)
+print('System information: ',platform,', directory delimiter: ', fdel, ', working directory: ', wd)
 # Insert your glassnode API key here
 API_KEY = GlassNode_API.API_KEY
-defPath = wd+FDel+'Saved_Data'+FDel+'GN_MetricsList.xlsx'
+defPath = wd+fdel+'Saved_Data'+fdel+'GN_MetricsList.xlsx'
 defPath = defPath.replace('\\','/')
-savePath = wd+FDel+'Saved_Data'; savePath = savePath.replace('\\','/')
-savePath2 = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'Glassnode'; savePath2 = savePath2.replace('\\','/')
+savePath = wd+fdel+'Saved_Data'; savePath = savePath.replace('\\','/')
+savePath2 = grandpa+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'Glassnode'; savePath2 = savePath2.replace('\\','/')
 plt.rcParams.update({'font.family':'serif'})   #Font family for the preview figure. 
 
 def get_curr_screen_geometry():
@@ -313,7 +308,7 @@ def plotPreview():
     ax.grid(visible=True,axis='both',which='major',lw=0.5,color='gray',ls=':')
 
     if plot_bitty:
-        bitty = pd.read_excel(savePath2+FDel+'price_usd_close.xlsx')
+        bitty = pd.read_excel(savePath2+fdel+'price_usd_close.xlsx')
         bitty.set_index('Date',inplace=True)
         bitty = pd.Series(bitty.squeeze(),name='BTC (USD)')
         bitty = bitty[data.index[0]:data.index[len(data)-1]]
@@ -348,7 +343,7 @@ def SaveData():
         data.set_index('Date',inplace=True)
         data = data.astype(float)
 
-    saveName = Save+FDel+name+'.xlsx'
+    saveName = Save+fdel+name+'.xlsx'
     print(data,saveName)
     data.index.rename('Date',inplace=True)
     data.to_excel(saveName, sheet_name="Closing_Price") 
