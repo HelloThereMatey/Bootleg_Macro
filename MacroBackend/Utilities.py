@@ -14,7 +14,7 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 
-wd = os.path.dirname(__file__) 
+wd = os.path.dirname(__file__)
 fdel = os.path.sep
 
 def append_to_column(workbook_path, sheet_name:str = 'Sheet1', column:str = 'A', data_list: list = []):

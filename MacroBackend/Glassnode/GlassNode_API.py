@@ -5,24 +5,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import re
-from sys import platform
+import sys
 
 # monkeypatch using standard python json module
 import json
 pd.io.json._json.loads = lambda s, *a, **kw: json.loads(s)
 
 wd = os.path.dirname(os.path.realpath(__file__))
-dire = os.path.dirname(wd)
-FDel = os.path.sep
-KeysPath = dire+FDel+'SystemInfo'+FDel+'API_Keys.json'
+parent = os.path.dirname(wd); grandpa = os.path.dirname(parent)
+fdel = os.path.sep
+sys.path.append(grandpa)
+from MacroBackend import Utilities
+KeysPath = parent+fdel+'SystemInfo'+fdel+'API_Keys.json'
 
 if os.path.exists(KeysPath) and os.path.splitext(KeysPath)[1]:
-    keys = open(dire+FDel+'SystemInfo'+FDel+'API_Keys.json')
+    keys = open(parent+fdel+'SystemInfo'+fdel+'API_Keys.json')
     apikeys = dict(json.load(keys))
     API_KEY = apikeys['glassnode']; print('Your glassnode API key: ', API_KEY)
 else:
     print('Need to set api key for glassnode in the API_Keys.json file at: ',KeysPath)
-    quit()
+    Utilities.api_keys()
 
 def search_series(search_string, series:pd.Series):  ##This unction will be used to search throuigh the list of glassnode metrics.
     matches = []; match_indices = []; i = 0
