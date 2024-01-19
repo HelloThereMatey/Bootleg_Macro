@@ -7,7 +7,7 @@ wd = os.path.dirname(__file__)  ## This gets the working directory which is the 
 dir = os.path.dirname(wd)
 print('System information: ',sys.platform,', directory delimiter: ', FDel, ', working directory: ', wd)
 print(wd,dir)
-sys.path.append(dir+'/MacroBackend') #This makes sure script can find tvdatafeed module. 
+sys.path.append(dir+'/MacroBackend') #This makes sure script can find tvdatafeedz module. 
 
 import pandas as pd
 from matplotlib import colors as mcolors

@@ -107,43 +107,56 @@ class FitTrend():
 
     def __init__(self, data: pd.Series) -> None:
         self.name = data.name
-        self.original_data = data
-        self.data_max = data.max()
+        self.original_data = data.copy()
+        self.original_data_BU = data.copy()
+        self.data_max = self.original_data.max()
 
-    def fitExpTrend(self):
-        index = self.original_data.index.to_numpy()
-        x = np.linspace(1,len(index),len(index)); y = self.original_data.to_numpy()
+    def fitExpTrend(self, full_index, x, y):
 
         fit = np.polyfit(x, np.log(y), 1)
         print('Exponential fit to: ',self.original_data.name, ', x, np.log(y), intercept, slope a,b = ',fit)
         a = fit[0]; b = fit[1]
 
-        x = np.linspace(0,len(self.original_data-1),len(self.original_data))
-        fit_y = []
-        for ex in x:
+        full_x = np.linspace(0,len(full_index)-1,len(full_index)); fit_y = []
+        
+        for ex in full_x:
             fit_y.append(np.exp(b+a*ex))
-        fitY = pd.Series(fit_y,index=index,name=self.original_data.name+" exp_fit") 
-        #fitY *= self.data_max  #Expand data back to the range of thee orginial. 
-        TrendDev = ((self.original_data - fitY)/fitY)*100; print('Dev from trend max, min: ',TrendDev.max(),TrendDev.min())
+
+        fitY = pd.Series(fit_y, index = self.original_data_BU.index, name = self.original_data.name+" exp_fit") 
+        print(fitY, len(fitY), len(full_index), len(self.original_data), len(self.original_data_BU))
+
+        TrendDev = ((self.original_data_BU - fitY)/fitY)*100; print('Dev from trend max, min: ',TrendDev.max(),TrendDev.min())
+ 
         self.fit = fitY
         fit_res = ((self.original_data - fitY)**2).sum(); print("Residual squared: ", fit_res)
         ss_tot = ((self.original_data - self.original_data.mean())**2).sum(); print("Total sum of squares: ", fit_res)
         r2 = round(1 - (fit_res / ss_tot),3); print("R squared value from fit: ",r2)
         self.PctDev = TrendDev; self.PctDev.rename('Percentage_dev_from_fit',inplace=True)
         self.Fit_Info = {"Fit function":"Exponential",
-                    "gradient": a,
-                    "intercept": b,
-                    "R_Squared": r2}
+                            "gradient": a,
+                            "intercept": b,
+                            "R_Squared": r2}
 
-    def FitData(self, FitFunc: str = "ExpLog"):  #Fit trend to data. 
-        data = self.original_data.copy()
+    def FitData(self, FitFunc: str = "ExpLog", x1 = None, x2 = None):  #Fit trend to data. 
+        if x1 is not None and x2 is not None:
+            full_index = self.original_data.index
+            if isinstance(self.original_data.index , pd.DatetimeIndex):
+                ex1 = Utilities.GetClosestDateInIndex(self.original_data, x1)[0]
+                ex2 = Utilities.GetClosestDateInIndex(self.original_data, x2)[0]
+                self.original_data = self.original_data[ex1:ex2]
+            else:
+                self.original_data = self.original_data[x1:x2]    
+        index = self.original_data.index.to_numpy()
+
         func = FitFunction()
-        x = np.linspace(1,len(data),len(data)); y = data.to_numpy(); yLog = np.log(y)
+
+        x = np.linspace(1,len(index),len(index)); y = self.original_data.to_numpy(); yLog = np.log(y)
         f = func.functions[FitFunc][0]; funcName = FitFunc
         LogOrLin = func.functions[FitFunc][1]
         print(f, funcName, LogOrLin)
+
         if funcName == "Exponential":
-            self.fitExpTrend()
+            self.fitExpTrend(full_index, x, y)
             return
         if LogOrLin == 'linear':
             try:
@@ -162,14 +175,17 @@ class FitTrend():
                 popt, pcov = curve_fit(f,x,y)
                 fit = f(x,*popt)
          
-        Fit = pd.Series(fit,index=data.index,name=data.name+" "+funcName+" fit")   
-        print('Trendline fitted to data: ',data.name,' ',funcName,' function used, optimized fitting parameters: ',popt)  
+        Fit = pd.Series(fit, index=self.original_data_BU.index, name=self.original_data.name+" "+funcName+" fit")  
+  
+        print('Trendline fitted to data: ',self.original_data.name,' ',funcName,' function used, optimized fitting parameters: ',popt)  
         self.fit = Fit
-        fit_res = ((data - Fit)**2).sum(); print("Residual squared: ", fit_res)
-        ss_tot = ((data - data.mean())**2).sum(); print("Total sum of squares: ", fit_res)
+
+        fit_res = ((self.original_data_BU - Fit)**2).sum(); print("Residual squared: ", fit_res)
+        ss_tot = ((self.original_data_BU - self.original_data_BU.mean())**2).sum(); print("Total sum of squares: ", fit_res)
         r2 = round(1 - (fit_res / ss_tot),3); print("R squared value from fit: ",r2)
-        TrendDev = ((data - Fit)/Fit)*100; print('Dev from trend max, min: ',TrendDev.max(),TrendDev.min())
+        TrendDev = ((self.original_data_BU - Fit)/Fit)*100; print('Dev from trend max, min: ',TrendDev.max(),TrendDev.min())
         self.PctDev = TrendDev; self.PctDev.rename('Percentage_dev_from_fit',inplace=True)
+
         self.Fit_Info = {"Fit function":funcName,
                         "p_opt": popt,
                         "p_cov": pcov,
@@ -192,7 +208,7 @@ class FitTrend():
 
     def ShowFit(self, yaxis: str = "linear", YLabel: str = "Price (USD)"):
         if self.fit is None:
-            print('Run fitting funnction first before trying to plot the fit.')    
+            print('Run fitting function first before trying to plot the fit.')    
             return
         
         else:
@@ -205,7 +221,7 @@ class FitTrend():
 
             if yaxis == 'log':
                 ax1.set_yscale('log'); axb.set_yscale('log')
-                lTicks, lTickLabs = Utilities.EqualSpacedTicks(10, self.original_data, LogOrLin='log')
+                lTicks, lTickLabs = Utilities.EqualSpacedTicks(10, self.original_data_BU, LogOrLin='log')
                 pct += 100
                 rTicks, rTickLabs = Utilities.EqualSpacedTicks(10, pct, LogOrLin='log',LabOffset=-100,labSuffix="%")
                 ax1.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
@@ -215,7 +231,7 @@ class FitTrend():
                 axb.set_yticks(rTicks); axb.set_yticklabels(rTickLabs)
                 axb.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True)
 
-            ax1.plot(self.original_data, label = self.original_data.name, color = "black", lw = 2.5)
+            ax1.plot(self.original_data_BU, label = self.original_data_BU.name, color = "black", lw = 2.5)
             ax1.plot(self.fit,label = self.fit.name, color = "blue", lw=1.75)
             axb.plot(pct, label = self.PctDev.name, color = "green", lw = 1.25)
             axb.set_ylabel('% deviation from fitted trend', fontsize = 10, fontweight = 'bold')
@@ -225,10 +241,9 @@ class FitTrend():
             ax1.grid(visible=True,axis='both',which='major',lw=0.75,ls=":",color='gray')
             ax1.grid(visible=True,axis='x',which='both',lw=0.75,ls=":",color='gray')
             ax1.minorticks_on()
-            ax1.set_ylim((self.original_data.min()-0.05*self.original_data.min()),(self.original_data.max()+0.05*self.original_data.max()))
+            ax1.set_ylim((self.original_data_BU.min()-0.05*self.original_data_BU.min()),(self.original_data_BU.max()+0.05*self.original_data_BU.max()))
             printr2 = "R-squared value from fit: "+str(self.Fit_Info['R_Squared'])
             ax1.text(x=0.37, y = 0.97, s= printr2,horizontalalignment='left',verticalalignment='center', transform=ax1.transAxes )
-            # axb.set_ylim(self.PctDev[round(0.25*len(self.PctDev)):len(self.PctDev)].min(),self.PctDev[round(0.25*len(self.PctDev)):len(self.PctDev)].max())
 
             for axis in ['top','bottom','left','right']:
                 ax1.spines[axis].set_linewidth(1.5)
@@ -236,13 +251,9 @@ class FitTrend():
             return fig
 
 if __name__ == '__main__':
-    data = pd.read_excel('/Users/jamesbishop/Documents/Python/Bootleg_Macro/Macro_Chartist/SavedData/BTCUSD.xlsx')
-    data.set_index(pd.DatetimeIndex(pd.DatetimeIndex(data['date']).date),inplace=True)
-    data.drop('date',axis=1,inplace=True)
-    StartDate = datetime.date(2012,1,1); start = pd.Timestamp(StartDate)
-    data = data[start::]; data = pd.Series(data.squeeze(),name="BTC (USD)")
-    print(data)
+    data = pd.read_excel('/home/billy/Documents/Code/Bootleg_Macro/Macro_Chartist/SavedData/M2SL.xlsx', sheet_name="Closing_Price", index_col=0).squeeze()
+
     fit = FitTrend(data)
-    fit.FitData(FitFunc='Logistic')
+    fit.FitData(FitFunc='Exponential', x1="1995-01-01", x2 = "2020-01-01")
     figure = fit.ShowFit(yaxis='log')
     plt.show()

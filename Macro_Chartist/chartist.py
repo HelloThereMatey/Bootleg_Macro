@@ -6,7 +6,7 @@ print(wd,dire)
 import sys; sys.path.append(dire)
 
 ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
-from MacroBackend import PriceImporter, Charting, Utilities, Fitting
+from MacroBackend import PriceImporter, Charting, Utilities, Fitting, Pull_Data
 ## You may see: 'Import "MacroBackend" could not be resolved' & it looks like MacroBackend can't be found. However, it will be found when script is run. Disregard error. 
 ## You can make the error go away by adding thee MacroBackend and Bootleg_Macro folder paths to you VSCode 'python.analysis extra paths' paths list. 
 #### The below packages need to be installed via pip/pip3 on command line. These are popular, well vetted packages all. Just use 'pip install -r requirements.txt'
@@ -136,8 +136,10 @@ for series in SeriesDict.keys():
         ticker = (split[0],split[1])
         symbol = split[0]; exchange = split[1]; ticker = split[0]
     else:
+        exchange = None
         pass
-    
+
+######### OPTIONS TO LOAD DATA FROM EXCEL FILE ##########################################################
     if Source == 'load':
         SeriesInfo = pd.read_excel(DataPath+FDel+ticker+'.xlsx',sheet_name='SeriesInfo')
         SeriesInfo.set_index(SeriesInfo[SeriesInfo.columns[0]],inplace=True,drop=True) 
@@ -163,51 +165,11 @@ for series in SeriesDict.keys():
         TheData = pd.read_excel(BEAPath+FDel+ticker+'.xlsx')
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
         TheData.drop(TheData.columns[0],axis=1,inplace=True)
-        if type(TheData) == pd.DataFrame:
+        if isinstance(TheData, pd.DataFrame):
             pass
         else:
             TheData = pd.Series(TheData.squeeze(),name=ticker)
-    elif Source == 'fred':
-        SeriesInfo, TheData = PriceImporter.PullFredSeries(ticker,myFredAPI_key,start=DataStart,filetype="&file_type=json",end=EndDateStr)
-        AssetName = SeriesInfo['id']
-        if pd.isna(TheSeries['axlabel']):
-            TheSeries['axlabel'] = SeriesInfo['units_short']
-    elif Source == 'yfinance':
-        try:
-            asset = PriceImporter.pullyfseries(ticker=ticker,start=StartDate,interval="1d")
-            TheData = asset[0]; AssetName = asset[1]
-            if len(TheData) < 1:
-                print('No data for ',ticker,' scored using yfinance package, now trying yahoo_fin package....')
-                TheData = PriceImporter.Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)
-            else:
-                print("Data pulled from yfinance for: "+str(AssetName))   
-            TheData = pd.Series(TheData['Close'],name=TheSeries['Name'])     
-        except:
-            print("Could not score data for asset: "+ticker," from yfinance. Trying other APIs.") 
-            print("Trying yahoo_fin web scraper.....")   
-            TheData = PriceImporter.Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)   
-            TheData = pd.Series(TheData['Close'],name=TheSeries['Name'])     
-    elif  Source == 'tv': 
-        TheData, info = PriceImporter.DataFromTVGen(symbol,exchange,start_date=StartDate,end_date=EndDate)
-        print(TheData)
-        dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(TheData.index).date)
-        TheData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
-        try:
-            TheData.drop('Symbol',axis=1,inplace=True)
-        except:
-            pass    
-        TheData.set_index(dtIndex,inplace=True); TheData = TheData[StartDate:EndDate]
-        print('Data pulled from TV, ticker: ', ticker, ":", TheData)
-        TheData = pd.Series(TheData['Close'],name=TheSeries['Name'])  ##### Just take the closing price for this application. 
-        TheData = TheData.resample('D').mean(); TheData.fillna(method='ffill',inplace=True)
-        TheSeries['Ticker'] = ticker
-        print('Data pulled from TV for: ',ticker,"\n")
-    elif Source == 'coingecko':
-        CoinID = PriceImporter.getCoinID(ticker,InputTablePath=dire+FDel+'MacroBackend'+FDel+'AllCG.xlsx')
-        TheData = PriceImporter.CoinGeckoPriceHistory(CoinID[1],TimeLength=TimeLength) 
-        TheData.rename({"Price (USD)":"Close"},axis=1,inplace=True) 
-        TheData = pd.Series(TheData['Close'],name=TheSeries['Name']) 
-        TheData = TheData.resample('D').mean()
+
     elif Source == 'spread':
         add = ticker.split('+'); subtract = ticker.split('-'); multiply = ticker.split('*'); divide = ticker.split('/')
         print(ticker, add, subtract, multiply, divide, len(add), len(subtract), len(divide), len(multiply))
@@ -235,9 +197,24 @@ for series in SeriesDict.keys():
         except Exception as e:
             print("Something went wrong with the spread calculation, command: ",ticker,"error: ", e)
             print("If using Source = spread, you must input Series_Ticker as i/j, where i & j are the index numbers of two series already in the chart.")     
-            quit()      
+            quit()           
+
+######### OPTIONS TO PULL DATA FROM DIFFERENT API SOURCES ########################################################## 
     else:
-        print("Can't find data for: ",series)  
+        data = Pull_Data.dataset(source = Source, data_code = ticker, exchange_code = exchange, start_date = DataStart, end_date = EndDateStr)     
+        if isinstance(data.data, pd.Series):
+            TheData = data.data
+        elif isinstance(data.data, pd.DataFrame):
+            if 'close' in data.data.columns:
+                TheData = data.data['close']
+            elif 'Close' in data.data.columns: 
+                TheData = data.data['Close']   
+            else:
+                print('Which series we want from this data?', data.data)  
+                quit()  
+        else:
+            print("Errrrorrrr..........")    
+            quit()
 
     if len(SeriesInfo) > 0:
         if Source != 'load':    
@@ -279,8 +256,6 @@ for series in SeriesDict.keys():
         TheData2.to_excel(savePath,sheet_name='Closing_Price')
         with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
             SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
- 
-keys = list(SeriesDict.keys()); print(keys)
 
 ########### Resample all series to daily frequency and/or convert units ###############################################################
 Index = pd.date_range(start=DataStart,end=EndDateStr,freq='D')
@@ -292,7 +267,8 @@ for series in SeriesDict.keys():
         pass 
     else:   
         data = PriceImporter.ReSampleToRefIndex(data,Index,'D')
-    if pd.isna(convert):
+    
+    if pd.isna(convert):    #Divide series by a power of 10 to reduce number of digits on axis. 
         pass
     else:
         data /= convert
@@ -398,7 +374,7 @@ if alignZeros == 'yes':
 ######### MATPLOTLIB SECTION #################################################################
 plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 300   ###Set the resolution of the displayed figs & saved fig respectively. 
 #### X Ticks for all charts #################################################################################
-Series1 = SeriesDict[keys[0]]; Data = Series1['Data']
+Series1 = SeriesDict[list(SeriesDict.keys())[0]]; Data = Series1['Data']
 if type(Data) == pd.DataFrame:
     Data = pd.DataFrame(Data)
 else:

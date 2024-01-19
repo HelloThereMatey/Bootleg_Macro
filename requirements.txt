@@ -6,3 +6,4 @@ matplotlib
 openpyxl
 yfinance
 yahoo_fin
+scipy
