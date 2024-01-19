@@ -18,7 +18,6 @@ import quandl
 class get_data_failure(Exception):
     pass
 
-
 # if len(SeriesInfo) > 0:
 #     if Source != 'load':    
 #         SeriesInfo['Source'] = Source            

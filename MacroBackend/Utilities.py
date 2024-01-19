@@ -364,13 +364,60 @@ def GetClosestDateInIndex(df: Union[pd.DataFrame, pd.Series], searchDate: str = 
     index = df.index.get_loc(closest_date)
     return closest_date, index
 
-def find_closest_val(series:pd.Series, target_value: Union[int, float]):
+import pandas as pd
+from typing import Union
+
+def find_closest_val(series: pd.Series, target_value: Union[int, float]):
+    """
+    Finds the value in a pandas Series that is closest to a given target value.
+
+    Parameters:
+        series (pd.Series): The input pandas Series to search for the closest value.
+        target_value (Union[int, float]): The target value to find the closest match for.
+
+    Returns:
+        tuple: A tuple containing the closest value and its corresponding index in the series.
+
+    Example:
+        series = pd.Series([1.2, 2.5, 3.8, 4.1, 5.3])
+        target_value = 3.6
+        closest_value, closest_index = find_closest_val(series, target_value)
+        print(closest_value)     # Output: 3.8
+        print(closest_index)     # Output: 2
+    """
+    # Calculate the absolute differences between each value in the series and the target value
     differences = series.sub(target_value).abs()
+
+    # Find the index of the value with the smallest difference
     idx_closest = differences.idxmin()
+
+    # Retrieve the closest value using the index
     value_closest = series.loc[idx_closest]
+
+    # Return the closest value and its index
     return value_closest, idx_closest
 
 def Percent_OfBaseVal_Series(series: pd.Series, ZeroDate: str = None, median: bool = False, mean: bool = False, start: bool = False) -> pd.Series:
+    """
+    Calculates the percentage change of values in a pandas Series relative to a base value.
+
+    Parameters:
+    - series (pd.Series): The input pandas Series containing the values.
+    - ZeroDate (str, optional): The date to consider as the base date. If not provided, a base index will be used instead.
+    - median (bool, optional): Flag indicating whether to use the median of the series as the base value.
+    - mean (bool, optional): Flag indicating whether to use the mean of the series as the base value.
+    - start (bool, optional): Flag indicating whether to use the first value of the series as the base value.
+
+    Returns:
+    - percentage (pd.Series): A new pandas Series with the calculated percentage change relative to the base value.
+
+    Note:
+    - The base value is determined either by the specified ZeroDate, or by the median, mean, or start of the series.
+    - If ZeroDate is provided, the closest date in the series' index will be used as the base index.
+    - If both median and mean flags are True, the median will take precedence over the mean.
+    - If none of the base options (ZeroDate, median, mean, start) are specified, the first value of the series will be used as the base value.
+    """
+    # Implementation of the function...
     if ZeroDate is not None:
         ZeroIndex = GetClosestDateInIndex(series, searchDate = ZeroDate)[1]
         print(series.name, "base date: ",ZeroDate, ZeroIndex)
@@ -472,44 +519,6 @@ class TkinterSizingVars():
         with open(filePath, 'w') as f:
             json.dump(self.ScreenData, f, indent=4)
 
-# class HoverInfo(tk.Toplevel):
-#     def __init__(self, parent, text, command=None):
-#         super().__init__(parent, bg='white', padx=1, pady=1)
-#         self.transient(parent)
-#         self.overrideredirect(True)
-#         self.text = text
-#         self._com = command
-#         self.label = tk.Label(self, text=text, justify=tk.LEFT, background='#ffffe0', relief=tk.SOLID, borderwidth=1, font=tkfont.Font(family='Arial', size=10))
-#         self.label.pack(ipadx=1, ipady=1)
-#         self._displayed = False
-#         self.parent = parent
-#         self.parent.bind("<Enter>", self.display)
-#         self.parent.bind("<Leave>", self.remove)
-
-#         # Hide the tooltip initially
-#         self.withdraw()
-
-#     def display(self, event):
-#         if not self._displayed:
-#             self._displayed = True
-#             x, y, cx, cy = self.parent.bbox("anchor")
-#             x += self.parent.winfo_rootx() + 25
-#             y += self.parent.winfo_rooty() + 25
-#             self.geometry(f'+{x}+{y}')
-#             self.deiconify()
-#         if self._com is not None:
-#             self.parent.bind("<Return>", self.click)
-
-#     def remove(self, event):
-#         if self._displayed:
-#             self._displayed = False
-#             self.withdraw()
-#         if self._com is not None:
-#             self.parent.unbind("<Return>")
-
-#     def click(self, event):
-#         if self._com:
-#             self._com()
 
 import tkinter as tk
 import tkinter.font as tkfont
