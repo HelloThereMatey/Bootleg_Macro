@@ -7,3 +7,4 @@ openpyxl
 yfinance
 yahoo_fin
 scipy
+quandl

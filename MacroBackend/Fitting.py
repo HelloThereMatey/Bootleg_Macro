@@ -1,7 +1,8 @@
 import sys
 import os
-wd = os.path.dirname(__file__); dire = os.path.dirname(wd)
-sys.path.append(dire)
+wd = os.path.dirname(__file__); parent = os.path.dirname(wd)
+sys.path.append(parent)
+fdel = os.path.sep
 
 import numpy as np
 from scipy.optimize import curve_fit
@@ -11,8 +12,94 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import matplotlib.dates as mdates
 from MacroBackend import Utilities
-import datetime
-from datetime import timedelta
+import datetime 
+
+def calc_chart_xlims(index: pd.DatetimeIndex, xmin: str = None, xmax: str = None, 
+                     margin_left: float = 0.05, margin_right: float = 0.05) -> tuple:
+    """
+    Sets the x-axis limits with a buffer on a matplotlib chart.
+
+    Parameters:
+    ax (matplotlib.axes.Axes): The axes object of the plot.
+    index (pd.DatetimeIndex,): The datetime index of a pd.Series of the main trace on a given chart
+    margin_left (float), margin_right (float): The left margin, right margin.
+    xmin, xmax: can specify dates to restrict your axis range. 
+    """
+    if not isinstance(index, pd.DatetimeIndex):
+        raise TypeError("Input index must be of type pd.DatetimeIndex")
+
+    if xmin is not None and xmax is not None:
+        min_date = Utilities.GetClosestDateInIndex(index, xmin)[0]
+        max_date = Utilities.GetClosestDateInIndex(index, xmax)[0]
+        print(xmin, xmax, min_date, max_date)
+    else:
+        min_date, max_date = index.min(), index.max() 
+    # Extract min and max dates from the series index
+
+    # Calculate the buffer in terms of days
+    date_range = max_date - min_date
+    left_buffer = datetime.timedelta(days=date_range.days * margin_left)
+    right_buffer = datetime.timedelta(days=date_range.days * margin_right)
+
+    # Apply the buffer
+    xlim_lower = min_date - left_buffer
+    xlim_upper = max_date + right_buffer
+
+    return (xlim_lower, xlim_upper)
+    
+
+#### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
+def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
+            LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None):
+    fig = plt.figure(num=title,figsize=(13,6.5), tight_layout=True)
+    gs1 = GridSpec(1, 1, top = 0.95, bottom=0.14 ,left=0.06,right=0.92)
+    ax1 = fig.add_subplot(gs1[0])
+    ax1 = fig.axes[0]
+    ax1.set_title(title,fontweight='bold')
+
+    for trace in LeftTraces.keys():
+        ax1.plot(LeftTraces[trace][0],label = trace,color=LeftTraces[trace][1],lw=LeftTraces[trace][2])
+    if LeftTicks is not None:    ### Ticks must be input as a tuple of lists or np.arrays. WIth format (Tick positions list, tick labels list)
+            ax1.tick_params(axis='y',which='both',length=0,labelsize=0)
+            ax1.set_yticks(LeftTicks[0]); ax1.set_yticklabels(LeftTicks[1])
+            ax1.tick_params(axis='y',which='major',length=3,labelsize=9)
+    if RightTraces is not None:
+        ax1b = ax1.twinx()
+        ax1b.margins(0.02,0.03)
+        for axis in ['top','bottom','left','right']:
+            ax1b.spines[axis].set_linewidth(1.5) 
+        for trace in RightTraces.keys():
+            ax1b.plot(RightTraces[trace][0],label = trace,color=RightTraces[trace][1],lw=RightTraces[trace][2])
+        ax1b.legend(loc=4, fontsize=9)
+        if RightScale == 'log':    
+            ax1b.set_yscale('log')
+        if RYLabel is not None:
+            ax1b.set_ylabel(RYLabel,fontweight='bold',labelpad=15,fontsize=11)
+        if RightTicks is not None:    
+            ax1b.tick_params(axis='y',which='both',length=0,labelsize=0)
+            ax1b.set_yticks(RightTicks[0]); ax1b.set_yticklabels(RightTicks[1])
+            ax1b.tick_params(axis='y',which='major',length=4,labelsize=10)
+            if RightMinTicks is not None:
+                ax1b.set_yticks(RightMinTicks[0],minor=True); 
+                ax1b.set_yticklabels(RightMinTicks[1],minor=True)
+                ax1b.tick_params(axis='y',which='minor',length=2,labelsize=7)
+
+    if LeftScale == 'log':
+        ax1.set_yscale('log')
+    if XTicks is not None:
+        ax1.xaxis.set_ticks(XTicks) 
+        ax1.tick_params(axis='x',length=3,labelsize='small',labelrotation=45)
+        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b'))
+        ax1.set_xlim(XTicks[0],XTicks[len(XTicks)-1])
+        ax1.set_xlabel('Date (year-month)',fontweight='bold',fontsize=11)
+    
+    ax1.legend(loc=2,fontsize=9)
+    ax1.set_ylabel(LYLabel,fontweight='bold',fontsize=11)
+    for axis in ['top','bottom','left','right']:
+            ax1.spines[axis].set_linewidth(1.5)
+    if text1 is not None:
+        ax1.text(text1)
+    return fig    
 
 class FitFunction():
     def __init__(self):
@@ -49,60 +136,7 @@ class FitFunction():
         # Scale x for stability
         x_scaled = x / 1000  # Adjust the scaling factor as needed
         return K / (1 + A * np.exp(-r * x_scaled))
-
-#### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
-def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
-            LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None):
-    fig = plt.figure(num=title,figsize=(13,6.5), tight_layout=True)
-    gs1 = GridSpec(1, 1, top = 0.95, bottom=0.14 ,left=0.06,right=0.92)
-    ax1 = fig.add_subplot(gs1[0])
-    ax1 = fig.axes[0]
-    ax1.set_title(title,fontweight='bold')
-
-    for trace in LeftTraces.keys():
-        ax1.plot(LeftTraces[trace][0],label = trace,color=LeftTraces[trace][1],lw=LeftTraces[trace][2])
-    if LeftTicks is not None:    ### Ticks must be input as a tuple of lists or np.arrays. WIth format (Tick positions list, tick labels list)
-            ax1.tick_params(axis='y',which='both',length=0,labelsize=0)
-            ax1.set_yticks(LeftTicks[0]); ax1.set_yticklabels(LeftTicks[1])
-            ax1.tick_params(axis='y',which='major',length=3,labelsize=9)
-    if RightTraces is not None:
-        ax1b = ax1.twinx()
-        ax1b.margins(0.02,0.03)
-        for axis in ['top','bottom','left','right']:
-            ax1b.spines[axis].set_linewidth(1.5) 
-        for trace in RightTraces.keys():
-            ax1b.plot(RightTraces[trace][0],label = trace,color=RightTraces[trace][1],lw=RightTraces[trace][2])
-        ax1b.legend(loc=4,fontsize=9)
-        if RightScale == 'log':    
-            ax1b.set_yscale('log')
-        if RYLabel is not None:
-            ax1b.set_ylabel(RYLabel,fontweight='bold',labelpad=15,fontsize=11)
-        if RightTicks is not None:    
-            ax1b.tick_params(axis='y',which='both',length=0,labelsize=0)
-            ax1b.set_yticks(RightTicks[0]); ax1b.set_yticklabels(RightTicks[1])
-            ax1b.tick_params(axis='y',which='major',length=4,labelsize=10)
-            if RightMinTicks is not None:
-                ax1b.set_yticks(RightMinTicks[0],minor=True); 
-                ax1b.set_yticklabels(RightMinTicks[1],minor=True)
-                ax1b.tick_params(axis='y',which='minor',length=2,labelsize=7)
-
-    if LeftScale == 'log':
-        ax1.set_yscale('log')
-    if XTicks is not None:
-        ax1.xaxis.set_ticks(XTicks) 
-        ax1.tick_params(axis='x',length=3,labelsize='small',labelrotation=45)
-        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b'))
-        ax1.set_xlim(XTicks[0],XTicks[len(XTicks)-1])
-        ax1.set_xlabel('Date (year-month)',fontweight='bold',fontsize=11)
     
-    ax1.legend(loc=2,fontsize=9)
-    ax1.set_ylabel(LYLabel,fontweight='bold',fontsize=11)
-    for axis in ['top','bottom','left','right']:
-            ax1.spines[axis].set_linewidth(1.5)
-    if text1 is not None:
-        ax1.text(text1)
-    return fig    
-
 class FitTrend():
 
     def __init__(self, data: pd.Series) -> None:
@@ -110,89 +144,96 @@ class FitTrend():
         self.original_data = data.copy()
         self.original_data_BU = data.copy()
         self.data_max = self.original_data.max()
+        self.freq = Utilities.DetermineSeries_Frequency(self.original_data_BU)
+        print(self.original_data_BU.name, "series frequency: ", self.freq)
 
-    def fitExpTrend(self, full_index, x, y):
+    def fitExpTrend(self, x, y):
 
         fit = np.polyfit(x, np.log(y), 1)
         print('Exponential fit to: ',self.original_data.name, ', x, np.log(y), intercept, slope a,b = ',fit)
         a = fit[0]; b = fit[1]
-
-        full_x = np.linspace(0,len(full_index)-1,len(full_index)); fit_y = []
         
-        for ex in full_x:
-            fit_y.append(np.exp(b+a*ex))
-
-        fitY = pd.Series(fit_y, index = self.original_data_BU.index, name = self.original_data.name+" exp_fit") 
-        print(fitY, len(fitY), len(full_index), len(self.original_data), len(self.original_data_BU))
-
-        TrendDev = ((self.original_data_BU - fitY)/fitY)*100; print('Dev from trend max, min: ',TrendDev.max(),TrendDev.min())
- 
-        self.fit = fitY
-        fit_res = ((self.original_data - fitY)**2).sum(); print("Residual squared: ", fit_res)
-        ss_tot = ((self.original_data - self.original_data.mean())**2).sum(); print("Total sum of squares: ", fit_res)
-        r2 = round(1 - (fit_res / ss_tot),3); print("R squared value from fit: ",r2)
-        self.PctDev = TrendDev; self.PctDev.rename('Percentage_dev_from_fit',inplace=True)
-        self.Fit_Info = {"Fit function":"Exponential",
-                            "gradient": a,
-                            "intercept": b,
-                            "R_Squared": r2}
+        return a,b
 
     def FitData(self, FitFunc: str = "ExpLog", x1 = None, x2 = None):  #Fit trend to data. 
+        full_index = self.original_data.index
         if x1 is not None and x2 is not None:
-            full_index = self.original_data.index
             if isinstance(self.original_data.index , pd.DatetimeIndex):
-                ex1 = Utilities.GetClosestDateInIndex(self.original_data, x1)[0]
-                ex2 = Utilities.GetClosestDateInIndex(self.original_data, x2)[0]
-                self.original_data = self.original_data[ex1:ex2]
+                ex1 = Utilities.GetClosestDateInIndex(self.original_data, x1)
+                ex2 = Utilities.GetClosestDateInIndex(self.original_data, x2)
+                subset_start_index = ex1[1]; subset_end_index = ex2[1]
+                
+                self.original_data = self.original_data[ex1[0]:ex2[0]]
             else:
-                self.original_data = self.original_data[x1:x2]    
+                self.original_data = self.original_data[x1:x2] 
+                subset_start_index = self.original_data_BU.index.get_loc(x1)
+                subset_end_index = self.original_data_BU.index.get_loc(x2)
+        else:
+            subset_start_index = 0      
+
         index = self.original_data.index.to_numpy()
-
         func = FitFunction()
+        right_ext_num = round(0.05*len(full_index))
+        # Calculate the offset of the subset's start relative to the full dataset
+ 
+        x = np.linspace(subset_start_index,subset_end_index,len(index), dtype=int); y = self.original_data.to_numpy(); yLog = np.log(y)
+        ext_left = np.linspace(0,subset_start_index-1, subset_start_index, dtype=int)
+        ext_right = np.linspace(subset_end_index, len(full_index) + right_ext_num, len(full_index) - subset_end_index + right_ext_num - 2, dtype=int)
+        full_x = np.concatenate([ext_left, x, ext_right], axis = 0)
+        right_ext_index = pd.date_range(start = self.original_data_BU.index[-1], freq = self.freq[2], periods = right_ext_num)
+        ext_index = self.original_data_BU.index.union(right_ext_index).unique().sort_values()
 
-        x = np.linspace(1,len(index),len(index)); y = self.original_data.to_numpy(); yLog = np.log(y)
         f = func.functions[FitFunc][0]; funcName = FitFunc
         LogOrLin = func.functions[FitFunc][1]
         print(f, funcName, LogOrLin)
 
         if funcName == "Exponential":
-            self.fitExpTrend(full_index, x, y)
-            return
-        if LogOrLin == 'linear':
+            a, b = self.fitExpTrend(x, y)
+            fit = [np.exp(b+a*ex) for ex in x]
+            full_fit = [np.exp(b+a*ex) for ex in full_x]
+            popt = (a, b); pcov = "?"
+            print(a, b)
+        elif funcName != "Exponential" and LogOrLin == 'linear':
             try:
                 popt, pcov = curve_fit(f,x,y)
                 fit = f(x,*popt)
+                full_fit = f(full_x,*popt)
             except Exception as error:    
                 print('Devo, fit failed bro.. error message: ',error,'\n',"Trying run fit again with LogOrLin set to 'log'") 
                 popt, pcov = curve_fit(f,x,yLog)
                 fit = f(x,*popt)
-        elif LogOrLin == 'log':
+                full_fit = f(full_x,*popt)
+        elif funcName != "Exponential" and LogOrLin == 'log':
             try:
                 popt, pcov = curve_fit(f,x,yLog)
                 fit = np.exp(f(x,*popt))
+                full_fit = f(full_x,*popt)
             except Exception as error:    
                 print('Devo, fit failed bro.. error message: ',error,'\n',"Trying run fit again with LogOrLin set to 'linear'") 
                 popt, pcov = curve_fit(f,x,y)
                 fit = f(x,*popt)
-         
-        Fit = pd.Series(fit, index=self.original_data_BU.index, name=self.original_data.name+" "+funcName+" fit")  
-  
+                full_fit = f(full_x,*popt)
+        else: 
+            raise Exception("Fit function not found. Check spelling and try again.")        
+        print("Fitted, ", self.original_data.name, funcName, 'fit coefficients: ', popt)
+
+        Fit = pd.Series(fit, index=self.original_data.index, name=self.original_data.name+" "+funcName+" fit")  
+ 
+        Full_Fit = pd.Series(full_fit, index = ext_index, name = self.original_data_BU.name+" "+funcName+" ext_fit")
+
         print('Trendline fitted to data: ',self.original_data.name,' ',funcName,' function used, optimized fitting parameters: ',popt)  
         self.fit = Fit
+        self.ext_fit = Full_Fit
 
-        fit_res = ((self.original_data_BU - Fit)**2).sum(); print("Residual squared: ", fit_res)
-        ss_tot = ((self.original_data_BU - self.original_data_BU.mean())**2).sum(); print("Total sum of squares: ", fit_res)
-        r2 = round(1 - (fit_res / ss_tot),3); print("R squared value from fit: ",r2)
-        TrendDev = ((self.original_data_BU - Fit)/Fit)*100; print('Dev from trend max, min: ',TrendDev.max(),TrendDev.min())
-        self.PctDev = TrendDev; self.PctDev.rename('Percentage_dev_from_fit',inplace=True)
+        self.calc_fit_quality_params()
 
         self.Fit_Info = {"Fit function":funcName,
                         "p_opt": popt,
                         "p_cov": pcov,
-                        "R_Squared": r2}
+                        "R_Squared": self.r2}
         if funcName == "ExpLog":
             self.fit[0:round(0.02*len(self.fit))] = np.nan   ##This is here to remove the first 2% of the curve where it flies upwards.
-            self.PctDev[0:round(0.02*len(self.PctDev))] = np.nan
+            self.TrendDev[0:round(0.02*len(self.TrendDev))] = np.nan
         elif funcName == "Exp_Base10":
             print("Note: 'Exp_Base10 fit was not working last timme I checked. Use 'Exponential' instead.")    
     
@@ -202,11 +243,26 @@ class FitTrend():
         self.std_u = self.fit + multiples*stdDev; self.std_u.rename('Upper std. dev. band',inplace=True)
         self.std_l = self.fit - numstd_l*stdDev; self.std_l.rename('Lower std. dev. band',inplace=True)
 
+    def calc_fit_quality_params(self):
+
+        self.fit_res = ((self.original_data - self.fit)**2).sum(); print("Residual squared: ", self.fit_res)
+        self.ss_tot = ((self.original_data - self.original_data.mean())**2).sum(); print("Total sum of squares: ", self.ss_tot)
+        self.r2 = round(1 - (self.fit_res / self.ss_tot),3); print("R squared value from fit: ",self.r2)
+        self.TrendDev = ((self.original_data - self.fit)/self.fit)*100; print('Dev from trend max, min: ',self.TrendDev.max(),self.TrendDev.min())
+        self.TrendDev.rename('Percentage_dev_from_fit',inplace=True) 
+
+        self.ffit_res = ((self.original_data_BU - self.ext_fit)**2).sum(); print("Residual squared (ext fit): ", self.ffit_res)
+        self.fss_tot = ((self.original_data_BU - self.original_data_BU.mean())**2).sum(); print("Total sum of squares (ext fit): ", self.fss_tot)
+        self.fr2 = round(1 - (self.ffit_res/ self.fss_tot),3); print("R squared value from fit: ", self.fr2)
+        self.fTrendDev = ((self.original_data_BU- self.ext_fit)/self.ext_fit)*100; print('Dev from trend max, min: (ext fit) ', self.fTrendDev.max(), self.fTrendDev.min())
+        self.fTrendDev.rename('Percentage_dev_from_ext_fit',inplace=True)  
+
     def PCBands(self, PC_Offset:float):
         self.pcu = self.fit*((100+PC_Offset)/100); self.pcu.rename('Upper '+str(PC_Offset)+'% band',inplace=True)
         self.pcl = self.fit/((100+PC_Offset)/100); self.pcu.rename('Lower '+str(PC_Offset)+'% band',inplace=True)
 
-    def ShowFit(self, yaxis: str = "linear", YLabel: str = "Price (USD)"):
+    def ShowFit(self, yaxis: str = "linear", YLabel: str = "Price (USD)", title: str = None,
+                xmin_date: str = None, xmax_date: str = None, y_margins: float = 0.03):
         if self.fit is None:
             print('Run fitting function first before trying to plot the fit.')    
             return
@@ -215,15 +271,15 @@ class FitTrend():
             fig = plt.figure(figsize=(13,6.5), tight_layout=True)
             gs1 = GridSpec(1, 1, top = 0.95, bottom=0.07, left=0.08, right=0.92)
             ax1 = fig.add_subplot(gs1[0]); axb = ax1.twinx()
-            title = self.fit.name + ", fit quality assessment chart."
+            if title is None:
+                title = self.fit.name + ", fit quality assessment chart."
             ax1.set_title(title,fontweight='bold')
-            pct = self.PctDev.copy()
 
             if yaxis == 'log':
                 ax1.set_yscale('log'); axb.set_yscale('log')
                 lTicks, lTickLabs = Utilities.EqualSpacedTicks(10, self.original_data_BU, LogOrLin='log')
-                pct += 100
-                rTicks, rTickLabs = Utilities.EqualSpacedTicks(10, pct, LogOrLin='log',LabOffset=-100,labSuffix="%")
+                self.fTrendDev += 100
+                rTicks, rTickLabs = Utilities.EqualSpacedTicks(10, self.fTrendDev, LogOrLin='log',LabOffset=-100,labSuffix="%")
                 ax1.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
                 ax1.set_yticks(lTicks); ax1.set_yticklabels(lTickLabs)
                 ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,left=True,labelleft=True)
@@ -232,28 +288,40 @@ class FitTrend():
                 axb.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True)
 
             ax1.plot(self.original_data_BU, label = self.original_data_BU.name, color = "black", lw = 2.5)
-            ax1.plot(self.fit,label = self.fit.name, color = "blue", lw=1.75)
-            axb.plot(pct, label = self.PctDev.name, color = "green", lw = 1.25)
+            ax1.plot(self.ext_fit, label = self.ext_fit.name, color = "blue", ls = "dashed", lw=1)
+            ax1.plot(self.fit,label = self.fit.name, color = "red", ls = "dashed", lw=1.5)
+            axb.plot(self.fTrendDev, label = self.TrendDev.name, color = "green", lw = 1.25)
             axb.set_ylabel('% deviation from fitted trend', fontsize = 10, fontweight = 'bold')
             ax1.set_ylabel(YLabel, fontsize = 10, fontweight = 'bold')
 
-            ax1.legend(loc=2, fontsize = 'small'); axb.legend(loc=1, fontsize = 'small')
+            ax1.legend(loc=2, fontsize = 'small'); axb.legend(loc=2, bbox_to_anchor=(0,0.89), fontsize = 'small')
             ax1.grid(visible=True,axis='both',which='major',lw=0.75,ls=":",color='gray')
             ax1.grid(visible=True,axis='x',which='both',lw=0.75,ls=":",color='gray')
             ax1.minorticks_on()
-            ax1.set_ylim((self.original_data_BU.min()-0.05*self.original_data_BU.min()),(self.original_data_BU.max()+0.05*self.original_data_BU.max()))
-            printr2 = "R-squared value from fit: "+str(self.Fit_Info['R_Squared'])
-            ax1.text(x=0.37, y = 0.97, s= printr2,horizontalalignment='left',verticalalignment='center', transform=ax1.transAxes )
+            # ax1.set_ylim((self.original_data_BU.min()-0.075*self.original_data_BU.min()),(self.original_data_BU.max()+0.075*self.original_data_BU.max()))
+            printr2 = "R-squared value from fitted subset: "+str(self.Fit_Info['R_Squared'])
+            ax1.text(x=0.37, y = 0.97, s= printr2,horizontalalignment='left',verticalalignment='center', transform=ax1.transAxes)
+
+            if xmin_date is not None and xmax_date is not None:
+                left, right = calc_chart_xlims(self.original_data_BU.index, xmin=xmin_date, xmax=xmax_date, margin_left=0.01, margin_right=0.05)
+            else:
+                left, right = calc_chart_xlims(self.original_data_BU.index, margin_left=0.01, margin_right=0.05)
+            ax1.set_xlim(left, right)
 
             for axis in ['top','bottom','left','right']:
-                ax1.spines[axis].set_linewidth(1.5)
-                
+                ax1.spines[axis].set_linewidth(1.5) 
             return fig
 
 if __name__ == '__main__':
-    data = pd.read_excel('/home/billy/Documents/Code/Bootleg_Macro/Macro_Chartist/SavedData/M2SL.xlsx', sheet_name="Closing_Price", index_col=0).squeeze()
+    data = pd.read_excel(parent+fdel+'Macro_Chartist/SavedData/CPIAUCSL.xlsx', sheet_name="Closing_Price", index_col=0).squeeze()
+    xmin_date="1990-01-01"; xmax_date=datetime.datetime.today().strftime("%Y-%m-%d")
+    data = data[xmin_date:xmax_date]
 
     fit = FitTrend(data)
     fit.FitData(FitFunc='Exponential', x1="1995-01-01", x2 = "2020-01-01")
-    figure = fit.ShowFit(yaxis='log')
+    print(fit.fit, fit.original_data_BU, fit.TrendDev, fit.fTrendDev, fit.Fit_Info)
+    xmin_date="1990-01-01"; xmax_date=datetime.datetime.today().strftime("%Y-%m-%d")
+
+    figure = fit.ShowFit(yaxis='log', YLabel="Billions of U.S $", title="M2 Money Supply U.S", 
+                         xmin_date=xmin_date, xmax_date=xmax_date)
     plt.show()
