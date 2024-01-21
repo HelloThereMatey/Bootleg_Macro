@@ -351,17 +351,21 @@ def RoCofRoC(input: pd.Series,periods:int = 1 ) -> pd.Series:
     roc = input.diff(periods=periods)
     return roc.diff(periods=periods)
 
-def GetClosestDateInIndex(df: Union[pd.DataFrame, pd.Series], searchDate: str = "2012-01-01"):
+def GetClosestDateInIndex(df_index: Union[pd.DataFrame, pd.Series, pd.DatetimeIndex], searchDate: str = "2012-01-01"):
     ## searchDate should bee in "YYYY-MM-DD" format. 
-    if type(df.index) != pd.DatetimeIndex:
-        print('Input dataframe must have a datetime index.')
+    if isinstance(df_index, pd.DatetimeIndex):
+        index = df_index
+    elif isinstance(df_index, pd.DataFrame) or isinstance(df_index, pd.Series):
+        index = df_index.index
+    else:
+        print('Input dataframe/series or index must have/be a datetime index.')
         return None
 
     # Convert the Datestring to a Timestamp object
     date_ts = pd.Timestamp(searchDate)
     # Find the closest date in the index
-    closest_date = min(df.index, key=lambda x: abs(x - date_ts))
-    index = df.index.get_loc(closest_date)
+    closest_date = min(index, key=lambda x: abs(x - date_ts))
+    index = index.get_loc(closest_date)
     return closest_date, index
 
 import pandas as pd
@@ -743,7 +747,7 @@ def DetermineSeries_Frequency(series: pd.Series):
         print('Could not match the frequency for input series, ', series.name,' reported frequency is: ', freq)    
         frequency = freq
 
-    return frequency, periods_in_day[frequency]/ multiplier
+    return frequency, periods_in_day[frequency]/ multiplier, freq
 
 def manual_frequency(series: pd.Series, threshold_multiplier=2.25):
     daysInPeriod = {'1H': 1/24, '4H': 1/6, 'Day': 1, 'Week': 7, 'Month': 30, 'Quarter': 90}
