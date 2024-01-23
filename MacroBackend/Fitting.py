@@ -5,6 +5,7 @@ sys.path.append(parent)
 fdel = os.path.sep
 
 import numpy as np
+from scipy.signal import find_peaks, argrelextrema
 from scipy.optimize import curve_fit
 import pandas as pd
 import matplotlib as mpl
@@ -46,11 +47,63 @@ def calc_chart_xlims(index: pd.DatetimeIndex, xmin: str = None, xmax: str = None
     xlim_upper = max_date + right_buffer
 
     return (xlim_lower, xlim_upper)
-    
+
+def identify_peaks_and_troughs(data: pd.Series, x_range: datetime.timedelta):
+    # Convert x_range to number of points
+    x_range_points = round(x_range.total_seconds() / (data.index[1] - data.index[0]).total_seconds())
+    print("X-range points: ", x_range_points)
+
+    # Find all peaks and troughs
+    peaks = argrelextrema(data.values, np.greater_equal, order=x_range_points)[0]
+    troughs = argrelextrema(-data.values, np.less_equal, order=x_range_points)[0]
+    print(peaks)
+
+    def filter_peaks(peak_indices, x_range):
+        peak_indices.sort()
+        final_peak_indices = []
+        for peak_index in peak_indices:
+            if not final_peak_indices or peak_index - final_peak_indices[-1] > x_range:
+                final_peak_indices.append(peak_index)
+            elif data[peak_index] > data[final_peak_indices[-1]]:
+                final_peak_indices[-1] = peak_index
+        return final_peak_indices
+   
+    # Find the most significant peaks and troughs
+    significant_peaks = filter_peaks(peaks, x_range_points)
+    significant_troughs = filter_peaks(troughs, x_range_points)
+
+    # Combine and sort
+
+    ThePeaksRaw = pd.Series(data.index[peaks], index = peaks, name = "Peaks_in_data")
+    TroffzRaw = pd.Series(data.index[troughs], index = troughs, name = "Troughs_in_data")
+    ThePeaks = pd.Series(data.index[significant_peaks], index = significant_peaks, name = "Peaks_in_data_filtered")
+    Troffz = pd.Series(data.index[significant_troughs], index = significant_troughs, name = "Troughs_in_data_filtered")
+
+    return ThePeaks, Troffz, ThePeaksRaw, TroffzRaw
 
 #### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
 def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
             LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None):
+    """
+    Create a figure with two y-axes.
+
+    Parameters:
+    LeftTraces (dict): A dictionary containing the left y-axis traces. The keys are the trace names and the values are lists containing the trace data, color, and line width.
+    LeftScale (str): The scale of the left y-axis. Can be 'linear' or 'log'.
+    LYLabel (str): The label for the left y-axis.
+    title (str): The title of the figure.
+    XTicks (list or None): The tick positions for the x-axis. If None, the default ticks will be used.
+    RightTraces (dict or None): A dictionary containing the right y-axis traces. The keys are the trace names and the values are lists containing the trace data, color, and line width. If None, only the left y-axis will be plotted.
+    RightScale (str or None): The scale of the right y-axis. Can be 'linear' or 'log'. If None, the right y-axis will have the same scale as the left y-axis.
+    RYLabel (str or None): The label for the right y-axis. If None, no label will be displayed.
+    LeftTicks (tuple or None): The tick positions and labels for the left y-axis. Must be input as a tuple of lists or np.arrays. With format (Tick positions list, tick labels list). If None, the default ticks will be used.
+    RightTicks (tuple or None): The tick positions and labels for the right y-axis. Must be input as a tuple of lists or np.arrays. With format (Tick positions list, tick labels list). If None, the default ticks will be used.
+    RightMinTicks (tuple or None): The tick positions and labels for the minor ticks of the right y-axis. Must be input as a tuple of lists or np.arrays. With format (Tick positions list, tick labels list). If None, no minor ticks will be displayed.
+    text1 (str or None): Additional text to be displayed on the figure. If None, no additional text will be displayed.
+
+    Returns:
+    fig (matplotlib.figure.Figure): The created figure.
+    """
     fig = plt.figure(num=title,figsize=(13,6.5), tight_layout=True)
     gs1 = GridSpec(1, 1, top = 0.95, bottom=0.14 ,left=0.06,right=0.92)
     ax1 = fig.add_subplot(gs1[0])
@@ -99,7 +152,7 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
             ax1.spines[axis].set_linewidth(1.5)
     if text1 is not None:
         ax1.text(text1)
-    return fig    
+    return fig
 
 class FitFunction():
     def __init__(self):
@@ -313,15 +366,38 @@ class FitTrend():
             return fig
 
 if __name__ == '__main__':
-    data = pd.read_excel(parent+fdel+'Macro_Chartist/SavedData/CPIAUCSL.xlsx', sheet_name="Closing_Price", index_col=0).squeeze()
-    xmin_date="1990-01-01"; xmax_date=datetime.datetime.today().strftime("%Y-%m-%d")
-    data = data[xmin_date:xmax_date]
+    data = pd.Series(pd.read_excel(parent+fdel+'Macro_Chartist/SavedData/CPIAUCSL.xlsx', sheet_name="Closing_Price", index_col=0).squeeze())
+    # xmin_date="1990-01-01"; xmax_date=datetime.datetime.today().strftime("%Y-%m-%d")
+    # data = data[xmin_date:xmax_date]
 
-    fit = FitTrend(data)
-    fit.FitData(FitFunc='Exponential', x1="1995-01-01", x2 = "2020-01-01")
-    print(fit.fit, fit.original_data_BU, fit.TrendDev, fit.fTrendDev, fit.Fit_Info)
-    xmin_date="1990-01-01"; xmax_date=datetime.datetime.today().strftime("%Y-%m-%d")
+    # fit = FitTrend(data)
+    # fit.FitData(FitFunc='Exponential', x1="1995-01-01", x2 = "2020-01-01")
+    # print(fit.fit, fit.original_data_BU, fit.TrendDev, fit.fTrendDev, fit.Fit_Info)
 
-    figure = fit.ShowFit(yaxis='log', YLabel="Billions of U.S $", title="M2 Money Supply U.S", 
-                         xmin_date=xmin_date, xmax_date=xmax_date)
+    # figure = fit.ShowFit(yaxis='log', YLabel="Billions of U.S $", title="M2 Money Supply U.S")
+
+    data_YoY = Utilities.MonthPeriodAnnGrowth2(data, months = 12)
+    peaks = identify_peaks_and_troughs(data_YoY, x_range=datetime.timedelta(weeks=156))[0]
+
+    # Assuming 'data2' is your second pd.Series
+    fig, ax1 = plt.subplots()
+
+    color = 'tab:blue'
+    ax1.set_ylabel('data_YoY', color=color)  # we already handled the x-label with ax1
+    ax1.plot(data, color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+
+    color = 'tab:red'
+    # we already handled the x-label with ax1
+    ax2.set_ylabel('data2', color=color)  
+    ax2.plot(data_YoY, color=color)
+    ax2.tick_params(axis='y', labelcolor=color)
+    
+    for date in peaks:
+        ax1.axvline(x=date, color='black', linestyle='--', lw=1)  # adds a vertical line at the given date
+
+    fig.tight_layout()  # otherwise the right y-label is slightly clipped
+
     plt.show()
