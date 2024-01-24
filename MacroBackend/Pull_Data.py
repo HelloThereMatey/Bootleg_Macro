@@ -52,7 +52,7 @@ class get_data_failure(Exception):
 
 class dataset(object):
     def __init__(self, source: str, data_code: str, start_date: str, exchange_code: str = None, 
-                 end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d"):
+                 end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close"):
         
         self.supported_sources = ['fred', 'yfinance', 'tv', 'coingecko', 'yahoo',
                                 'iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
@@ -82,6 +82,7 @@ class dataset(object):
         self.end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d') 
         self.SeriesInfo = pd.Series([],dtype=str)
         self.dataName = data_code
+        self.d_type = dtype 
 
         self.pull_data()
 
@@ -117,15 +118,14 @@ class dataset(object):
                                                    interval = self.data_freq)
                 if len(TheData) < 1:
                     raise get_data_failure('Could not get data for the data-code from the source specified.')
-            
-                self.data = pd.Series(TheData['Close'], name = self.dataName)     
+                self.filterData(TheData)
             
             except Exception as e:
                 print("Could not score data for asset: "+ticker," from yfinance. Error: ", e, "Trying other scraper packages...") 
                 print("Trying yahoo_fin web scraper.....")   
                 TheData = PriceImporter.Yahoo_Fin_PullData(self.data_code, self.start_date.strftime('%Y-%m-%d'), 
                                                            end_date = self.end_date.strftime('%Y-%m-%d'))   
-                self.data = pd.Series(TheData['Close'], name = self.dataName) 
+                self.filterData(TheData)
 
         elif self.source == 'tv': 
             TheData, info = PriceImporter.DataFromTVGen(self.data_code, self.exchange_code, start_date = self.start_date, 
@@ -177,11 +177,31 @@ class dataset(object):
                 print("Your specified source is not supported, get the fuck out of town you cunt.") 
                 quit()
 
+    def filterData(self, TheData: pd.DataFrame):
+        columns_to_keep = ['Open', 'High', 'Low', 'Close', 'Volume']
+        columns_to_keep = list(set(TheData.columns) & set(columns_to_keep))
+
+        if self.d_type == 'OHLCV':
+            try: 
+                self.data = TheData[columns_to_keep]
+            except:
+                columns_to_keep = ['open', 'high', 'low', 'close', 'volume']
+                columns_to_keep = list(set(TheData.columns) & set(columns_to_keep))
+                self.data = TheData[columns_to_keep]
+
+        elif self.d_type == 'close':    
+            try: 
+                self.data = pd.Series(TheData['Close'], name = self.dataName)     
+            except:
+                self.data = pd.Series(TheData['close'], name = self.dataName)    
+        else:
+            self.data = TheData            
+
 if __name__ == "__main__":
     
     me_data = dataset(source = 'quandl', data_code = 'AAPL', exchange_code='WIKI',start_date = '2015-01-01')
     print(me_data.data, me_data.dataName)
-    print(me_data.data.iloc[len(me_data.data)-1])
+    #print(me_data.data.iloc[len(me_data.data)-1])
 
 
 
