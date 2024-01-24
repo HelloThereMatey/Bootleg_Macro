@@ -199,6 +199,7 @@ def pullyfseries(ticker,start:str="2020-01-01",interval="1d"):
     if (interval == "1d"):
         ind = pd.DatetimeIndex(PriceData.index)
         PriceData.set_index(ind.date,inplace=True)
+    print(PriceData)    
     return PriceData, ticker 
 
 def Yahoo_Fin_PullData(Ticker, start_date = None, end_date = None): #Pull daily data for an asset using yahoo_fin web scraper
@@ -208,6 +209,7 @@ def Yahoo_Fin_PullData(Ticker, start_date = None, end_date = None): #Pull daily 
     data.fillna(method='pad',inplace=True)
     data.rename({"open":"Open","high":"High","low":"Low","close":"Close","adjclose":"AdjClose","volume":"Volume","ticker":"Ticker"},\
         axis=1,inplace=True)
+    print(data)
     return data
 
 ##PriceAPI choices: "coingecko", "yfinance" or any from the pandas datareader:
