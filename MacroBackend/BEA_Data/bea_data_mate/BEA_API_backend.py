@@ -1,6 +1,6 @@
 import os
 wd = os.path.dirname(__file__) 
-FDel = os.path.sep
+fdel = os.path.sep
 parent = os.path.dirname(wd); grampa = os.path.dirname(parent); ancestor = os.path.dirname(grampa)
 import sys
 sys.path.append(grampa); sys.path.append(ancestor)
@@ -308,13 +308,14 @@ class BEA_Data(BureauEconomicAnalysisClient):
 
 class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page................................................................
 
-    def __init__(self, master, exportPath:str = parent+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'):
+    def __init__(self, master, exportPath:str = parent+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'BEA'):
         super().__init__(master)
         self.default_font = ctk.CTkFont('Arial',13)
 
-        self.catz_loadPath = ctk.StringVar(self, value=wd+FDel+"Categories"+FDel+'PCE.json', name = 'category_loadPath' )
-        self.CD_loadPath = ctk.StringVar(self, value=wd+FDel+"Datasets"+FDel+"Annual"+FDel+'U20405.xlsx', name = 'CurrentDollar_loadPath' )
-        self.PI_loadPath = ctk.StringVar(self, value=wd+FDel+"Datasets"+FDel+"Annual"+FDel+'U20404.xlsx', name = 'PriceIndexes_loadPath' )
+        self.catz_loadPath = ctk.StringVar(self, value=parent+fdel+"Categories"+fdel+'PCE.json', name = 'category_loadPath' )
+        self.CD_loadPath = ctk.StringVar(self, value=parent+fdel+"Datasets"+fdel+"Annual"+fdel+'U20405.xlsx', name = 'CurrentDollar_loadPath' )
+        self.PI_loadPath = ctk.StringVar(self, value=parent+fdel+"Datasets"+fdel+"Annual"+fdel+'U20404.xlsx', name = 'PriceIndexes_loadPath' )
+        print('Init of load paths: ', self.catz_loadPath, '\n', self.CD_loadPath, '\n', self.PI_loadPath)
 
         self.set_load_paths = ctk.CTkButton(self, text="Load Category Data",font=('Arial',14,'bold'),command=self.set_paths)
         self.set_load_paths.grid(column = 0, row = 0,padx=15,pady=15)
@@ -329,12 +330,17 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page......
         piPath = ctk.CTkEntry(self,textvariable=self.PI_loadPath,font=self.default_font,width=self.default_font.measure(self.PI_loadPath.get())+20)
         piPath.grid(column = 0, row = 3,padx=5,pady=10, columnspan = 2)
 
+        self.init_fi_obj()
+
     def set_paths(self):
         
-        self.catz_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=wd,title="Choose .json file that contains lists of the aggregates and categories to use for your Fisher Index"))
-        self.CD_loadPath .set(filedialog.askopenfilename(parent=self,initialdir=wd,title="Choose .xlsx file that contains the current dollar estimates data downloaded from BEA."))
-        self.PI_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=wd,title="Choose .xlsx file that contains the price index data downloaded from BEA."))
+        self.catz_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=parent,title="Choose .json file that contains lists of the aggregates and categories to use for your Fisher Index"))
+        self.CD_loadPath .set(filedialog.askopenfilename(parent=self,initialdir=parent,title="Choose .xlsx file that contains the current dollar estimates data downloaded from BEA."))
+        self.PI_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=parent,title="Choose .xlsx file that contains the price index data downloaded from BEA."))
 
+        self.init_fi_obj()
+
+    def init_fi_obj(self):
         self.FI_obj = custom_FI.BEA_FisherIndex(self.CD_loadPath.get(), self.PI_loadPath.get(), self.catz_loadPath.get())
         self.base_catz = ctk.StringVar(self, value = self.FI_obj.BaseCatz, name = 'ListComponents')
         self.toExclude = ctk.StringVar(self, value = "", name = 'excluded')
@@ -358,10 +364,12 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page......
 
 class CustomIndexWindow(ctk.CTkToplevel):
 
-    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = ancestor+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'):
+    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = ancestor+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'BEA'):
         super().__init__(master)
         default_font = ctk.CTkFont('Arial',13)
         self.data = pd.DataFrame(dataTable['Series_Split'])
+        print('Input data for left column: ', self.data)
+
         self.SeriesInfo = pd.DataFrame(dataTable['SeriesInfo']).copy().squeeze()
         
         self.notes = pd.DataFrame(dataTable['Notes']); self.notes.set_index("NoteRef",inplace=True)
@@ -401,8 +409,8 @@ class CustomIndexWindow(ctk.CTkToplevel):
         
         SeriesList = tk.Listbox(self.frame1,listvariable=self.components, width=0, font=('Arial',12), foreground='black', background='white')
         SeriesList.bind('<Double-1>',ChooseSeries)
-        # label = ctk.CTkLabel(self, text="Columns in NIPA table", font = ('Arial', 12))
-        # SeriesList.grid(column=0,row=0,padx=30,pady=5,ipadx=15,ipady=10) ; label.grid(column=0,row=0,sticky='n',padx=3,pady=3)
+        # label = ctk.CTkLabel(self, text="Columns in NIPA table", font = ('Arial', 12)); label.grid(column=0,row=0,sticky='n',padx=3,pady=3)
+        SeriesList.grid(column=0,row=0,padx=30,pady=5,ipadx=15,ipady=10)
         ChosenSeries = tk.Listbox(self.frame1,listvariable=self.choices, width=0, font=('Arial',12), foreground='black', background='white')
         ChosenSeries.grid(column=1,row=0,padx=30,pady=30,ipadx=15,ipady=10)
         indexBox = tk.Listbox(self.frame1,listvariable=self.choiceIndex, width=0, font=('Arial',12),justify='center', foreground='black', background='white')
@@ -436,7 +444,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
     
     def ExportIndex(self):   #Save the custom index series to disk. 
         name = self.C_Index_name.get()
-        filename = self.ExportPath.get()+FDel+name+'.xlsx'
+        filename = self.ExportPath.get()+fdel+name+'.xlsx'
         print('Saving custom index series as: ',filename)
         self.C_Index.to_excel(filename,sheet_name='Closing_Price')
         with pd.ExcelWriter(filename, engine='openpyxl', mode='a') as writer:  
@@ -547,7 +555,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
         self.ExportPath.set(folder_selected)  
 
 if __name__ == "__main__":
-    keyz = Utilities.api_keys(JSONpath=grampa+FDel+'SystemInfo')
+    keyz = Utilities.api_keys(JSONpath=grampa+fdel+'SystemInfo')
     api_key = keyz.keys['bea']
     dataset = "NIPA"
     parameterName = "Tablename"

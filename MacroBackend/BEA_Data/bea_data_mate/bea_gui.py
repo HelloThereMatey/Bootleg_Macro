@@ -209,7 +209,7 @@ def SaveData():
     
 def CustomExport():
     if bea.Data is not None:
-        exportWindow = BEA_API_backend.CustomIndexWindow(root, bea.Data,name=bea.Data_name)
+        exportWindow = BEA_API_backend.CustomIndexWindow(root, bea.Data, name=bea.Data_name)
     else:
         print('Load data first.....')    
 
