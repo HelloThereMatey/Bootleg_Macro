@@ -5,7 +5,7 @@ import os
 fdel = os.path.sep
 import json
 
-wd = os.path.dirname(__file__)
+wd = os.path.dirname(__file__); parent = os.path.dirname(wd)  #Specifies folder where this file is. 
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
@@ -153,7 +153,28 @@ def search_key(json_dict: dict, target_key):
                 result = search_key(value, target_key)
                 if result is not None:
                     return result
-        return None        
+        return None   
+
+# Define a function to extract the values from the lowest level of each subcategory in the provided dictionary
+
+def extract_lowest_level_data(data: dict):
+    # Initialize an empty list to store the final values
+    extracted_values = []
+    
+    # Recursive function to traverse through the dictionary and lists
+    def traverse(obj):
+        if isinstance(obj, dict):  # If the current object is a dictionary
+            for key in obj:  # Iterate through each key in the dictionary
+                traverse(obj[key])  # Recursively traverse the value of each key
+        elif isinstance(obj, list):  # If the current object is a list
+            if all(not isinstance(item, (dict, list)) for item in obj):  # Check if all items are not dict or list
+                extracted_values.extend(obj)  # Add all items to the extracted_values list
+            else:
+                for item in obj:  # If the list contains dict or list
+                    traverse(item)  # Recursively traverse each item
+    
+    traverse(data)  # Start traversing the provided data
+    return extracted_values  # Return the list of extracted values
 
 ######## CLASSES BELOW ############################            
 class CategoryData:
@@ -799,7 +820,6 @@ class index_comparison(object):
 
     
 if __name__ == "__main__":
-       ######### OPTIONAL TABLE CONTAINING CATEGORY NAMES ###############
     
     ##### IMPORTANT GLOBAL PARAMETERS ################################################################
     excludeList = ["Rental of tenant-occupied nonfarm housing (20)",
@@ -808,39 +828,26 @@ if __name__ == "__main__":
                     "Group housing (23)",
                     "Electricity (27)",
                     "Natural gas (28)", "Gambling (91)", "Life insurance (110)", "Dental services (45)"]
+    # These are the base categories to be excluded from the Fisher Index calculation.  
 
     ################################ SPECIFY THE PATHS TO THE EXCEL FILES CONTAINING THE DATA FROM BEA ##################################################
-    
-    PCELoadPath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/U20405.xlsx"
-    PricesLoadPath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/U20404.xlsx"
-    QuantisLoadPath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/U20403.xlsx"
-    Catz_json = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/BEA_Studies/PCE.json'
+ 
+    PCELoadPath = parent+fdel+"Datasets/MonthlyData/U20405.xlsx"
+    PricesLoadPath = parent+fdel+"Datasets/MonthlyData/U20404.xlsx"
+    QuantisLoadPath = parent+fdel+"Datasets/MonthlyData/U20403.xlsx"
+    Catz_json = parent+fdel+"Categories/PCE.json"
 
-    pctPricesPath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/T20807.xlsx"
-    AltPrice_Indexes = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/BEA_Data/Datasets/MonthlyData/T20804.xlsx"
-    SavePath = "/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/BEA_Studies/Series/FinalExportedIndexes"
-
-    # GoodsFromBase = BEA_FisherIndex(PCELoadPath, PricesLoadPath, Catz_json, nearestAggregate="Goods", IndexName="Goods",
-    # studyTitle = 'PCE Goods from Base Categories')
-    # GoodsFromBase.LoadRefData(pctPricesPath = pctPricesPath)
-    # GoodsFromBase.Calculate_FI()
-    # GoodsFromBase.PlotIndexSet(title = 'Personal consumption expenditures (PCE) Goods only, manual calculation from base categories')
-    # GoodsFromBase.export_index_data(SavePath)
-
-    # Services = BEA_FisherIndex(PCELoadPath, PricesLoadPath, Catz_json, IndexName="Services", nearestAggregate="Services",
-    #                            studyTitle = 'PCE Services from Base Categories')
-    # Services.LoadRefData(refIndexName="Services", PriceIndexes=GoodsFromBase.Prices_Indexes, pctPrices=GoodsFromBase.PctPrices)
-    # Services.Calculate_FI()
-    # Services.PlotIndexSet(title="Services from base categories")
-    # Services.export_index_data(SavePath)
+    pctPricesPath = parent+fdel+"Datasets/MonthlyData/T20807.xlsx"
+    AltPrice_Indexes = parent+fdel+"Datasets/MonthlyData/T20804.xlsx"
+    SavePath = wd
 
     ServExHous = BEA_FisherIndex(PCELoadPath, PricesLoadPath, Catz_json, IndexName="Services_ExRandom", nearestAggregate="Services", excludeList=excludeList,
                                  studyTitle = 'PCE Services excluding Housing, Energy, Gambling, life insurance & Dental')
     ServExHous.LoadRefData(refIndexName="PCE services excluding energy and housing", AltPriceIndexesPath=AltPrice_Indexes, pctPricesPath=pctPricesPath)
-    # ServExHous.Calculate_FI()
-    # ServExHous.PlotIndexSet(title="Services excluding Housing, Energy, Gambling, life insurance & Dental", manual_metricName="Services ex. Housing, Energy, Gambling, life insurance & Dental",
-    #                         official_metricName="PCE services")
-    # ServExHous.export_index_data(SavePath)
+    ServExHous.Calculate_FI()
+    ServExHous.PlotIndexSet(title="Services excluding Housing, Energy, Gambling, life insurance & Dental", manual_metricName="Services ex. Housing, Energy, Gambling, life insurance & Dental",
+                            official_metricName="PCE services")
+    ServExHous.export_index_data(SavePath)
    
     # customIndexName = 'Services_ExHousingExEnergyEx'
     # ReproducedIndexName = 'Services'

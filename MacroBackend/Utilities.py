@@ -199,12 +199,13 @@ def MonthPeriodAnnGrowth2(data,months:int): ###### Calculate the X month annuali
         period = months ; print('Ann. period = ',period,"months.")
     elif any(split[0] == quarter for quarter in QuarterList):  
         print('Quarter frequency period.'); d_freq = 'Q'
-        print(np.mod(months,3));  print('Ann. period = ',period,"quarters.")
+        print(np.mod(months,3))
         if months < 3 or np.mod(months,3) != 0:
             print('You have quarterly data, months input must be a multiple of 3.')
             quit()
         else: 
             period = int(months/3); print(period)
+        print('Ann. period = ',period,"quarters.")    
     elif any(split[0] == year for year in AnnualList):    
         print('Yearly frequency period.'); d_freq = 'Y'
         if months < 12:

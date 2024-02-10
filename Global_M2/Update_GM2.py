@@ -42,14 +42,14 @@ def PullData(FullInfo:pd.DataFrame,username=None,password=None,Rank:list=None): 
         FXEx = FullInfo.iloc[i].at['FX_Exchange']
         CurrCode = FullInfo.iloc[i].at['M2_currency_code']
         print(TheCountry,M2Sym,M2Ex,FXSym,FXEx)
-        M2_Data = tv.get_hist(symbol=M2Sym,exchange=M2Ex,interval=Interval.in_monthly,n_bars=500)
+        M2_Data = tv.multi_attempt_pull(symbol=M2Sym,exchange=M2Ex,interval=Interval.in_monthly,n_bars=500)
         shitlist = []
         if (CurrCode == 'USD'):
             DataDict[TheCountry] = (M2_Data,"\nNo FX Data. M2 is measured in USD already") 
             continue
         else:
             try:
-                FXData = tv.get_hist(symbol=FXSym,exchange=FXEx,interval=Interval.in_monthly,n_bars=500)
+                FXData = tv.multi_attempt_pull(symbol=FXSym,exchange=FXEx,interval=Interval.in_monthly,n_bars=500)
             except:
                 print('TVDataFeed failed to get data for: '+FXSym+', for country: '+TheCountry)
                 shitlist.append(TheCountry+'_'+FXSym+'_'+FXEx)

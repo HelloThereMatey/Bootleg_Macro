@@ -243,7 +243,7 @@ class YoY_Forecast(object):
       
     def __init__(self, series: pd.Series, convert_units: int = 1):
         self.series = series/convert_units
-        self.Series_freq, numPerInDay = Utilities.DetermineSeries_Frequency(series)
+        self.Series_freq  = Utilities.DetermineSeries_Frequency(series)[0]
         if self.Series_freq != 'Monthly':
             print('Resampling...', self.series.name)
             self.series = series.resample('MS').mean()
