@@ -311,7 +311,7 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page......
     def __init__(self, master, exportPath:str = parent+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'BEA'):
         super().__init__(master)
         self.default_font = ctk.CTkFont('Arial',13)
-
+        self.title("Create custom Fisher Index from BEA Data")
         self.catz_loadPath = ctk.StringVar(self, value=parent+fdel+"Categories"+fdel+'PCE.json', name = 'category_loadPath' )
         self.CD_loadPath = ctk.StringVar(self, value=parent+fdel+"Datasets"+fdel+"Annual"+fdel+'U20405.xlsx', name = 'CurrentDollar_loadPath' )
         self.PI_loadPath = ctk.StringVar(self, value=parent+fdel+"Datasets"+fdel+"Annual"+fdel+'U20404.xlsx', name = 'PriceIndexes_loadPath' )
@@ -320,20 +320,25 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page......
         self.set_load_paths = ctk.CTkButton(self, text="Load Category Data",font=('Arial',14,'bold'),command=self.set_paths)
         self.set_load_paths.grid(column = 0, row = 0,padx=15,pady=15)
 
-        self.run_calc = ctk.CTkButton(self, text="Calculate FI",font=('Arial',14,'bold'),command=self.calc_FI)
+        self.run_calc = ctk.CTkButton(self, text="Calculate Fisher Index",font=('Arial',14,'bold'),command=self.calc_FI)
         self.run_calc.grid(column = 1, row = 0,padx=15,pady=15)
 
+        catzPath_label = ctk.CTkLabel(self, text="Category heirarchy (.json)", font = ('Arial', 14))
+        catzPath_label.grid(column = 1, row = 1, sticky = "e", padx=5,pady=3)
         catzPath = ctk.CTkEntry(self,textvariable=self.catz_loadPath,font=self.default_font,width=self.default_font.measure(self.catz_loadPath.get())+20)
-        catzPath.grid(column = 0, row = 1,padx=5,pady=10, columnspan = 2)
+        catzPath.grid(column = 0, row = 1,sticky = "s",padx=5,pady=5, columnspan = 2)
+        cdPath_label = ctk.CTkLabel(self, text="Current dollar data, pq (.xlsx)", font = ('Arial', 14))
+        cdPath_label.grid(column = 1, row = 2, sticky = "e", padx=5,pady=3) #sticky = "e"
         cdPath = ctk.CTkEntry(self,textvariable=self.CD_loadPath,font=self.default_font,width=self.default_font.measure(self.CD_loadPath.get())+20)
-        cdPath.grid(column = 0, row = 2,padx=5,pady=10, columnspan = 2)
+        cdPath.grid(column = 0, row = 2,padx=5, pady=5, sticky = "s",columnspan = 2)
+        piPath_label = ctk.CTkLabel(self, text="Price index data, p (.xlsx)", font = ('Arial', 14))
+        piPath_label.grid(column = 1, row = 3, sticky = "e", padx=5,pady=3)
         piPath = ctk.CTkEntry(self,textvariable=self.PI_loadPath,font=self.default_font,width=self.default_font.measure(self.PI_loadPath.get())+20)
-        piPath.grid(column = 0, row = 3,padx=5,pady=10, columnspan = 2)
+        piPath.grid(column = 0, row = 3,padx=5,pady=5, sticky = "s",columnspan = 2)
 
         self.init_fi_obj()
 
     def set_paths(self):
-        
         self.catz_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=parent,title="Choose .json file that contains lists of the aggregates and categories to use for your Fisher Index"))
         self.CD_loadPath .set(filedialog.askopenfilename(parent=self,initialdir=parent,title="Choose .xlsx file that contains the current dollar estimates data downloaded from BEA."))
         self.PI_loadPath.set(filedialog.askopenfilename(parent=self,initialdir=parent,title="Choose .xlsx file that contains the price index data downloaded from BEA."))
@@ -342,26 +347,82 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page......
 
     def init_fi_obj(self):
         self.FI_obj = custom_FI.BEA_FisherIndex(self.CD_loadPath.get(), self.PI_loadPath.get(), self.catz_loadPath.get())
-        self.base_catz = ctk.StringVar(self, value = self.FI_obj.BaseCatz, name = 'ListComponents')
+        self.base_catz = ctk.StringVar(self, value = self.FI_obj.BaseCatz, name = 'agg_lvl_1')
+        self.catzlvl2 =  ctk.StringVar(self, value = [list(cat.keys())[0] for cat in self.FI_obj.ReducedCatz.Aggregate_level_2], name = 'agg_lvl_2')
+        try:
+            self.catzlvl3 = ctk.StringVar(self, value = [list(cat.keys())[0] for cat in self.FI_obj.ReducedCatz.Aggregate_level_3], name = 'agg_lvl_3')
+        except:
+            self.catzlvl3 = ctk.StringVar(self, value = "", name = 'agg_lvl_3')
+
         self.toExclude = ctk.StringVar(self, value = "", name = 'excluded')
         self.exclude = []
 
-        def ChooseASeries(event):
-            curs = catz_all.curselection()
-            self.exclude.append(self.FI_obj.BaseCatz[curs[0]])
+        def ChooseASeries(event, ListBox: tk.Listbox, cat_level: int = 1):
+            curs = ListBox.curselection()
+            exclude_list = [self.FI_obj.BaseCatz, self.FI_obj.ReducedCatz.Aggregate_level_2, 
+                            self.FI_obj.ReducedCatz.Aggregate_level_3]
+            to_add = exclude_list[cat_level - 1][curs[0]]
+            if isinstance(to_add, str):
+                self.exclude.append(to_add)
+            elif isinstance(to_add, dict):
+                basCatz = custom_FI.extract_lowest_level_data(to_add)
+                self.exclude.extend(basCatz)
+            elif isinstance(to_add, list):
+                self.exclude.extend(to_add)     
+            else:
+                self.exclude.append("WhazuFuzzleMuzzle??") 
             self.toExclude.set(self.exclude)
+        cat_title_font = ('Arial', 14, 'bold')
 
+        lvl3_label = ctk.CTkLabel(self, text="Level 3 Aggregates", font = cat_title_font)
+        lvl3_label.grid(column=0,row=4, padx=10, pady=5)
+        catz_lvl3 = tk.Listbox(self,listvariable = self.catzlvl3, width=0, font=('Arial', 12), foreground='black', background='white')
+        catz_lvl3.grid(column=0,row=5, padx=10,pady=2,ipadx=15,ipady=10)
+        catz_lvl3.bind('<Double-1>', lambda event: ChooseASeries(event, catz_lvl3, cat_level=3))
+
+        lvl2_label = ctk.CTkLabel(self, text="Level 2 Aggregates", font = cat_title_font)
+        lvl2_label.grid(column=1,row=4, padx=10, pady=5)
+        catz_lvl2 = tk.Listbox(self,listvariable = self.catzlvl2, width=0, font=('Arial', 12), foreground='black', background='white')
+        catz_lvl2.grid(column=1,row=5,padx=10, pady=2,ipadx=15,ipady=10)
+        catz_lvl2.bind('<Double-1>', lambda event: ChooseASeries(event, catz_lvl2, cat_level=2))
+
+        bcz_label = ctk.CTkLabel(self, text="Base Categories", font = cat_title_font)
+        bcz_label.grid(column=0,row=6, padx=10, pady=5)
         catz_all = tk.Listbox(self,listvariable = self.base_catz, width=0, font=('Arial',12), foreground='black', background='white')
-        catz_all.bind('<Double-1>',ChooseASeries)
-        catz_all.grid(column=0,row=4,padx=30,pady=30,ipadx=15,ipady=10)
+        catz_all.bind('<Double-1>', lambda event: ChooseASeries(event, catz_all))
+        catz_all.grid(column=0,row=7,padx=30,pady=2,ipadx=15,ipady=10)
+
+        ex_label = ctk.CTkLabel(self, text="Excluded Base Categories", font = cat_title_font)
+        ex_label.grid(column=1,row=6, padx=10, pady=5)
         excluded = tk.Listbox(self, listvariable =  self.toExclude, width=0, font=('Arial',12), foreground='black', background='white')
-        excluded.grid(column=1,row=4,padx=30,pady=30,ipadx=15,ipady=10)
+        excluded.grid(column=1,row=7,padx=30,pady=2,ipadx=15,ipady=10)
 
     def calc_FI(self):
-        print(self.FI_obj.BaseCatz)
-        print(self.FI_obj.PCE_Data)
-        print(self.exclude)
+        print('Calculating Fisher index from the supplied current dollar and price index datasets.\n\
+              Excluding base categories from the calculation: ', self.toExclude)
+        
+        self.FI_obj.Calculate_FI()
+        self.plotTitle =  ctk.StringVar(self, value = "Plot title                                                        ", name = 'Plot title')
+        self.indexName =  ctk.StringVar(self, value = "Manual index name                                                 ", name = 'Manual index name')
+        self.refIndex =  ctk.StringVar(self, value = "Reference index name", name = 'Reference index name')
 
+        self.plot_title = ctk.CTkEntry(self, textvariable = self.plotTitle,font = self.default_font, width = self.default_font.measure(self.plotTitle.get())+50)
+        self.plot_title.grid(column=0, row=8, padx=30, pady=10)
+        self.indexEntry = ctk.CTkEntry(self,textvariable = self.indexName, font = self.default_font, width = self.default_font.measure(self.indexName.get())+50)
+        self.indexEntry.grid(column=1, row=8, padx=30, pady=10)
+        self.chooseRef = ctk.CTkOptionMenu(self, values = self.FI_obj.PCE_Data.columns, variable = self.refIndex, font = self.default_font, width=0)
+        self.chooseRef.grid(column=0, row=9, padx=30, pady=10)
+        
+        self.plotIt = ctk.CTkButton(self, text="Plot Fisher Index", font=('Arial',14,'bold'), command=self.plot_FI)
+        self.plotIt.grid(column=1, row=9, padx=30, pady=10)
+
+    def plot_FI(self): 
+        self.FI_obj.LoadRefData()
+        self.FI_obj.PlotIndexSet(title = self.plotTitle.get(), manual_metricName = self.indexName.get(), official_metricName = self.refIndex.get())
+        plt.show()
+
+######### OMG Why Am I doing this to myself?? Tkinter sucks nutz. I'm going to use PyQt5 for the next one. ##########################################
+        
 class CustomIndexWindow(ctk.CTkToplevel):
 
     def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = ancestor+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'BEA'):
@@ -532,7 +593,6 @@ class CustomIndexWindow(ctk.CTkToplevel):
                 Cindex = Cindex + series
         Cindex.rename(name) ; print('Custom index: ',Cindex)
 
-        #print('Series Info: ',self.SeriesInfo)
         ExtraInfo = {'units': str(self.SeriesInfo['CL_UNIT'])+r'(x10$^'+str(self.SeriesInfo['UNIT_MULT'])+r'$)',
                      'units_short': str(self.SeriesInfo['CL_UNIT'])+r'(x10$^'+str(self.SeriesInfo['UNIT_MULT'])+r'$)',
                      'id':name, 'title': 'Custom index: '+compsStr}

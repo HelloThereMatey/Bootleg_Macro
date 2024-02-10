@@ -21,7 +21,7 @@ KeysPath = parent+fdel+'SystemInfo'+fdel+'API_Keys.json'
 if os.path.exists(KeysPath) and os.path.splitext(KeysPath)[1]:
     keys = open(parent+fdel+'SystemInfo'+fdel+'API_Keys.json')
     apikeys = dict(json.load(keys))
-    API_KEY = apikeys['glassnode']; print('Your glassnode API key: ', API_KEY)
+    API_KEY = apikeys['glassnode']
 else:
     print('Need to set api key for glassnode in the API_Keys.json file at: ',KeysPath)
     Utilities.api_keys()

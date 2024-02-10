@@ -8,3 +8,4 @@ yfinance
 yahoo_fin
 scipy
 quandl
+customtkinter

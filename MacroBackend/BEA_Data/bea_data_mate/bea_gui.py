@@ -150,7 +150,6 @@ def PullBEASeries():
     if type(year) == list:
         for i in range(int(startY),int(endY)+1,1):
             year.append(str(i))    
-
     
     bea.Get_BEA_Data(dataset=TheDataSet,tCode=tCode,frequency=SeriesFreq,year=year)
     if bea.Data is not None:

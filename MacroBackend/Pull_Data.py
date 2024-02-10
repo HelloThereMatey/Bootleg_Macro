@@ -49,7 +49,6 @@ class get_data_failure(Exception):
 # SeriesDict[series] = TheSeries
       
 
-
 class dataset(object):
     def __init__(self, source: str, data_code: str, start_date: str, exchange_code: str = None, 
                  end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close"):
@@ -199,10 +198,26 @@ class dataset(object):
 
 if __name__ == "__main__":
     
-    me_data = dataset(source = 'quandl', data_code = 'AAPL', exchange_code='WIKI',start_date = '2015-01-01')
-    print(me_data.data, me_data.dataName)
-    #print(me_data.data.iloc[len(me_data.data)-1])
+    # me_data = dataset(source = 'quandl', data_code = 'AAPL', exchange_code='WIKI',start_date = '2015-01-01')
+    # print(me_data.data, me_data.dataName)
+    # print(me_data.data.iloc[len(me_data.data)-1])
+    # keyz = Utilities.api_keys()
+    # res = PriceImporter.FREDSearch("Gross",apiKey=keyz.keys['fred'])
+    # print(res)
+    
 
+    # full_results1, best_res1 = PriceImporter.Search_TV('BTCUSD', 'INDEX')
+    # full_results2, best_res2 = PriceImporter.Search_TV('WRESBAL')
+    # print(full_results1, best_res1)
+    # print(full_results2, best_res2)
+    # print(full_results1['symbol'][0], full_results1['exchange'][0])
+    tvd = PriceImporter.tv_data("BTCUSD", 'INDEX')#, username="NoobTrade181", password="4Frst6^YuiT!")
+    #tvd.all_data_for_timeframe(timeframe = "4H")
+    datas = tvd.tv.exp_ws("BTCUSD", exchange = 'INDEX', interval=PriceImporter.TimeInterval("4H"),n_bars=5000)
+    print(datas)
+     
+
+    
 
 
 

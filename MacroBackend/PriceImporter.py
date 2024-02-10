@@ -15,10 +15,27 @@ from .tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not 
 import os
 from sys import platform
 import re
+import enum
+import time
 
 wd = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(wd)
 fdel = os.path.sep
+
+class TimeInterval(enum.Enum):
+    in_1_minute = "1"
+    in_3_minute = "3"
+    in_5_minute = "5"
+    in_15_minute = "15"
+    in_30_minute = "30"
+    in_45_minute = "45"
+    in_1_hour = "1H"
+    in_2_hour = "2H"
+    in_3_hour = "3H"
+    in_4_hour = "4H"
+    in_daily = "1D"
+    in_weekly = "1W"
+    in_monthly = "1M"
 
 def CoinGeckoPriceHistory(CoinID: str, TimeLength: int):
     #Call CoinGecko API:
@@ -301,17 +318,24 @@ def YoY4Monthly(series:pd.Series): #Input monthly data and get out monthly serie
     YoYSeries = pd.Series(YoYCalc,index=series.index,name='YoY % change')    
     return YoYSeries        
 
-def FREDSearch(search_text:str,apiKey:str,searchType:str="series_id"):
+def FREDSearch(search_text:str,apiKey:str, save_output: bool = True):
     myFredAPI_key = apiKey; fileType = "&file_type=json"
-    if searchType == "series_id":
-        searchType = "&search_type=series_id"
-    search = "https://api.stlouisfed.org/fred/series/search?search_text="+search_text+searchType  
-    r = requests.get(search+"&api_key="+myFredAPI_key+fileType)
-    print(r.json())
-    df = pd.json_normalize(r.json())
-    df2 = pd.DataFrame.from_dict(df['seriess'][0])
-    print(df2)
-    return df2    
+    searchTypes = ['series_id', 'full_text']
+    fin_results = pd.DataFrame(); i = 0
+    for searchType in searchTypes:
+        searchType = "&search_type="+searchType
+        search = "https://api.stlouisfed.org/fred/series/search?search_text="+search_text+searchType  
+        r = requests.get(search+"&api_key="+myFredAPI_key+fileType)
+        df = pd.json_normalize(r.json())
+        df2 = pd.DataFrame.from_dict(df['seriess'][0])
+        if i == 0:
+            fin_results = df2
+        else:
+            fin_results = pd.concat([fin_results, df2], axis = 0)
+    
+    if save_output:
+        fin_results.to_excel(parent+fdel+"Macro_Chartist"+fdel+'Last_Search_Results.xlsx')
+    return fin_results    
 
 def DataFromTVDaily(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_date=datetime.date.today()): 
     numBars = (end_date-start_date).days; print('Number of days of data for ',symbol,': ',numBars)
@@ -401,6 +425,56 @@ def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_d
         seriesInfo = pd.Series(info.values(), index = info.keys(), name = 'Series info')
         return data, seriesInfo
 
+def Search_TV(tv_insts: TvDatafeed, text: str, exchange: str = ''):
+    tv = tv_insts
+    results = tv.search_symbol(text, exchange)
+    result_df = pd.Series()
+    for res in results:
+        line = pd.Series(res)
+        result_df = pd.concat([result_df, line], axis = 1)
+    result_df = result_df.T.set_index("symbol", drop = True) 
+    result_df.drop(result_df.index[0], inplace = True)
+
+    theOne = result_df[(result_df.index == text) & (result_df['exchange'] == exchange)]
+    if len(theOne) == 1:    
+        best_res = theOne
+    elif len(result_df) == 1:
+        best_res = result_df
+    else:
+        best_res = "Couldn't automatically get a best result for serach, choose manually amoungst results."    
+    return result_df, best_res
+
+class tv_data(object):
+
+    def __init__(self, ticker: str = "SPX", exchange: str = '', search: bool = False, 
+                 username: str = None, password: str = None) -> None:
+        self.tv = TvDatafeed(username = username, password = password)
+        self.ticker = ticker
+        self.exchange = exchange
+        if search:
+            self.search_ticker(ticker, exchange)
+
+    def search_ticker(self, ticker: str, exchange: str = ''):
+        results, top_res = Search_TV(self.tv, ticker, exchange)
+        self.seriesInfo = top_res.T     ##Just use top result for now, later implement choosing from the list of results. 
+        extra = self.seriesInfo.loc['source2'].values[0]["id"]
+        self.seriesInfo.loc['source2'] = extra
+        self.ticker = ticker
+        self.exchange = exchange
+        print("TV search results: ", results, "..using top result: ", self.seriesInfo)
+
+    def all_data_for_timeframe(self, timeframe: str = '4H'):
+        bar_timeframe = TimeInterval(timeframe)
+
+        full_data = pd.DataFrame()
+        for i in range(1): #np.inf:
+            data = self.tv.get_hist(self.ticker, self.exchange, bar_timeframe, n_bars=5000)
+            start = data.index[0]; end = data.index[-1]
+            print("New data: ", data, start, end)
+            full_data = pd.concat([full_data, data], axis = 0)
+            time.sleep(1)
+        print("All data: ", full_data)    
+    
 ###### Functions ###############################################################################################################################################
 
 def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate Pearson Correlation co-efficient between two series with time frame: period. 
@@ -846,9 +920,10 @@ def export_series_to_chartist(series: pd.Series, SeriesInfo: pd.Series):
 
 if __name__ == "__main__":
 
-    # tv = TvDatafeed()
-    # data = tv.get_hist("CNM2","ECONOMICS",interval=Interval.in_weekly,n_bars=1000)
-    # print(data)
+    tv = TvDatafeed()
+    data = tv.get_hist("CNM2","ECONOMICS",interval=Interval.in_weekly,n_bars=1000)
+    print(data)
+
     # start_date = datetime.date(1997, 1, 1); end_date = datetime.date.today()
     # numDays = (end_date-start_date).days; print('Number of days: ', numDays)
     # barTarget = round(numDays/5000)
@@ -864,9 +939,8 @@ if __name__ == "__main__":
     #     timeFrame = '1M' 
     # print(barTarget)
 
-    data = DataFromTVGen('GOLD', 'TVC', start_date=datetime.date(1834,1,1))
-    datedif = (data.index[len(data)-1] - data.index[0]).days
-    print(data, len(data), datedif/30)
-    data.plot().set_yscale('log')
-    data.to_excel(wd + "/gold_baby.xlsx")
-    plt.show()
+    # data = DataFromTVGen('GOLD', 'TVC', start_date=datetime.date(1834,1,1))
+    # datedif = (data.index[len(data)-1] - data.index[0]).days
+    # print(data, len(data), datedif/30)
+    # data.plot().set_yscale('log')
+    # data.to_excel(wd + "/gold_baby.xlsx")
