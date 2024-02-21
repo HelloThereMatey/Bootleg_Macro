@@ -204,8 +204,6 @@ if __name__ == "__main__":
     # keyz = Utilities.api_keys()
     # res = PriceImporter.FREDSearch("Gross",apiKey=keyz.keys['fred'])
     # print(res)
-    
-
     # full_results1, best_res1 = PriceImporter.Search_TV('BTCUSD', 'INDEX')
     # full_results2, best_res2 = PriceImporter.Search_TV('WRESBAL')
     # print(full_results1, best_res1)

@@ -9,9 +9,9 @@ import matplotlib.colors as mcolors
 ### These are standard python packages included in the latest python distributions. No need to install them. 
 import datetime
 from datetime import timedelta
-from . import Utilities
+from . import Utilities, Fitting
 from typing import Union
-import re
+from pprint import pprint
 
 Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
@@ -347,12 +347,11 @@ class BMP_Fig(Figure):
             bot = 0.14
         print("Chart bottom: ",bot)    
         self.add_subplot(self.gs[0])
-        self.ax1 = self.axes[0]; axDict = {}
+        self.ax1 = self.axes[0]
         for axis in ['top','bottom','left','right']:
             self.ax1.spines[axis].set_linewidth(1.5)
-        #for trace in Traces.keys():
         for i in range(1,numaxii,1):
-            axDict['ax'+str(i)] = self.ax1.twinx()
+            axis = self.ax1.twinx()
         self.ax1.minorticks_on()
         self.ax1.grid(visible=True,which='major',axis='both',lw=0.75,color='gray',ls=':')    
         self.ax1.tick_params(axis='x',which='both',labelsize=12)
@@ -413,7 +412,7 @@ class BMP_Fig(Figure):
                 TheAx.minorticks_off()
                 ticks, ticklabs = Utilities.EqualSpacedTicks(10, TheTrace['Data'], LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax,Ymin=Ymin)
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
-                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs) 
+                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)
                 if i > 0:
                     TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])
                     TheAx.set_ylabel(TheTrace['UnitsType'],fontweight='bold',fontsize=9,labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])  
@@ -432,13 +431,16 @@ class BMP_Fig(Figure):
                         TheAx.plot(ThisTrace.rolling(period).mean(),label = TheTrace['Legend_Name']+' '+str(period)+'_MA',color=TheTrace['TraceColor'],lw=1)
                 ticks, ticklabs = Utilities.EqualSpacedTicks(10, TheTrace['Data'],LogOrLin=TheTrace['YScale'],Ymax=Ymax,Ymin=Ymin)
                 TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
-                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)   
+                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)
                 if i > 0:
                     TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])
                     TheAx.set_ylabel(TheTrace['axlabel'],fontweight='bold',fontsize=9,labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])  
                 else:
                     self.ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])   
                     self.ax1.set_ylabel(TheTrace['axlabel'],fontweight='bold')   
+
+            if not pd.isna(TheTrace["FitTrend"]) and TheTrace['UnitsType'] in ['Unaltered','Rolling sum']:
+                TheAx.set_ylim(ticks[0]-0.03*ticks[0], ticks[-1]+0.03*ticks[-1]) 
 
             if Ymax is not None and Ymin is not None:
                 TheAx.set_ylim(Ymin,Ymax)
@@ -457,6 +459,19 @@ class BMP_Fig(Figure):
                 Title = l.get_title(); Title.set_color(TheTrace['TraceColor'])
             else:    
                 TheAx.legend(fontsize=9,loc=locList[i]) 
+
+            print("Fit trend: ", TheTrace['FitTrend'])
+            if pd.isna(TheTrace['FitTrend']) or type(data) == pd.DataFrame:
+                pass
+            else:
+                try:
+                    params = str(TheTrace['FitTrend']).split(",")
+                    fit = Fitting.FitTrend(data)
+                    fit.FitData(FitFunc = params[0].strip(), x1 = params[1].strip(), x2 = params[2].strip())
+                    # TheAx.plot(fit.fit, color=TheTrace['TraceColor'], ls = "dashed", lw = 2)
+                    TheAx.plot(fit.ext_fit, color=TheTrace['TraceColor'], ls = "dashed", lw = 1)
+                except Exception as e:
+                    print("Fitting trend failed.... Error message: ", e, "\nWill plot trace without trendline...")    
             i += 1      
 
         self.ax1.minorticks_on()
@@ -481,8 +496,8 @@ class BMP_Fig(Figure):
         newMinTicks2 = [np.nan for i in range(len(newMinTicks)-len(newMinTicks))]
         majList3 = [*majList2,*majList]; minTickLocs3 = [*minTickLocs2,*minTickLocs]; newMinTicks3 = [*newMinTicks2,*newMinTicks]
         tickDict = {'MajTickLocs':majTicks,'NewMinTickLocs':newMinTicks3,"OldTickLocs":minTickLocs3}
-        tickDF = pd.DataFrame(tickDict) #;print(tickDF.head(50))
-        self.ax1.set_xticks(newMinTicks3,minor=True); self.ax1.set_xticks(majList)
+        tickDF = pd.DataFrame(tickDict)
+        self.ax1.set_xticks(newMinTicks3,minor=True); self.ax1.set_xticks(majList); #self.ax1.set_xlim(majList[0]-0.03*majList[0], majList[-1]+0.03*majList[-1])
         self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
         self.ax1.margins(0.01,0.05)
     
