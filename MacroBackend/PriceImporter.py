@@ -399,7 +399,7 @@ def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_d
         print('Pulling data from trading view. Ticker: ', symbol,', exchange: ', exchange,'\nData time frame: ', TimeFrame, 
               BarTimeFrame, ', number of days: ', numDays, ', fraction of max data pull length: ', numBars/5000, ', number of datapoints: ', numBars, 
               ', loop: ', i)
-        data = tv.get_hist(symbol,exchange, interval = interval, n_bars = numBars)
+        data = tv.multi_attempt_pull(symbol, exchange, interval = interval, n_bars = numBars)
         
         if data is None:
             print('Fucked out cunt, try next higher timeFrame.')
@@ -649,7 +649,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
     else:
         EndDate = datetime.date.today()   
 
-    FXDataPath = parent+fdel+'GlobalReserves'+fdel+'FXData'+fdel+FXSymbol[1]+'.xlsx' ### Get FX data for currency pair.
+    FXDataPath = parent+fdel+'NetLiquidity'+fdel+'GlobalReserves'+fdel+'FXData'+fdel+FXSymbol[1]+'.xlsx' ### Get FX data for currency pair.
     if os.path.isfile(FXDataPath):
         FXData = pd.read_excel(FXDataPath)
         print('FXData for '+FXSymbol[1]+', loaded from file.')
@@ -698,7 +698,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
     
     print('FX Data: ',FXData)
  
-    BSDataPath = parent+fdel+'GlobalReserves'+fdel+'BalSheets'+fdel+TV_Code[1]+'.xlsx'
+    BSDataPath = parent+fdel+'NetLiquidity'+fdel+'GlobalReserves'+fdel+'BalSheets'+fdel+TV_Code[1]+'.xlsx'
     if os.path.isfile(BSDataPath):
         BSData = pd.read_excel(BSDataPath)
         print('Bal sheet Data for '+TV_Code[1]+', loaded from file.')

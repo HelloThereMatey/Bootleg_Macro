@@ -2,7 +2,6 @@
 import os
 wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
 dire = os.path.dirname(wd)
-print(wd,dire)
 import sys; sys.path.append(dire)
 
 ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
@@ -20,14 +19,15 @@ from datetime import timedelta
 from tkinter import messagebox
 import json
 import re
+from pprint import pprint
 
 ###### Determine what OS this is running on and get appropriate path delimiter. #########
-FDel = os.path.sep
-print("Operating system: ",sys.platform, "Path separator character: ", FDel)
+fdel = os.path.sep
+print("Operating system: ",sys.platform, "Path separator character: ", fdel)
 
 ######### Set default font and fontsize ##################### Make this automatic and hide in utility files later on. 
 try:
-    ScreenSetFile = open(dire+FDel+'MacroBackend'+FDel+'SystemInfo'+FDel+'ScreenData.json')
+    ScreenSetFile = open(dire+fdel+'MacroBackend'+fdel+'SystemInfo'+fdel+'ScreenData.json')
     ScreenSettings = dict(json.load(ScreenSetFile))
 except:
     SingleDisplay = messagebox.askyesno(title='GUI sizing steup',message='Script has detected that this is the first time this script has been run on this system.\
@@ -37,7 +37,7 @@ except:
     if SingleDisplay is True:
         tkVars = Utilities.TkinterSizingVars()
         tkVars.SetScreenInfoFile()
-        tkVars.ExportVars(dire+FDel+'MacroBackend'+FDel+'SystemInfo')
+        tkVars.ExportVars(dire+fdel+'MacroBackend'+fdel+'SystemInfo')
         ScreenSettings = tkVars.ScreenData
         print("Very good. Screen measured. Now run script again. You shouldn't have to do this screen measure again.")
         quit()
@@ -50,7 +50,7 @@ print('figsize (cm):',figsize,'figsize (pixels):',figsize_px)
 
 ########## Script specific business #############################################################################
 try:
-    Inputs = pd.read_excel(wd+FDel+'Control.xlsx', index_col=0)     ##Pull input parameters from the input parameters excel file. 
+    Inputs = pd.read_excel(wd+fdel+'Control.xlsx', index_col=0)     ##Pull input parameters from the input parameters excel file. 
 except Exception as e: 
     print(e) 
     print("Check InputParams excel file. If name has been changed from  'Control.xlsx', or has been moved, that is the problem.\
@@ -63,22 +63,30 @@ if pd.isna(myFredAPI_key):
     keys = Utilities.api_keys()
     myFredAPI_key = keys.keys['fred']
 
+######## Get the lower part of the Inputs dataframe with the optional parameters for traces 1 - 5 & append to side of trace_params.
+opt_params = Inputs.loc[6:10].reset_index(drop=True)
+opt_params.columns = Inputs.loc["Options"]
+opt_params.index.rename("Index", inplace=True)
+trace_params = pd.concat([Inputs.loc[1:5].reset_index(), opt_params.reset_index(drop = True)], axis = 1).set_index("Index", drop = True)
+trace_params.to_excel(wd+fdel+"trace_params.xlsx")
+#param_dict = trace_params.to_dict()
+
 ############ SAVE AND LOAD CHART TEMPLATES #########################################################################
 if Inputs.loc['load_template_instead'].at['Series_Ticker'] == 'yes':
     if pd.isna(Inputs.loc['Template'].at['Series_Ticker']):
         pass
     else:    
-        template_file = wd+FDel+'Chart_templates'+FDel+str(Inputs.loc['Template'].at['Series_Ticker'])
+        template_file = wd+fdel+'Chart_templates'+fdel+str(Inputs.loc['Template'].at['Series_Ticker'])
         Inputs = pd.read_excel(template_file, index_col=0)
 
 Title = Inputs.loc['CHART TITLE'].at['Series_Ticker']
 
 if Inputs.loc['OUTPUT_CONFIG'].at['Series_Ticker'] == 'yes' and Inputs.loc['load_template_instead'].at['Series_Ticker'] == 'no':   
-    templates_path = wd+FDel+'Chart_templates'
-    Inputs.to_excel(templates_path+FDel+Title+'.xlsx')
-    files = os.listdir(templates_path)
+    templates_path = wd+fdel+'Chart_templates'
+    Inputs.to_excel(templates_path+fdel+Title+'.xlsx')
+    files =  [file for file in os.listdir(templates_path) if file.split(".")[-1] == "xlsx"]
     files_list = pd.Series(files, name = 'Previously saved chart template titles')
-    files_list.to_excel(wd+FDel+"TemplateList.xlsx", index = False)
+    files_list.to_excel(wd+fdel+"TemplateList.xlsx", index = False)
 
 ############ CREATE A DICT WITH ALL THE PARAMETERS FROM THE CONTOL EXCEL FILE #########################################################################
 DayOne = Inputs.loc['StartDate'].at['Series_Ticker']; LastDay = Inputs.loc['EndDate'].at['Series_Ticker']
@@ -106,28 +114,34 @@ G_YMin = Inputs.loc['Global_Ymin'].at['Series_Ticker']
 G_YMax = Inputs.loc['Global_Ymax'].at['Series_Ticker']
 
 ########## PULL OR LOAD THE DATA ###########################################################################################
-print(Inputs.index[0:6])
+
 for i in range(1,6):
-    ticker = Inputs.loc[i].at['Series_Ticker']
+    ticker = trace_params.loc[i].at['Series_Ticker']; print(ticker)
     if pd.isna(ticker):
         pass
     else:
         name = "Trace_"+str(i)
-        source = Inputs.loc[i].at['Source']; Tipe = str(Inputs.loc[i].at['UnitsType']).strip()
-        color = Inputs.loc[i].at['TraceColor']; label = Inputs.loc[i].at['Legend_Name']
-        yscale = Inputs.loc[i].at['Yaxis']; Ymax = Inputs.loc[i].at['Ymax']; resample = Inputs.loc[i].at['ReS_2_D']
-        axlabel = Inputs.loc[i].at['Axis_Label']; idx = Inputs.index[i-1]; MA =  Inputs.loc[i].at['Sub_MA']; LW = Inputs.loc[i].at['LineWidth']
-        convert = Inputs.loc[i].at['Divide_data_by']; Ymin = Inputs.loc[i].at['Ymin']; aMA =  Inputs.loc[i].at['Add_MA']
-        new_startDate = Inputs.loc[i].at['Limit_StartDate']; show = Inputs.loc[i].at['SHOW/HIDE']
+        source = trace_params.loc[i].at['Source']; Tipe = str(trace_params.loc[i].at['UnitsType']).strip()
+        color = trace_params.loc[i].at['TraceColor']; label = trace_params.loc[i].at['Legend_Name']
+        yscale = trace_params.loc[i].at['Yaxis']; Ymax = trace_params.loc[i].at['Ymax']; resample = trace_params.loc[i].at['ReS_2_D']
+        axlabel = trace_params.loc[i].at['Axis_Label']; idx = trace_params.index[i-1]; MA =  trace_params.loc[i].at['Sub_MA']; LW = trace_params.loc[i].at['LineWidth']
+        convert = trace_params.loc[i].at['Divide_data_by']; Ymin = trace_params.loc[i].at['Ymin']; aMA =  trace_params.loc[i].at['Add_MA']
+        new_startDate = trace_params.loc[i].at['Limit_StartDate']; show = trace_params.loc[i].at['SHOW/HIDE']
+        fit_trend = trace_params.loc[i].at['Add_fitted_trendline']
+        print("Trend fitting parameters entered: ", fit_trend)
         SeriesDict[name] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name,\
                             'YScale': yscale,'axlabel': axlabel,'Ymax': float(Ymax),'Resample2D': resample, 'useMA': MA, 'addMA':aMA, 'LW': LW, 'Ticker_Source':ticker,
-                            'ConvertUnits':convert,'Ymin': float(Ymin), "start_date": new_startDate, "show_hide": show}      
+                            'ConvertUnits':convert,'Ymin': float(Ymin), "start_date": new_startDate, "FitTrend": fit_trend, "show_hide": show}      
 
-SeriesList = Inputs['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
-numAxii = numSeries
+SeriesList = trace_params['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
+# Filter the DataFrame where "SHOW/HIDE" column is 'Show'
+filtered_df = trace_params[trace_params['SHOW/HIDE'] == 'Show']
+# Count the number of non-NaN values in the "Series_Ticker" column
+numAxii = filtered_df['Series_Ticker'].count()
+
 print('Number of data series: ',numSeries,'Number of axii on chart: ',numAxii)
 
-DataPath = wd+FDel+'SavedData'; GNPath = DataPath+FDel+'Glassnode'; BEAPath = DataPath+FDel+'BEA'
+DataPath = wd+fdel+'SavedData'; GNPath = DataPath+fdel+'Glassnode'; BEAPath = DataPath+fdel+'BEA'
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]; Source = TheSeries['Source']; ticker = TheSeries['Ticker']; TheIndex = TheSeries['Index']
     SeriesInfo = pd.Series([],dtype=str)
@@ -141,19 +155,19 @@ for series in SeriesDict.keys():
 
 ######### OPTIONS TO LOAD DATA FROM EXCEL FILE ##########################################################
     if Source == 'load':
-        SeriesInfo = pd.read_excel(DataPath+FDel+ticker+'.xlsx',sheet_name='SeriesInfo')
+        SeriesInfo = pd.read_excel(DataPath+fdel+ticker+'.xlsx',sheet_name='SeriesInfo')
         SeriesInfo.set_index(SeriesInfo[SeriesInfo.columns[0]],inplace=True,drop=True) 
         SeriesInfo.index.rename('Property',inplace=True)
         if len(SeriesInfo.columns) > 1:
             SeriesInfo = pd.Series(SeriesInfo[SeriesInfo.columns[len(SeriesInfo.columns)-1]])
-        TheData = pd.read_excel(DataPath+FDel+ticker+'.xlsx',sheet_name='Closing_Price')
+        TheData = pd.read_excel(DataPath+fdel+ticker+'.xlsx',sheet_name='Closing_Price')
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
         TheData.drop(TheData.columns[0],axis=1,inplace=True)
         TheData = pd.Series(TheData[TheData.columns[0]],name=ticker)
         TheSeries['Source'] = SeriesInfo['Source']
         
     elif Source == 'GNload':
-        TheData = pd.read_excel(GNPath+FDel+ticker+'.xlsx')
+        TheData = pd.read_excel(GNPath+fdel+ticker+'.xlsx')
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
         TheData.drop(TheData.columns[0],axis=1,inplace=True)
         if type(TheData) == pd.DataFrame:
@@ -162,7 +176,7 @@ for series in SeriesDict.keys():
             TheData = pd.Series(TheData.squeeze(),name=ticker)
     
     elif Source == 'load_BEA':
-        TheData = pd.read_excel(BEAPath+FDel+ticker+'.xlsx')
+        TheData = pd.read_excel(BEAPath+fdel+ticker+'.xlsx')
         TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
         TheData.drop(TheData.columns[0],axis=1,inplace=True)
         if isinstance(TheData, pd.DataFrame):
@@ -251,7 +265,7 @@ for series in SeriesDict.keys():
       
     ########################## SAVE DATA ####################################################################################
     if Source.upper() != loadStr.upper() and Source.upper() != SpreadStr.upper() and Source.upper() != GNstr.upper():
-        savePath = DataPath+FDel+ticker+'.xlsx'
+        savePath = DataPath+fdel+ticker+'.xlsx'
         print('Saving new data set: ',ticker,'to: ',savePath)
         TheData2.to_excel(savePath,sheet_name='Closing_Price')
         with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
@@ -386,11 +400,15 @@ Xmin = Xmin.to_pydatetime(); Xmax = Xmax.to_pydatetime()
 stepsize = (Xmax - Xmin) / 20
 XTickArr = np.arange(Xmin, Xmax, stepsize) 
 XTickArr = np.append(XTickArr, Xmax)
-if numSeries < 4:
+if numAxii < 4:
     Bot = 0.125
 else:
     Bot = 0.165
-margins = {'top':0.95, 'bottom':Bot ,'left':0.06,'right':1-(numAxii*0.035)}
+
+if numAxii < 3: 
+    margins = {'top':0.95, 'bottom':Bot ,'left':0.06,'right': 0.94}
+else:   
+    margins = {'top':0.95, 'bottom':Bot ,'left':0.065,'right':1-(numAxii*0.034)}
 
 print('######################## PLOTTING ####################################################################')
 
@@ -427,7 +445,7 @@ smolFig = plt.figure(FigureClass = Charting.BMP_Fig,margins=margins,numaxii=numA
 smolFig.set_Title(Title)
 
 smolFig.AddTraces(SeriesDict)
-#path2image = wd+FDel+'Images'+FDel+'BMPleb2.png'
+#path2image = wd+fdel+'Images'+fdel+'BMPleb2.png'
 ex = figsize_px[0]-0.1*figsize_px[0]; why = figsize_px[1] - 0.9*figsize_px[1]
 
 if alignZeros == 'yes':

@@ -105,7 +105,7 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
     fig (matplotlib.figure.Figure): The created figure.
     """
     fig = plt.figure(num=title,figsize=(13,6.5), tight_layout=True)
-    gs1 = GridSpec(1, 1, top = 0.95, bottom=0.14 ,left=0.06,right=0.92)
+    gs1 = GridSpec(1, 1, top = 0.95, bottom=0.11 ,left=0.06,right=0.92)
     ax1 = fig.add_subplot(gs1[0])
     ax1 = fig.axes[0]
     ax1.set_title(title,fontweight='bold')
@@ -151,13 +151,13 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
     for axis in ['top','bottom','left','right']:
             ax1.spines[axis].set_linewidth(1.5)
     if text1 is not None:
-        ax1.text(text1)
+        ax1.text(0.25, -0.12, text1, fontweight = 'bold', transform = ax1.transAxes)
     return fig
 
 class FitFunction():
     def __init__(self):
         ### Define function formula as a function below, and define tuple in self.functions with (callable function, Yscale of data display).. 
-        self.functions = {"Line": (self.FitLine, 'linear'),
+        self.functions = {"Linear": (self.FitLine, 'linear'),
                         'Exp_Base10':(self.Exp_Base10, 'log'), 
                         "Exponential": (None,'log'),
                         "ExpLog": (self.expLog, 'log'),
@@ -167,7 +167,7 @@ class FitFunction():
 
     ## Mathematical functions to fit to data.
     def FitLine(self, x, m, b):
-        self.funcName = "Line"
+        self.funcName = "Linear"
         return (m*x) + b
     
     def Exp_Base10(self, x, a, b):
@@ -226,7 +226,7 @@ class FitTrend():
 
         index = self.original_data.index.to_numpy()
         func = FitFunction()
-        right_ext_num = round(0.05*len(full_index))
+        right_ext_num = round(0.03*len(full_index))
         # Calculate the offset of the subset's start relative to the full dataset
  
         x = np.linspace(subset_start_index,subset_end_index,len(index), dtype=int); y = self.original_data.to_numpy(); yLog = np.log(y)
@@ -370,11 +370,11 @@ if __name__ == '__main__':
     # xmin_date="1990-01-01"; xmax_date=datetime.datetime.today().strftime("%Y-%m-%d")
     # data = data[xmin_date:xmax_date]
 
-    # fit = FitTrend(data)
-    # fit.FitData(FitFunc='Exponential', x1="1995-01-01", x2 = "2020-01-01")
-    # print(fit.fit, fit.original_data_BU, fit.TrendDev, fit.fTrendDev, fit.Fit_Info)
+    fit = FitTrend(data)
+    fit.FitData(FitFunc='Exponential', x1="1995-01-01", x2 = "2020-01-01")
+    print(fit.fit, fit.original_data_BU, fit.TrendDev, fit.fTrendDev, fit.Fit_Info)
 
-    # figure = fit.ShowFit(yaxis='log', YLabel="Billions of U.S $", title="M2 Money Supply U.S")
+    figure = fit.ShowFit(yaxis='log', YLabel="Billions of U.S $", title="M2 Money Supply U.S")
 
     data_YoY = Utilities.MonthPeriodAnnGrowth2(data, months = 12)
     peaks = identify_peaks_and_troughs(data_YoY, x_range=datetime.timedelta(weeks=156))[0]
