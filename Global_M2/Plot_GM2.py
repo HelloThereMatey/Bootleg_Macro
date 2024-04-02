@@ -1,10 +1,10 @@
 ###### Required modules/packages #####################################
 import os
 wd = os.path.dirname(__file__)  ## This gets the working direectory which is the folder where you have placed this .py file. 
-dire = os.path.dirname(wd)
-print(wd,dire)
+parent = os.path.dirname(wd)
+print(wd,parent)
 fdel = os.path.sep
-import sys ; sys.path.append(dire)
+import sys ; sys.path.append(parent)
 from MacroBackend import PriceImporter, Utilities, Charting ## This is one of my custom scripts holding functions for pulling price data from APIs. 
 #Your IDE might not find it before running script. 
 import pandas as pd
@@ -21,8 +21,8 @@ from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import showinfo
 
 Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
-FDel = os.path.sep
-print('System information: ',sys.platform,', directory delimiter: ', FDel, ', working directory: ', wd)
+fdel = os.path.sep
+print('System information: ',sys.platform,', directory delimiter: ', fdel, ', working directory: ', wd)
 
 colors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
@@ -37,7 +37,6 @@ colors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  'peru', 'plum', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 
  'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'springgreen', 'steelblue', 'tan', 'teal', 'tomato', 
  'turquoise', 'violet','yellowgreen']
-
 
  # Summarize data and plot. ######
 def PlotM2Data(GlobalM2:pd.DataFrame,DataSum:pd.DataFrame,Rank:list=None,LedgFontSize:int=9,colors:list = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)):
@@ -151,7 +150,7 @@ def Compare_GlobalM2s(M2List:list,title:str='M2 money supply global, index compa
     ax.set_title(title,fontweight='bold',fontsize=14)
     for i in range(len(M2List)):
         tup = tuple(M2List[i]); M2_DFName = str(tup[0]); label = str(tup[1]); culla = str(tup[2])
-        M2Index = pd.read_excel(wd+FDel+'M2_USD_Tables'+FDel+M2_DFName+'.xlsx'); M2Index.set_index('Date',inplace=True)
+        M2Index = pd.read_excel(wd+fdel+'M2_USD_Tables'+fdel+M2_DFName+'.xlsx'); M2Index.set_index('Date',inplace=True)
         M2_Trace = M2Index['Global M2 (USD, ffill)']
         YoYm2 = PriceImporter.YoY4Monthly(M2_Trace)
         ax.plot(M2_Trace,label=label,color=culla,lw=2)
@@ -169,14 +168,14 @@ def Compare_GlobalM2s(M2List:list,title:str='M2 money supply global, index compa
 class USD_vs_nativeCurr(object):    
 
     def __init__(self, folderPath: str):
-        self.top50_info = pd.read_excel(wd+FDel+'UpdateM2Infos'+FDel+'M2Info_Top50.xlsx', index_col=0)
+        self.top50_info = pd.read_excel(wd+fdel+'UpdateM2Infos'+fdel+'M2Info_Top50.xlsx', index_col=0)
         self.top50 = self.top50_info.index.to_list()
         self.data_folderPath = folderPath
         
     def MakeCompDFs(self):
         i = 0
         for country in self.top50:
-            local_M2 = pd.read_excel( self.data_folderPath + FDel + country + ".xlsx", index_col=0)
+            local_M2 = pd.read_excel(self.data_folderPath + fdel + country + ".xlsx", index_col=0)
             local_M2.drop(local_M2.columns[1], axis = 1, inplace=True)
             if i == 0:
                 self.AllM2data = local_M2
@@ -327,7 +326,7 @@ class YoY_Forecast(object):
         ax.grid(visible = True, which = 'major', axis = 'both', lw = 0.75, ls = ":")
         ax2.grid(visible = True, which = 'major', axis = 'both', lw = 0.75, ls = ":")
 
-    def save_em(self, savePath: str = dire + fdel + 'Macro_Chartist' + fdel + 'SavedData'):
+    def save_em(self, savePath: str = parent + fdel + 'User_Data' + fdel + 'SavedData'):
         for forecast in self.forecasted.keys():
             SeriesInfo = pd.Series({'units':'US Dollars','units_short': 'USD','title':forecast,'id':forecast,"Source":"tv"},name='SeriesInfo')
             saveName = savePath+fdel+forecast+'.xlsx'
@@ -338,13 +337,7 @@ class YoY_Forecast(object):
 
 if __name__ == '__main__':
 
-    # test = PriceImporter.DataFromTVGen('AAPL', exchange = 'NASDAQ', start_date= "2023-06-01", BarTimeFrame='W')
-    # a_series = test[0]['close'] #.resample('D').mean()
-    # bilp = Utilities.DetermineSeries_Frequency(a_series)
-    # periodsInMonth = bilp[1]*30.4375
-    # print(test, bilp, 'Number of periods of the series frequency in 1 month: ', periodsInMonth)
-
-    dataPath = wd + FDel + 'TVDataFeed' + FDel + 'FinalData'    
+    dataPath = parent + fdel + 'User_Data' + fdel + "GM2_Data" + fdel + 'FinalData'    
     m2s = USD_vs_nativeCurr(folderPath=dataPath)
     m2s.MakeCompDFs()
     m2s.PlotPercentageChanges(ZeroDate="2017-01-01", startDate= '2012-01-01')
@@ -365,29 +358,25 @@ if __name__ == '__main__':
 #################################### ACTIVE CODE BELOW, FUNCTIONS ABOVE. #####################################################      
     filename = askopenfilename(title="Choose excel file (.xlsx only), with M2 (USD) data generated by 'Update_M2.py', e.g: Top33_M2_USD.xlsx",defaultextension='.xlsx',initialdir=wd) 
     des = filename.rsplit('.',1)[0].rsplit('/',1)[1].split('_')[0]
-    print(des, wd+FDel+'Datasums'+FDel+des+'_DataComp.xlsx')
+    print(des, wd+fdel+'Datasums'+fdel+des+'_DataComp.xlsx')
 
-    DataComp = pd.read_excel(wd+FDel+'Datasums'+FDel+des+'_DataComp.xlsx'); DataComp.set_index('Country',inplace=True)
+    DataComp = pd.read_excel(wd+fdel+'Datasums'+fdel+des+'_DataComp.xlsx'); DataComp.set_index('Country',inplace=True)
     # show an "Open" dialog box and return the path to the selected file
-    M2Path = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'M2_Data'); FXPath = (wd+FDel+'TVDataFeed'+FDel+'FinalData'+FDel+'FX_Data') ###Change these if changing the folder structure within "Global_M2" folder.
+    M2Path = (wd+fdel+'TVDataFeed'+fdel+'FinalData'+fdel+'M2_Data'); FXPath = (wd+fdel+'TVDataFeed'+fdel+'FinalData'+fdel+'FX_Data') ###Change these if changing the folder structure within "Global_M2" folder.
     FullDF = pd.read_excel(filename)
     index = pd.DatetimeIndex(pd.DatetimeIndex(FullDF['Date']).date)
     FullDF.set_index(index,inplace=True); FullDF.drop('Date',axis=1,inplace=True)
 
     ######## MatPlotlib functions ########################################################################################################################
     plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 200   ###Set the resolution of the displayed figs & saved fig respectively. 
-    # PlotM2Data(FullDF,DataComp,LedgFontSize=7)
-    # DataComp = DataComp[0:30]
-    # PlotM2Data(FullDF,DataComp,LedgFontSize=7,colors=colors)
-    # DataComp = DataComp[0:20]
-    # PlotM2Data(FullDF,DataComp,LedgFontSize=9,colors=colors)
+
     DataComp = DataComp[0:10]
     PlotM2Data(FullDF,DataComp,colors=colors)
     DataComp = DataComp[0:5]
     PlotM2Data(FullDF,DataComp)
     Plot_GlobalM2(FullDF['Global M2 (USD, ffill)'], FullDF)
 
-    series = pd.read_excel(dire+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'Top50GM2.xlsx', sheet_name='Closing_Price', index_col=0)
+    series = pd.read_excel(parent+fdel+'User_Data'+fdel+'SavedData'+fdel+'Top50GM2.xlsx', sheet_name='Closing_Price', index_col=0)
     series = series[series.columns[0]].rename('Global M2 aggregate (top 50)')
 
     fore = YoY_Forecast(series, convert_units = 10**12)

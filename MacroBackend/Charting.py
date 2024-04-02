@@ -1,11 +1,15 @@
 import numpy as np
+import re
 import pandas as pd
 from pandas.tseries.frequencies import to_offset
+import matplotlib as mpl
+from matplotlib import legend
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 import matplotlib.dates as mdates
 from matplotlib.gridspec import GridSpec
 import matplotlib.colors as mcolors
+from matplotlib.font_manager import FontProperties
 ### These are standard python packages included in the latest python distributions. No need to install them. 
 import datetime
 from datetime import timedelta
@@ -26,6 +30,33 @@ Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  'peru', 'plum', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 
  'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'springgreen', 'steelblue', 'tan', 'teal', 'tomato', 
  'turquoise', 'violet','yellowgreen']
+
+#######UTILTY FUNCYTIONS ############################
+def get_fig_ax_sizes(fig: plt.Figure):
+    # Assuming 'ax' is your Axes object and 'fig' is your Figure object
+    fig_width, fig_height = fig.get_size_inches()  # Size of the whole figure in inches
+    ax = fig.get_axes()[0]  # Get the first axes
+    ax_position = ax.get_position()  # Position of the axes in figure coordinates
+
+    # Calculate the size of the axes in inches
+    ax_width = fig_width * (ax_position.x1 - ax_position.x0)
+    ax_height = fig_height * (ax_position.y1 - ax_position.y0)
+
+    return {"fig_width": fig_width, "fig_height": fig_height, "ax_width": ax_width, "ax_height": ax_height, "bottom_left_corner": (ax_position.x0, ax_position.y0)}
+
+def adjust_y_for_legHeight(fig: plt.Figure, leg: legend.Legend, locList: list, dimsdict: dict, heights: list = None, j: int = 0):
+    # Assuming 'fig' is your Figure object and 'leg' is your Legend object
+    renderer = fig.canvas.get_renderer()
+    bbox = leg.get_window_extent(renderer)
+    bbox = bbox.transformed(fig.dpi_scale_trans.inverted()) # Convert the bounding box to figure coordinates
+    print("Box width, height: ", bbox.width, bbox.height) #These are in inches. 
+    if heights is not None:
+        heights.append(bbox.height)
+    # # Calculate the new y-coordinate for the legend
+    new_y = locList[j][1] - ((bbox.height-0.216365)/dimsdict["fig_height"])
+    print("Old y: ", locList[j][1], "New y: ", new_y)
+    # # Set the new location of the legend
+    leg.set_bbox_to_anchor((locList[j][0], new_y))
 
    #######. MatPlotLib Section. Making good figs with MPL takes many lines of code dagnammit.  ###################
 def FedFig(TheData:pd.Series,SeriesInfo:pd.Series,RightSeries:pd.Series=None,rightlab="",LYScale="linear",RYScale="linear",CustomXAxis=True):
@@ -52,7 +83,7 @@ def FedFig(TheData:pd.Series,SeriesInfo:pd.Series,RightSeries:pd.Series=None,rig
         yTicks = np.real(np.logspace(start = np.log10(ymin), stop = np.log10(ymax), num=8, base=10)); #yTicks.round(decimals=0,out=yTicks)
     else:  
         yTicks = np.real(np.linspace(start = ymin, stop = ymax, num=8)); #yTicks.round(decimals=0,out=yTicks)
-    yTicks = np.ndarray.astype(yTicks,dtype=float,copy=False)  
+    yTicks = np.ndarray.astype(yTicks,dtype=float,copy=False).flatten()
     ax.tick_params(axis='y',which='both',width=0,labelsize=0); ax.minorticks_off() #Had to do this to eliminate pesky ticks that kept coming on top of my custom ones.  
     ax.set_yticks(yTicks); ax.set_yticklabels(yTicks); ax.yaxis.set_major_formatter('{x:1.1f}'); ax.tick_params(axis='y',which='major',width=0.5,labelsize='small') 
     if RightSeries is not None: 
@@ -62,7 +93,7 @@ def FedFig(TheData:pd.Series,SeriesInfo:pd.Series,RightSeries:pd.Series=None,rig
             bTicks = np.real(np.logspace(start = np.log10(Eq_ymin), stop = np.log10(Eq_ymax), num=8, base=10)); #bTicks.round(decimals=0,out=bTicks) 
         else:
             bTicks = np.real(np.linspace(start = Eq_ymin, stop = Eq_ymax, num=8)); #bTicks.round(decimals=0,out=bTicks) 
-        bTicks = np.ndarray.astype(bTicks,dtype=float,copy=False)  
+        bTicks = np.ndarray.astype(bTicks,dtype=float,copy=False).flatten()  
         axb.tick_params(axis='y',which='both',width=0,labelsize=0); axb.minorticks_off() #Had to do this to eliminate pesky ticks that kept coming on top of my custom ones. 
         axb.set_yticks(bTicks); axb.set_yticklabels(bTicks)
         axb.tick_params(axis='y',which='major',width=0.5,labelsize='small')     #All this to get y custom evenly spaced log ticks.
@@ -160,32 +191,32 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     ax = fig.add_subplot(gs[0]); ax1 = fig.add_subplot(gs[1],sharex=ax)
     plot1 = ax.plot(NetLiquidity,color=NLQ_Color,lw=2.5,label=Mainlabel)
     if NLQMA is not None:
-        MA = ax.plot(NLQMA,color='gold',lw=1,label='NLQ MA ('+str(NLQ_MAPer)+'day)')
+        MA = ax.plot(NLQMA,color='orange',lw=1,label='NLQ MA ('+str(NLQ_MAPer)+'day)')
     legend_1 = ax.legend(loc=2,fontsize='small',bbox_to_anchor=(0,1.06),framealpha=1)
     legend_1.remove(); ax.minorticks_on()
     i = 0; axList = []; Handles= []; Labels = []
     for CA in CADict.keys():
         AssDF = CADict[CA][0]
         if i == 0:
-            FirstAss = AssDF['Close']; FAName = CA; FAColor = CADict[CA][1]
+            FirstAss = AssDF; FAName = CA; FAColor = CADict[CA][1]
         if i == 1:
             axc = ax.twinx()
-            CA2, = axc.plot(AssDF['Close'],label=CA,color=CADict[CA][1]); axc.axis('off')
+            CA2, = axc.plot(AssDF,label=CA,color=CADict[CA][1]); axc.axis('off')
             axList.append(axc); Handles.append(CA2); Labels.append(CA)
             #axc.set_ylabel(RightLabel,fontweight='bold')
         if i == 2:    
             axd = ax.twinx() 
-            CA3, = axd.plot(AssDF['Close'],label=CA,color=CADict[CA][1]); axd.axis('off')
+            CA3, = axd.plot(AssDF,label=CA,color=CADict[CA][1]); axd.axis('off')
             axList.append(axd); Handles.append(CA3); Labels.append(CA)
             # axd.set_ylabel(RightLabel,fontweight='bold')
         if i == 3:
             axe = ax.twinx() 
-            CA4, = axe.plot(AssDF['Close'],label=CA,color=CADict[CA][1]); axe.axis('off')
+            CA4, = axe.plot(AssDF,label=CA,color=CADict[CA][1]); axe.axis('off')
             axList.append(axe); Handles.append(CA4); Labels.append(CA)
             # axe.set_ylabel(RightLabel,fontweight='bold')
         if i == 4:
             axf = ax.twinx() 
-            CA5, = axf.plot(AssDF['Close'],label=CA,color=CADict[CA][1]); axf.axis('off')
+            CA5, = axf.plot(AssDF,label=CA,color=CADict[CA][1]); axf.axis('off')
             axList.append(axf); Handles.append(CA5); Labels.append(CA) 
             # axf.set_ylabel(RightLabel,fontweight='bold')
         i += 1
@@ -206,11 +237,11 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     if RYMax is not None and pd.isna(RYMax) is False:
         Eq_ymax = RYMax; axb.set_ylim(top=Eq_ymax)
     else:
-        Eq_ymax = AssetData['Close'].max()
+        Eq_ymax = AssetData.max()
     if RYMin is not None and pd.isna(RYMin) is False: 
         Eq_ymin = RYMin; axb.set_ylim(bottom=Eq_ymin)
     else:    
-        Eq_ymin = AssetData['Close'].min()
+        Eq_ymin = AssetData.min()
     if LYScale == 'log' and RYScale == 'log':       ##This provides cool looking equally spaced log ticks and tick labels on both y axii. 
         for axis in axList:
             axis.set_yscale('log')
@@ -226,14 +257,16 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
     else:
         print('LYSCale and RYSCale must be set to the same values in the input file. Either log or linear, fatal ERORRRR.')    
         quit()
-    bTicks = np.ndarray.astype(bTicks,dtype=float,copy=False); yTicks = np.ndarray.astype(yTicks,dtype=float,copy=False)     
+    
+    bTicks = np.ndarray.astype(bTicks,dtype=float,copy=False).flatten() ; yTicks = np.ndarray.astype(yTicks,dtype=float,copy=False).flatten()  
     axb.grid(visible=True, which='major', axis='both', c='gray',ls=':',lw=0.75)
     axb.tick_params(axis='y',which='both',width=0,labelsize=0); axb.minorticks_off() #Had to do this to eliminate pesky ticks that kept coming on top of my custom ones. 
-    axb.set_yticks(bTicks); axb.set_yticklabels(bTicks)
     axb.tick_params(axis='y',which='major',width=0.5,labelsize='small')     #All this to get y custom evenly spaced log ticks. 
+    axb.set_yticks(bTicks)
     ax.tick_params(axis='y',which='both',width=0,labelsize=0); ax.minorticks_off() #Had to do this to eliminate pesky ticks that kept coming on top of my custom ones.    
-    ax.set_yticks(yTicks); ax.set_yticklabels(yTicks)
-
+    ax.set_yticks(yTicks)
+    ax.tick_params(axis='y',which='major',width=0.5,labelsize='small') 
+    
     if YAxLabPrefix is not None:
         ax.yaxis.set_major_formatter(YAxLabPrefix+' {x:1.0f}'); axb.yaxis.set_major_formatter(YAxLabPrefix+' {x:1.1f}')
     else:
@@ -330,23 +363,31 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
         ax1.text(text1)
     return fig   
 
+# Define a custom sorting key that extracts the number from each string
+def sort_key(s: str):
+    print("sort key, s: ", s, type(s))
+    # Find all groups of digits in the string
+    numbers = re.findall(r'\d+', s)
+    # Return the first number as an integer, or 0 if there are no numbers
+    return int(numbers[0]) if numbers else 0
+
 class BMP_Fig(Figure):
     
     #LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
                #LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None
-    def __init__(self,*args,margins:dict=None,numaxii:int=1,DataSourceStr:str="",**kwargs):  #margins is a dict like {top = 0.95, bottom=0.14 ,left=0.06,right=0.92}
-        # figsize is a tuple like (width, height).
+    def __init__(self, plotDatas:dict = None, *args, margins:dict=None,numaxii:int=1,DataSourceStr:str="",**kwargs):
+        # figsize is a tuple like (width, height). #margins is a dict like {top = 0.95, bottom=0.14 ,left=0.06,right=0.92}
         plt.rcParams['font.family'] = 'serif'
+        self.plotDatas = plotDatas
+        self.DataSourceStr = DataSourceStr
+        self.numaxii = numaxii
         super().__init__(*args,**kwargs)
+        self.add_subplot(1, 1, 1)
+        self.subplots_adjust(**margins)
         if margins is not None:
-            print('Using margin dict unpacking')
-            self.gs = GridSpec(1, 1, **margins)
-            bot = margins["bottom"]
+            self.subplots_adjust(**margins)
         else:
-            self.gs = GridSpec(1, 1, top = 0.95, bottom=0.14 ,left=0.06,right=0.92)    
-            bot = 0.14
-        print("Chart bottom: ",bot)    
-        self.add_subplot(self.gs[0])
+            self.subplots_adjust(top=0.95, bottom=0.14 ,left=0.06,right=0.92)
         self.ax1 = self.axes[0]
         for axis in ['top','bottom','left','right']:
             self.ax1.spines[axis].set_linewidth(1.5)
@@ -354,31 +395,29 @@ class BMP_Fig(Figure):
             axis = self.ax1.twinx()
         self.ax1.minorticks_on()
         self.ax1.grid(visible=True,which='major',axis='both',lw=0.75,color='gray',ls=':')    
-        self.ax1.tick_params(axis='x',which='both',labelsize=12)
-          
-        if bot < 0.14: 
-            self.ax1.text(-0.05, -0.135 , 'Charts by The Macro Bootlegger (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
-            self.ax1.text(1.05, -0.135 , DataSourceStr,fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
-        else:
-            self.ax1.text(-0.05, -0.195, 'Charts by The Macro Bootlegger (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)  
-            self.ax1.text(1.05, -0.195 , DataSourceStr,fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)       
+        self.ax1.tick_params(axis='x',which='both',labelsize=12)   
     
-    def AddTraces(self,Traces:dict): #Traces is a nested dict with details of each trace such as color, linewidth etc. 
-        i = 0; AxList =  self.axes
-        locList = [(-0.025,-0.105),(0.375,-0.105),(0.75,-0.105),(-0.025,-0.16),(0.375,-0.16)]
-        for trace in Traces.keys():
-            TheTrace = Traces[trace]
-            if TheTrace['show_hide'] == 'Hide':
-                continue
-            
-            data = TheTrace['Data']; name = TheTrace['Name']; Ylabel = TheTrace['axlabel']
-            print(name,Ylabel)
-            if Ylabel == 'nan':
-                TheTrace['axlabel'] = TheTrace['UnitsType']
-            print('Charting function, data: ',name,type(data))
+    def AddTraces(self, plotDatas: dict = None): #plotDatas is a nested dict with details of each trace such as color, linewidth etc. 
+        if plotDatas is not None:
+            self.plotDatas = plotDatas
+        elif plotDatas is None:
+            plotDatas = self.plotDatas
+            if plotDatas is None:
+                print("No plot data provided, add the plotDatas dict to either __init__() method or AddTraces. Exiting...")    
+                quit()    
+        else:
+            pass        
 
-            TheAx = AxList[i]; ymax = TheTrace['Ymax']; ymin = TheTrace['Ymin']
-            
+        i = 0; AxList =  self.axes
+        for axes_name in plotDatas:
+            TheAx = AxList[i]; LabOffset = 0; labSuffix = ''
+            the_axdict = plotDatas[axes_name]; ymax = the_axdict['Ymax']; ymin = the_axdict['Ymin']
+  
+            primary_trace = the_axdict['data'][0]
+            Ylabel = primary_trace['axlabel']
+            if Ylabel == 'nan':
+                primary_trace['axlabel'] = primary_trace['UnitsType']
+
             if pd.isna(ymax) or ymax == '':
                 Ymax = None
             else:
@@ -386,100 +425,103 @@ class BMP_Fig(Figure):
             if pd.isna(ymin) or ymin == '':
                 Ymin = None
             else:
-                Ymin = ymin  
-            if pd.isna(TheTrace['LW']):
-                LW = 1.5
-            else:
-                LW = TheTrace['LW']    
+                Ymin = ymin 
 
             scales = ['linear', 'log', 'symlog', 'asinh', 'logit', 'function', 'functionlog']
-            if TheTrace['YScale'] in scales:
-                TheAx.set_yscale(TheTrace['YScale'])
-                print(trace,TheAx, 'Use scale: ', TheTrace['YScale'])
+            nc_scales = ['symlog', 'asinh', 'logit', 'function', 'functionlog']
+            if primary_trace['YScale'] in nc_scales:
+                print("Y-scales other than linear or log are not yet supported, choose only linear or log.")
+                quit()
+            else:    
+                TheAx.set_yscale(primary_trace['YScale'])
+                print(TheAx, 'Use scale: ', primary_trace['YScale'])
 
-            if TheTrace['YScale'] == 'log' and TheTrace['UnitsType'] not in ['Unaltered','Rolling sum']:
-                print('Using offset log axis for series: ',TheTrace['Name'])
-                TheTrace['Data'] += 100
+            if primary_trace['YScale'] == 'log' and primary_trace['UnitsType'] not in ['Unaltered','Rolling sum']:
+                print('Using offset log axis for series: ',primary_trace['Name'])
+                primary_trace['Data'] += 100
                 if Ymin is not None:
                     Ymin += 100
                 if Ymax is not None:
                     Ymax += 100    
-                if type(data) == pd.DataFrame:
-                    for col in data.columns:
-                        TheAx.plot(data[col],label = data[col].name,lw=LW)
-                else:        
-                    TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
-                TheAx.minorticks_off()
-                ticks, ticklabs = Utilities.EqualSpacedTicks(10, TheTrace['Data'], LogOrLin='log',LabOffset=-100,labSuffix='%',Ymax=Ymax,Ymin=Ymin)
-                TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
-                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)
-                if i > 0:
-                    TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])
-                    TheAx.set_ylabel(TheTrace['UnitsType'],fontweight='bold',fontsize=9,labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])  
-                else:
-                    self.ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])   
-                    self.ax1.set_ylabel(TheTrace['UnitsType'],fontweight='bold')      
+                LabOffset = -100
+                labSuffix = '%'
+
+            TheAx.minorticks_off()
+            ticks, ticklabs = Utilities.EqualSpacedTicks(10, primary_trace['Data'], LogOrLin=primary_trace['YScale'],LabOffset=LabOffset,labSuffix=labSuffix,Ymax=Ymax,Ymin=Ymin)
+            TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
+            TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)
+            axLabel = primary_trace["axlabel"]
+            if pd.isna(axLabel) and primary_trace['UnitsType'] in ['Unaltered','Rolling sum']:
+                axLabel = "USD"
+            elif pd.isna(axLabel) and primary_trace['UnitsType'] not in ['Unaltered','Rolling sum']: 
+                axLabel = primary_trace['UnitsType']   
+            if pd.isna(axLabel):
+                axLabel = ""
+
+            if i > 0:
+                TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=primary_trace['TraceColor'],color=primary_trace['TraceColor'])
+                TheAx.set_ylabel(axLabel,fontweight='bold',fontsize=9,labelpad=-5,alpha=0.5,color=primary_trace['TraceColor'])  
             else:
-                if type(data) == pd.DataFrame:
+                self.ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=primary_trace['TraceColor'],color=primary_trace['TraceColor'])   
+                self.ax1.set_ylabel(axLabel,fontweight='bold')               
+
+            for axData in the_axdict['data']:
+                traceData = axData
+                data = traceData['Data']; name = traceData['Name']
+
+                LW = 1.5 if pd.isna(traceData['LW']) else traceData['LW']
+
+                if isinstance(data, pd.DataFrame):
                     for col in data.columns:
-                        TheAx.plot(data[col],label = data[col].name,lw=LW)
+                        TheAx.plot(data[col], label = data[col].name, lw=LW)
                 else:        
-                    TheAx.plot(TheTrace['Data'],label = TheTrace['Legend_Name'],color=TheTrace['TraceColor'],lw=LW)
-                    if pd.isna(TheTrace['addMA']) is False:
-                        period = round(TheTrace['addMA'])
-                        ThisTrace = pd.Series(TheTrace['Data'])
-                        TheAx.plot(ThisTrace.rolling(period).mean(),label = TheTrace['Legend_Name']+' '+str(period)+'_MA',color=TheTrace['TraceColor'],lw=1)
-                ticks, ticklabs = Utilities.EqualSpacedTicks(10, TheTrace['Data'],LogOrLin=TheTrace['YScale'],Ymax=Ymax,Ymin=Ymin)
-                TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
-                TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)
-                if i > 0:
-                    TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])
-                    TheAx.set_ylabel(TheTrace['axlabel'],fontweight='bold',fontsize=9,labelpad=-5,alpha=0.5,color=TheTrace['TraceColor'])  
+                    TheAx.plot(traceData['Data'],label = traceData['Legend_Name'],color=traceData['TraceColor'],lw=LW)
+                
+                if not pd.isna(traceData['addMA']):
+                    period = round(traceData['addMA'])
+                    ThisTrace = pd.Series(traceData['Data'])
+                    TheAx.plot(ThisTrace.rolling(period).mean(),label = traceData['Legend_Name']+' '+str(period)+'_MA',color=traceData['TraceColor'],lw=1)
+                
+                if pd.isna(traceData['FitTrend']) or type(data) == pd.DataFrame:
+                        pass
                 else:
-                    self.ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=TheTrace['TraceColor'],color=TheTrace['TraceColor'])   
-                    self.ax1.set_ylabel(TheTrace['axlabel'],fontweight='bold')   
+                    print("Fit trend: ", traceData['FitTrend'])
+                    try:
+                        params = str(traceData['FitTrend']).split(",")
+                        fit = Fitting.FitTrend(data)
+                        fit.FitData(FitFunc = params[0].strip(), x1 = params[1].strip(), x2 = params[2].strip())
+                        # TheAx.plot(fit.fit, color=traceData['TraceColor'], ls = "dashed", lw = 2)
+                        TheAx.plot(fit.ext_fit, color=traceData['TraceColor'], ls = "dashed", lw = 1)
+                    except Exception as e:
+                        print("Fitting trend failed.... Error message: ", e, "\nWill plot trace without trendline...")    
 
-            if not pd.isna(TheTrace["FitTrend"]) and TheTrace['UnitsType'] in ['Unaltered','Rolling sum']:
-                TheAx.set_ylim(ticks[0]-0.03*ticks[0], ticks[-1]+0.03*ticks[-1]) 
+                # if not pd.isna(primary_trace["FitTrend"]) and primary_trace['UnitsType'] in ['Unaltered','Rolling sum']:
+                #     TheAx.set_ylim(ticks[0]-0.03*ticks[0], ticks[-1]+0.03*ticks[-1]) 
 
-            if Ymax is not None and Ymin is not None:
-                TheAx.set_ylim(Ymin,Ymax)
-            elif Ymax is not None and Ymin is None:  
-                TheAx.set_ylim(TheTrace['Data'].min(),Ymax)    
-            elif Ymax is None and Ymin is not None:  
-                TheAx.set_ylim(Ymin,TheTrace['Data'].max())     
-            if i > 1:
-                TheAx.spines.right.set_position(("axes", 1+((i-1)*0.055))); 
-            TheAx.margins(0.02,0.02)
-            TheAx.spines['right'].set_linewidth(1.5)
-            TheAx.spines['right'].set_color(TheTrace['TraceColor'])
-            if type(data) == pd.DataFrame:
-                title = TheTrace['Legend_Name']
-                l = TheAx.legend(title=title,title_fontsize=9,loc='best')
-                Title = l.get_title(); Title.set_color(TheTrace['TraceColor'])
-            else:    
-                TheAx.legend(fontsize=9,loc=locList[i]) 
-
-            print("Fit trend: ", TheTrace['FitTrend'])
-            if pd.isna(TheTrace['FitTrend']) or type(data) == pd.DataFrame:
-                pass
-            else:
-                try:
-                    params = str(TheTrace['FitTrend']).split(",")
-                    fit = Fitting.FitTrend(data)
-                    fit.FitData(FitFunc = params[0].strip(), x1 = params[1].strip(), x2 = params[2].strip())
-                    # TheAx.plot(fit.fit, color=TheTrace['TraceColor'], ls = "dashed", lw = 2)
-                    TheAx.plot(fit.ext_fit, color=TheTrace['TraceColor'], ls = "dashed", lw = 1)
-                except Exception as e:
-                    print("Fitting trend failed.... Error message: ", e, "\nWill plot trace without trendline...")    
+                # if Ymax is not None and Ymin is not None:
+                #     TheAx.set_ylim(Ymin,Ymax)
+                # elif Ymax is not None and Ymin is None:  
+                #     TheAx.set_ylim(primary_trace['Data'].min(),Ymax)    
+                # elif Ymax is None and Ymin is not None:  
+                #     TheAx.set_ylim(Ymin,primary_trace['Data'].max())     
+                if i > 1:
+                    TheAx.spines.right.set_position(("axes", 1+((i-1)*0.055))); 
+                TheAx.margins(0.02,0.02)
+                TheAx.spines['right'].set_linewidth(1.5)
+                TheAx.spines['right'].set_color(primary_trace['TraceColor'])
+                # if isinstance(data, pd.Series):
+                #     TheAx.legend(fontsize=9,loc=locList[i]) 
             i += 1      
 
         self.ax1.minorticks_on()
         self.ax1.tick_params(axis='y',which='minor',left=False,labelleft=False,width=0,length=0)
         self.ax1.grid(visible=True,which='major',axis='y',lw=0.75,color='gray',ls=':')     
-        self.ax1.grid(visible=True,which='both',axis='x',lw=0.75,color='gray',ls=':')      
+        self.ax1.grid(visible=True,which='both',axis='x',lw=0.75,color='gray',ls=':')   
+
+        self.org_x_axis()
         
         ####### All this below is to ensure that we get the minorticks in the correct locations. They can be out of sync with majors due to rounding. #############
+    def org_x_axis(self):
         majList = self.ax1.xaxis.get_majorticklocs(); dist = []; newMinTicks = []; majTicks = []
         minTickLocs = self.ax1.xaxis.get_minorticklocs()
         for i in range(len(majList)):
@@ -492,12 +534,10 @@ class BMP_Fig(Figure):
                     newMinTicks.append(majList[i]); majTicks.append(majList[i])
                 newMinTicks.append(majList[i]+j*(dist[i]/4))
                 majTicks.append(np.nan)
-        majList2 = [np.nan for i in range(len(newMinTicks)-len(majList))]; minTickLocs2 = [np.nan for i in range(len(newMinTicks)-len(minTickLocs))]
+    
         newMinTicks2 = [np.nan for i in range(len(newMinTicks)-len(newMinTicks))]
-        majList3 = [*majList2,*majList]; minTickLocs3 = [*minTickLocs2,*minTickLocs]; newMinTicks3 = [*newMinTicks2,*newMinTicks]
-        tickDict = {'MajTickLocs':majTicks,'NewMinTickLocs':newMinTicks3,"OldTickLocs":minTickLocs3}
-        tickDF = pd.DataFrame(tickDict)
-        self.ax1.set_xticks(newMinTicks3,minor=True); self.ax1.set_xticks(majList); #self.ax1.set_xlim(majList[0]-0.03*majList[0], majList[-1]+0.03*majList[-1])
+        newMinTicks3 = [*newMinTicks2,*newMinTicks]
+        self.ax1.set_xticks(newMinTicks3,minor=True); self.ax1.set_xticks(majList)
         self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
         self.ax1.margins(0.01,0.05)
     
@@ -507,6 +547,79 @@ class BMP_Fig(Figure):
     def addLogo(self,path):
         logo = plt.imread(path)
         self.figimage(logo,xo=2600,yo=10,origin = 'upper')    
+
+    def make_legend(self, legtype: str = "single"):
+        fig = self  # Get the current figure
+        axes = list(fig.get_axes())  # Get all axes in the figure
+        row_1 = -0.11
+        locList = [(-0.045,row_1),(0.375,row_1),(0.75,row_1),(-0.045,-0.21),(0.375,-0.21)]
+        self.dimsdict = get_fig_ax_sizes(fig)
+        print("Plot dimensions: ", self.dimsdict, "bottom left corner of plot: ", self.dimsdict['bottom_left_corner'])
+       
+        if legtype == "single":  #One single legend for all traces & axes:
+            lines, labels = [], []
+            locList = [(-0.02, row_1)]
+            for ax in axes:
+                line, label = ax.get_legend_handles_labels()
+                lines += line
+                labels += label
+            leg = axes[0].legend(lines, labels, ncol = 5, loc = (-0.02, row_1), fontsize=  "small")
+            leg.set_draggable(True)
+            adjust_y_for_legHeight(fig, leg, locList, self.dimsdict)
+
+        elif legtype == 'one_per_axes':  
+            legdict = {}; i = 0; heights = []
+
+            for axes_name in self.plotDatas:
+                TheAx = axes[i]
+                ax_color = self.plotDatas[axes_name]['data'][0]['TraceColor'] 
+                lines, labels = TheAx.get_legend_handles_labels()
+
+                if i == 0:
+                    legdict["Left axis: "] = (lines, labels, ax_color)
+                else:
+                    legdict["Right axis_"+str(i)+": "] = (lines, labels, ax_color)
+                i += 1  
+
+                j = 0    
+            for axes_name in legdict.keys():    
+                if j == 3:
+                    print("Legend box heights: ", heights, "max height", max(heights))
+                    row2 = row_1 - (max(heights)/self.dimsdict["ax_height"]) -0.01
+                    print("Row 2: ", row2)
+                    locList = [(-0.025,row_1),(0.375,row_1),(0.75,row_1),(-0.025,row2),(0.375,row2)]
+                leg = axes[j].legend(legdict[axes_name][0], legdict[axes_name][1], ncol = 2,  loc = locList[j],
+                    fontsize="small", frameon = True, edgecolor = legdict[axes_name][2])#, title = axes_name, title_fontsize = "small")
+                leg.set_draggable(True)
+                #leg._legend_title_box._text.set_color(legdict[axes_name][2])
+                
+                adjust_y_for_legHeight(fig, leg, locList, self.dimsdict, heights = heights, j = j)
+                
+                j += 1
+
+            if self.numaxii <= 3:
+                leg_heights =  max(heights[::self.numaxii - 1])/self.dimsdict["ax_height"]
+                bottom = ((max(heights[::2])) + min(heights))/self.dimsdict["fig_height"] + 0.08
+            else: 
+                leg_heights = (max(heights[::2]) + max(heights[3::]))/self.dimsdict["ax_height"]
+                bottom = ((max(heights[::2]) + max(heights[3::]) + min(heights))/self.dimsdict["fig_height"]) + 0.08
+            print("Leg heights: ", leg_heights)
+        
+            ax = fig.get_axes()[0]  # Get the first axes
+            y0 = ax.get_position().y0; y1 = ax.get_position().y1 # Get the bottom position of the axes
+            self.text_box_row = row_1 - leg_heights - 0.015
+            print("Text box row should be at: ", self.text_box_row)
+            ax.text(-0.05, self.text_box_row , 'Charts by The Macro Bootlegger (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
+            ax.text(1.05, self.text_box_row , self.DataSourceStr, fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
+            
+            print("Heights of legends: ", heights)
+            print("Bottom: ", bottom)
+            self.bottom = bottom
+            self.subplots_adjust(bottom = bottom)
+
+        else:
+            print("Invalid legend type (legtype) specified. Choose 'single' or 'one_per_axes'.") 
+            quit()   
 
 def DF_DefPlot(data: pd.DataFrame, yLabel: str = "a.u", YScale:str='linear', title: str = "DataFrame contents"):
     plt.rcParams['font.family'] = 'serif'

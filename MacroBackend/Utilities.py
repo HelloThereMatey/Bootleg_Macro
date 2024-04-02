@@ -43,12 +43,7 @@ def append_to_column(workbook_path, sheet_name:str = 'Sheet1', column:str = 'A',
     # Save the workbook
     workbook.save(workbook_path)
 
-def count_zeros_after_decimal(series: pd.Series = None, value: float = None) -> int:
-    if series is not None:
-        median_value = series.median()
-    else:
-        median_value = value   
-    
+def count_zeros_after_decimal(median_value: float) -> int:
     if median_value < 1 and median_value > 0:
         str_val = str(median_value).split('.')[1] # Convert to string and split by decimal point
         return len(str_val) - len(str_val.lstrip('0')) + 1
@@ -57,17 +52,18 @@ def count_zeros_after_decimal(series: pd.Series = None, value: float = None) -> 
 
 def EqualSpacedTicks(numTicks, data: Union[pd.Series, pd.DataFrame] = None,
         LogOrLin:str='linear',LabOffset=None,labPrefix:str=None,labSuffix:str=None,Ymin:float=None,Ymax:float=None):
+    print("Equal spaced ticks fucntion, ", Ymax, Ymin)
      
     if data is not None:
+        print("Data is not None.")
         if Ymin is None:
-            Ymin = data.min()
+            print('No Ymin specified, using minimum of input data.')
+            Ymin = data.min().min()
         if Ymax is None:  
-            Ymax = data.max()    #Major ticks custom right axis. 
+            print('No Ymax specified, using maximum of input data.')
+            Ymax = data.max().max()    #Major ticks custom right axis. 
 
-    if data is not None:
-        decimals = count_zeros_after_decimal(series = data)
-    else:
-        decimals = count_zeros_after_decimal(value = (Ymax - Ymin)/2)
+    decimals = count_zeros_after_decimal(median_value = (Ymax - Ymin)/2)
 
     if LogOrLin == 'log':
         Ticks = np.logspace(start = np.log10(Ymin), stop = np.log10(Ymax), num=numTicks, base=10); tickLabs = Ticks.copy()
@@ -694,6 +690,8 @@ def CheckIndexDifference(series1:Union[pd.DataFrame, pd.Series], series2:Union[p
     return differences
     
 def DetermineSeries_Frequency(series: pd.Series):
+    if isinstance(series, pd.DataFrame):
+        series = series[series.columns[0]]
     multiplier = 1
 
     frequency_dict = {
@@ -806,7 +804,7 @@ class api_keys():
             self.keys = json.load(keyFile)
         elif keyFile is not None and default_keyFile is None:   
             self.keys = json.load(keyFile)
-            print("Key file found: ", self.keys)
+            print("Key file found, all good bruv. ")
         elif default_keyFile is not None and keyFile is None:    
             print("No file: 'API_Keys.json' found in 'MacroBackend/SystemInfo'folder. However 'API_Keys_demo.json' was found. \nYou need to paste in your API keys\
                   into 'API_Keys_demo.json', save the filee and then get rid of the '_demo' to leave the file named as 'API_Keys.json'. After this your API keys\

@@ -3,7 +3,7 @@ wd = os.path.dirname(__file__)  ## This gets the working directory which is the 
 dir = os.path.dirname(wd)
 print(wd,dir)
 import sys ; sys.path.append(dir)
-from MacroBackend import PriceImporter ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it yet, it will be found when run. 
+from MacroBackend import PriceImporter, Pull_Data ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it yet, it will be found when run. 
 from MacroBackend import Utilities
 import numpy as np
 import pandas as pd
@@ -94,11 +94,12 @@ print(dfIn)
 
 scamFimode = bool(dfIn.loc[6].at["api1"])
 if scamFimode is True:
-    print("Are you some kind of degen fuck? Stop playing with silly cricular numbers and learn what money is.")
+    print("Are you some kind of degen fuck? Stop playing with silly circular number scams and learn what money is.")
     LP_Entry_Date = str(dfIn.loc[7].at["api1"])
     LP_Exit_Date = str(dfIn.loc[8].at["api1"])
     LP_Entry = datetime.datetime.strptime(LP_Entry_Date.split(' ')[0],'%Y-%m-%d').date()
     LP_Exit = datetime.datetime.strptime(LP_Exit_Date.split(' ')[0],'%Y-%m-%d').date()
+    print("Scamfi mode on, entry, exit dates: ", LP_Entry, LP_Exit)
 
 api1 = str(dfIn.loc[0].at["api1"]); api2 = str(dfIn.loc[0].at["api2"])
 type1 = str(dfIn.loc[1].at["api1"]); type2 = str(dfIn.loc[1].at["api2"])
@@ -152,10 +153,21 @@ if mode == 'disk':
 else:    
     #Pull data from APIs:
     print('Asset 1 is: '+str(asset1)); print('Asset 2 is: '+str(asset2))
-    df = PriceImporter.PullDailyAssetData(strAss1,api1,start,endDate=None)
-    df2 = PriceImporter.PullDailyAssetData(strAss2,api2,start,endDate=None)
+    df = Pull_Data.dataset(api1, strAss1, start).data
+    df2 = Pull_Data.dataset(api2, strAss2, start).data
     df = df[start:end]; df2 = df2[start:end]
 
+act_start = pd.to_datetime(df.index[0]).date()
+req_start = datetime.datetime.strptime(start,'%Y-%m-%d').date()
+if req_start < act_start:
+    print("Requested start data earlier than actual start date....")
+    if scamFimode is True:
+        print("Are you some kind of degen fuck? Stop playing with silly circular number scams and learn what money is.\
+              Suckle upon some SBF nutzz....")
+        LP_Entry_Date = act_start.strftime('%Y-%m-%d')
+        LP_Entry = datetime.datetime.strptime(LP_Entry_Date,'%Y-%m-%d').date()
+    
+# if Start_Date 
 length = len(df); length2 = len(df2)
 if(length < length2):
     print('Asset 1 data is shorter than asset 2.')
@@ -165,9 +177,6 @@ print('asset1 length: '+str(length)+ ', asset2 length: '+str(length2)+'.')
 
 df, df2 = PriceImporter.GetIndiciiSame(df,df2) 
 print(df,df2)    
-
-print("Start & end dates: ",Start_Date.strftime("%Y-%m-%d"), End_Date.strftime("%Y-%m-%d"), Start_Date, End_Date, type(Start_Date))
-print("Number of days the period covers: "+str(TimeLength)+'\r')
 
 PriceMatrix1 = pd.DataFrame(df); PriceMatrix2 = pd.DataFrame(df2)
 PriceMatrix1.fillna(method='ffill',inplace=True); PriceMatrix2.fillna(method='ffill',inplace=True)
@@ -187,12 +196,6 @@ if len(PriceMatrix2.columns) < 2:
 else:    
     Series2 = pd.Series(PriceMatrix2['Close'],name=strAss2)
     Price2 = pd.Series.to_numpy(Series2)
-
-# Use my covariance, correlation function: 
-#CovCorr = CovCorrCalc(Price1, Price2)
-# CovString = 'Asset pair co-variance over the whole \ntime period (manual): '+str(round(CovCorr[0], 4))
-# CorrString = 'Asset pair correlation over the whole \ntime period (manual): '+str(round(CovCorr[1], 4))
-# print(CovString); print(CorrString)
 
 #Check it with numpy and pandas correlation calculations:
 print('Standard deviation (numpy) asset1, asset2: ',np.std(Price1),np.std(Price2))
@@ -263,9 +266,13 @@ if scamFimode is True:
     entry = ax1.axvline(LP_Entry,ls=":",lw=1.25,color='green')     
     exit = ax1.axvline(LP_Exit,ls=":",lw=1.25,color='red') 
     middle = Percentage.index[round(len(Percentage)/2)]
-    dates = [pd.Timestamp(LP_Entry).date(), middle, pd.Timestamp(LP_Exit).date()]
-    idx = pd.DatetimeIndex(dates)
-    ent = idx[0]; mid = idx[1]; ex = idx[2]
+
+    ent = Utilities.GetClosestDateInIndex(Series1, LP_Entry.strftime("%Y-%m-%d"))[1]
+    ex = Utilities.GetClosestDateInIndex(Series2, LP_Exit.strftime("%Y-%m-%d"))[1]
+    mid = Percentage.index[round((ex - ent)/2)]
+    print("Midpoint of the date range: ",mid, round((ex - ent)/2))
+    
+    print(Series1.index)
     entryPratio = Series1[ent]/Series2[ent]
     exitPratio = Series1[ex]/Series2[ex]
     PratioDelta = round(((exitPratio-entryPratio)/entryPratio)*100,2)
@@ -273,8 +280,8 @@ if scamFimode is True:
     ax1.axhline(Percentage[ent],ls=":",lw=1.5,color='green')
     ax1.axhline(Percentage[ex],ls=":",lw=1.5,color='red')
     ax1.annotate("",xy=(mid,Percentage[ent]),xytext=(mid,Percentage[ex]),xycoords='data',textcoords="data",arrowprops={'arrowstyle':'<->'})
-    ax1.text(0.25,0.5,"LP ratio delta: "+str(PratioDelta)+"%",horizontalalignment='left',    
-                                     transform=ax1.transAxes,backgroundcolor='white',alpha=1,fontsize=9)
+    ax1.text(0.25,0.5,"LP ratio delta: "+str(PratioDelta)+"%",horizontalalignment='left', #bbox=dict(facecolor='none', edgecolor='black', boxstyle='round,pad=0'), 
+        transform=ax1.transAxes,backgroundcolor='white',alpha=1,fontsize=9)
     ax1.text(ent,Percentage[ent]+(0.05*Percentage[ent]),"LP entry",horizontalalignment='left', bbox = None, alpha=1,fontsize=9,c='green', fontweight='bold')
     ax1.text(ex,Percentage[ex]+(0.05*Percentage[ex]),"LP exit",horizontalalignment='right', bbox = None, alpha=1, fontsize=9,c='red', fontweight='bold')
     il = round((2*((PratioDelta/100)+1)**0.5/(2+(PratioDelta/100))-1)*100,2)             

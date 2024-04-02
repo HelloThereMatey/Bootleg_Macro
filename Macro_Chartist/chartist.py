@@ -21,6 +21,62 @@ import json
 import re
 from pprint import pprint
 
+### FUNCTION DEFINITIONS ############################################################################################################
+def concat_datasets_to_axes(seriesDict: dict):
+    # Create a dictionary to hold the concatenated datasets
+    SeriesDict_agg = {}
+
+    # Iterate over the items in the input dictionary
+    for _, value in seriesDict.items():
+        # Get the axes name
+        axes_name = value['plot_axis']
+        if axes_name == 'do not plot':
+            continue
+        # If this axes name is not yet in the SeriesDict_agg, add it with the current dataset
+        if axes_name not in SeriesDict_agg:
+            SeriesDict_agg[axes_name] = value
+        else:
+            # If this axes name is already in the SeriesDict_agg, concatenate the current dataset with the existing one
+            data_1 = SeriesDict_agg[axes_name]['Data']; data_2 = value['Data']
+            i = 0; datalist = [data_1, data_2]
+            for ds in datalist:
+                fr, pid, cunt = Utilities.DetermineSeries_Frequency(ds)
+                print("Results of Frequency determination: ", fr, pid, cunt)
+                if pid != 1:
+                    ds = resample_to_daily(ds, start_date= DataStart, end_date = EndDateStr)
+                datalist[i] = ds  
+                i += 1
+            SeriesDict_agg[axes_name]['Data'] = pd.concat([datalist[0], datalist[1]], axis = 1)
+    return SeriesDict_agg
+
+def agg_to_axes(seriesDict: dict, axtraceDict: dict):
+    SeriesDict_agg = {}
+    for key in axtraceDict.keys():
+        axTraceList = axtraceDict[key]
+        axDeetsList = []; ymaxs = []; ymins = []
+        for trace in axTraceList:
+            axDeetsList.append(seriesDict[trace])
+            ymaxs.append(seriesDict[trace]["Data"].max())
+            ymins.append(seriesDict[trace]["Data"].min())
+        SeriesDict_agg[key] = {'data': axDeetsList, "Ymax": max(ymaxs), 'Ymin': min(ymins)}
+    return SeriesDict_agg    
+
+def resample_to_daily(data: pd.DataFrame, start_date: str, end_date: str = datetime.date.today().strftime("%Y-%m-%d")):
+    #Can input a Series or a dataframe for the input data. Resamples the data to daily frequency. Assumes input freq lower than daily
+    Index = pd.date_range(start=start_date, end = end_date, freq='D')
+    data = PriceImporter.ReSampleToRefIndex(data, Index, 'D')
+    return data
+
+def scale_series(series: pd.Series):
+    # Calculate the order of magnitude of the maximum absolute value in the series
+    order_of_magnitude = np.floor(np.log10(series.abs().max())) - 1
+    
+    # Calculate the scaling factor as a power of 10
+    scaling_factor = 10 ** order_of_magnitude
+    
+    # Return the scaled series
+    return series / scaling_factor
+
 ###### Determine what OS this is running on and get appropriate path delimiter. #########
 fdel = os.path.sep
 print("Operating system: ",sys.platform, "Path separator character: ", fdel)
@@ -42,7 +98,7 @@ except:
         print("Very good. Screen measured. Now run script again. You shouldn't have to do this screen measure again.")
         quit()
 
-fwid = ((14*2.54)*10); fhght =  ((7*2.54)*10) #Figsize in mm.
+fwid = ((14*2.54)*10); fhght =  ((7.5*2.54)*10) #Figsize in mm.
 figsize = (fwid/(2.54*10), fhght/(2.54*10))   #Figsize in inches.
 pixel = float(ScreenSettings['Pixel size (mm)'])
 figsize_px = (round(fwid/pixel),round(fhght/pixel))
@@ -64,12 +120,15 @@ if pd.isna(myFredAPI_key):
     myFredAPI_key = keys.keys['fred']
 
 ######## Get the lower part of the Inputs dataframe with the optional parameters for traces 1 - 5 & append to side of trace_params.
-opt_params = Inputs.loc[6:10].reset_index(drop=True)
+opt_params = Inputs.loc[11:20].reset_index(drop=True)
 opt_params.columns = Inputs.loc["Options"]
 opt_params.index.rename("Index", inplace=True)
-trace_params = pd.concat([Inputs.loc[1:5].reset_index(), opt_params.reset_index(drop = True)], axis = 1).set_index("Index", drop = True)
-trace_params.to_excel(wd+fdel+"trace_params.xlsx")
-#param_dict = trace_params.to_dict()
+trace_params = pd.concat([Inputs.loc[1:10].reset_index(), opt_params.reset_index(drop = True)], axis = 1).set_index("Index", drop = True)
+
+######Fill nan values in certain parameter columns to the default values..
+#I could use this method to replace many of the if np.isna(parameter) statements below. 
+trace_params['Yaxis'].fillna('linear', inplace=True)
+trace_params['TraceColor'] = trace_params['TraceColor'].replace(['', 'nan', 'NaN', 'NAN', 'nAn', 'Nan', 'naN'], 'blue').fillna('blue')
 
 ############ SAVE AND LOAD CHART TEMPLATES #########################################################################
 if Inputs.loc['load_template_instead'].at['Series_Ticker'] == 'yes':
@@ -91,7 +150,7 @@ if Inputs.loc['OUTPUT_CONFIG'].at['Series_Ticker'] == 'yes' and Inputs.loc['load
 ############ CREATE A DICT WITH ALL THE PARAMETERS FROM THE CONTOL EXCEL FILE #########################################################################
 DayOne = Inputs.loc['StartDate'].at['Series_Ticker']; LastDay = Inputs.loc['EndDate'].at['Series_Ticker']
 print('Data start from input file: ',DayOne,', end: ',LastDay)
-if pd.isna(DayOne) is True:
+if pd.isna(DayOne):
     print('You must specify the starting date to pull data for in the inputs .xlsx file.')
     quit()
 else:
@@ -114,44 +173,71 @@ G_YMin = Inputs.loc['Global_Ymin'].at['Series_Ticker']
 G_YMax = Inputs.loc['Global_Ymax'].at['Series_Ticker']
 
 ########## PULL OR LOAD THE DATA ###########################################################################################
-
-for i in range(1,6):
-    ticker = trace_params.loc[i].at['Series_Ticker']; print(ticker)
+trace_params['Plot_Axis'].fillna('auto', inplace=True)
+for i in range(1, len(trace_params) + 1, 1):
+    ticker = trace_params.loc[i].at['Series_Ticker']
     if pd.isna(ticker):
         pass
     else:
-        name = "Trace_"+str(i)
+        name = ticker
         source = trace_params.loc[i].at['Source']; Tipe = str(trace_params.loc[i].at['UnitsType']).strip()
         color = trace_params.loc[i].at['TraceColor']; label = trace_params.loc[i].at['Legend_Name']
         yscale = trace_params.loc[i].at['Yaxis']; Ymax = trace_params.loc[i].at['Ymax']; resample = trace_params.loc[i].at['ReS_2_D']
         axlabel = trace_params.loc[i].at['Axis_Label']; idx = trace_params.index[i-1]; MA =  trace_params.loc[i].at['Sub_MA']; LW = trace_params.loc[i].at['LineWidth']
         convert = trace_params.loc[i].at['Divide_data_by']; Ymin = trace_params.loc[i].at['Ymin']; aMA =  trace_params.loc[i].at['Add_MA']
-        new_startDate = trace_params.loc[i].at['Limit_StartDate']; show = trace_params.loc[i].at['SHOW/HIDE']
+        new_startDate = trace_params.loc[i].at['Limit_StartDate']; plot = trace_params.loc[i].at['Plot_Axis']
         fit_trend = trace_params.loc[i].at['Add_fitted_trendline']
-        print("Trend fitting parameters entered: ", fit_trend)
-        SeriesDict[name] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label, 'Name': name,\
-                            'YScale': yscale,'axlabel': axlabel,'Ymax': float(Ymax),'Resample2D': resample, 'useMA': MA, 'addMA':aMA, 'LW': LW, 'Ticker_Source':ticker,
-                            'ConvertUnits':convert,'Ymin': float(Ymin), "start_date": new_startDate, "FitTrend": fit_trend, "show_hide": show}      
+        SeriesDict[ticker] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label,\
+                            'YScale': yscale,'axlabel': axlabel,'Ymax': float(Ymax), 'Name': name, 
+                            'Resample2D': resample, 'useMA': MA, 'addMA':aMA, 'LW': LW, 'Ticker_Source':ticker,
+                            'ConvertUnits':convert,'Ymin': float(Ymin), "start_date": new_startDate, "FitTrend": fit_trend, "plot_axis": plot}      
 
-SeriesList = trace_params['Series_Ticker'].copy(); SeriesList = SeriesList[0:5]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
-# Filter the DataFrame where "SHOW/HIDE" column is 'Show'
-filtered_df = trace_params[trace_params['SHOW/HIDE'] == 'Show']
-# Count the number of non-NaN values in the "Series_Ticker" column
-numAxii = filtered_df['Series_Ticker'].count()
+SeriesList = trace_params['Series_Ticker'].copy(); SeriesList = SeriesList[0:10]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
+# Filter the DataFrame where "Plot_Axis" column is 'Show'
+trace_params = trace_params[0:numSeries]
 
-print('Number of data series: ',numSeries,'Number of axii on chart: ',numAxii)
+AxSpecs = trace_params[trace_params["Plot_Axis"].isin(["ax1", "ax2", "ax3", "ax4", "ax5"])]["Plot_Axis"]
+numAxSpecs = len(AxSpecs); num_dif_axSpecs = AxSpecs.nunique()
+numAuto = trace_params['Plot_Axis'].isin(["auto"]).sum()
+num_dp = trace_params['Plot_Axis'].isin(['do not plot']).sum()
+axes_tickers = trace_params[["Series_Ticker", "Plot_Axis"]]; axtraceDict = {}; axlist = ["ax1", "ax2", "ax3", "ax4", "ax5"]; j = 0
+for i in range(len(axes_tickers)):
+    ax_choice = axes_tickers.iloc[i].at["Plot_Axis"]
+    if ax_choice == "auto":
+        axtraceDict[axlist[j]] = [axes_tickers.iloc[i].at["Series_Ticker"]]
+        j += 1
+    elif ax_choice == "do not plot":
+        pass
+    elif ax_choice in axlist and ax_choice not in list(axtraceDict.keys()):
+        axtraceDict[ax_choice] = [axes_tickers.iloc[i].at["Series_Ticker"]]
+        j += 1
+    elif ax_choice in axlist and ax_choice in list(axtraceDict.keys()):
+        axtraceDict[ax_choice].append(axes_tickers.iloc[i].at["Series_Ticker"])
+    else:
+        print("waddafuk")    
+numAxii = len(list(axtraceDict.keys()))
 
-DataPath = wd+fdel+'SavedData'; GNPath = DataPath+fdel+'Glassnode'; BEAPath = DataPath+fdel+'BEA'
+print("Number of different axis specification types:\naxDirectSpecs: ",numAxSpecs, ", auto/nan: ", numAuto, \
+      ", unique axspecs: ", num_dif_axSpecs, "\nNumber of series to not plot: ",num_dp,  "\nTotal: ", numAxii)
+print("Number of axes to use for chart: ", numAxii)
+print('Number of data series: ',numSeries)
+if numAxii > 5:
+    print("You have more than 5 axes specified. This script can only handle a maximum of 5 axes.\
+          Please adjust the Plot_Axis column in the input file, to yield only 5 unique axis specifications.\
+          Remember to use 'auto' to let the script automatically assign series to axes, or leave empty which does the same.")
+    quit()
+
+DataPath = dire+fdel+"User_Data"+fdel+'SavedData'; GNPath = DataPath+fdel+'Glassnode'; BEAPath = DataPath+fdel+'BEA'
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]; Source = TheSeries['Source']; ticker = TheSeries['Ticker']; TheIndex = TheSeries['Index']
     SeriesInfo = pd.Series([],dtype=str)
-    ticker = str(ticker); split = ticker.split(','); #print("Ticker at first split:",split,len(split))
+    ticker = str(ticker); split = ticker.split(',')
     if len(split) > 1:
         ticker = (split[0],split[1])
         symbol = split[0]; exchange = split[1]; ticker = split[0]
     else:
         exchange = None
-        pass
+        pass  
 
 ######### OPTIONS TO LOAD DATA FROM EXCEL FILE ##########################################################
     if Source == 'load':
@@ -190,19 +276,22 @@ for series in SeriesDict.keys():
         print('Spread chosen for series at position',TheIndex)
         try:
             if len(add) > 1:
-                series1 = SeriesDict["Trace_"+str(add[0])]['Data']; series2 = SeriesDict["Trace_"+str(add[1])]['Data']
-                TheData = series1+series2
+                series1 = SeriesDict[trace_params.loc[int(add[0].strip())].at['Series_Ticker']]['Data']
+                series2 = SeriesDict[trace_params.loc[int(add[1].strip())].at['Series_Ticker']]['Data']
                 print('Series',TheIndex,'is series',"Trace_"+str(add[0]),'plus',"Trace_"+str(add[1]))
             elif len(subtract) > 1:
-                series1 = SeriesDict["Trace_"+str(subtract[0])]['Data']; series2 = SeriesDict["Trace_"+str(subtract[1])]['Data']
+                series1 = SeriesDict[trace_params.loc[int(subtract[0].strip())].at['Series_Ticker']]['Data']
+                series2 = SeriesDict[trace_params.loc[int(subtract[1].strip())].at['Series_Ticker']]['Data']
                 TheData = series1-series2
                 print('Series',TheIndex,'is series',"Trace_"+str(subtract[0]),'minus',"Trace_"+str(subtract[1]))
             elif len(multiply) > 1:
-                series1 = SeriesDict["Trace_"+str(multiply[0])]['Data']; series2 = SeriesDict["Trace_"+str(multiply[1])]['Data']
+                series1 = SeriesDict[trace_params.loc[int(multiply[0].strip())].at['Series_Ticker']]['Data']
+                series2 = SeriesDict[trace_params.loc[int(multiply[1].strip())].at['Series_Ticker']]['Data']
                 TheData = series1*series2
                 print('Series',TheIndex,'is series',"Trace_"+str(multiply[0]),'minus',"Trace_"+str(multiply[1]))  
             elif len(divide) > 1:
-                series1 = SeriesDict["Trace_"+str(divide[0])]['Data']; series2 = SeriesDict["Trace_"+str(divide[1])]['Data']
+                series1 = SeriesDict[trace_params.loc[int(divide[0].strip())].at['Series_Ticker']]['Data']
+                series2 = SeriesDict[trace_params.loc[int(divide[1].strip())].at['Series_Ticker']]['Data']
                 TheData = series1/series2
                 print('Series',TheIndex,'is series',"Trace_"+str(divide[0]),'minus',"Trace_"+str(divide[1]))  
             else:
@@ -236,7 +325,7 @@ for series in SeriesDict.keys():
     else:
         print("Using default Series info for series: ", TheSeries['Legend_Name'], )
         SeriesInfo['units'] = 'US Dollars'; SeriesInfo['units_short'] = 'USD'
-        SeriesInfo['title'] = TheSeries['Legend_Name']; SeriesInfo['id'] = TheSeries['Name']
+        SeriesInfo['title'] = TheSeries['Legend_Name']; SeriesInfo['id'] = TheSeries['Ticker']
         SeriesInfo['Source'] = Source
     if Source != 'load':    
         SeriesInfo['Source'] = Source       
@@ -254,7 +343,7 @@ for series in SeriesDict.keys():
             pass
         else:
             TheData2 = pd.Series(TheData2[TheData2.columns[0]],name=TheSeries['Name'])
-    print('Data pull function, data series name: ',TheSeries['Name'],'Datatype:  ',type(TheData2))    
+    print('Data pull function, data series name: ',TheSeries['Legend_Name'],'Datatype:  ',type(TheData2))    
     TheData2 = TheData2[StartDate:EndDate]
     TheSeries['Data'] = TheData2
     TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.  
@@ -271,39 +360,28 @@ for series in SeriesDict.keys():
         with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
             SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
 
+    if pd.isna(TheSeries["ConvertUnits"]):    #Divide series by a power of 10 to reduce number of digits on axis. 
+        pass
+    else:
+        TheSeries['Data'] /= int(TheSeries["ConvertUnits"])
+   
 ########### Resample all series to daily frequency and/or convert units ###############################################################
-Index = pd.date_range(start=DataStart,end=EndDateStr,freq='D')
 for series in SeriesDict.keys():
-    TheSeries = SeriesDict[series]
-    data = TheSeries['Data']; Name = TheSeries['Name']; Ticker = TheSeries['Ticker']; Info = TheSeries['SeriesInfo']
-    convert = TheSeries['ConvertUnits']; resamp = TheSeries['Resample2D']; TheSource = TheSeries['Source']
-    if pd.isna(resamp) or str(resamp).upper() == noStr.upper():
-        pass 
-    else:   
-        data = PriceImporter.ReSampleToRefIndex(data,Index,'D')
+    TheSeries = SeriesDict[series]; data = TheSeries['Data']
+    if not pd.isna(TheSeries["Resample2D"]):
+        data = resample_to_daily(data, DataStart, end_date = EndDateStr)
     
-    if pd.isna(convert):    #Divide series by a power of 10 to reduce number of digits on axis. 
-        pass
-    else:
-        data /= convert
-    TheSeries['Data'] = data    
-
 #### Substitute a data series for an MA of that series if wanted. ##########################################################################################    
-for series in SeriesDict.keys():
-    TheSeries = SeriesDict[series]
-    if pd.isna(TheSeries["useMA"]):
-        pass
-    else:
+    if not pd.isna(TheSeries["useMA"]):
         try:
             ma = int(TheSeries["useMA"])
-            data = pd.Series(TheSeries['Data'],name=data.name)
             data = data.rolling(ma).mean(); data.dropna(inplace=True)
-            TheSeries['Data'] = data
             label = str(TheSeries['Legend_Name'])
             label += " "+str(ma)+' period MA'
             TheSeries['Legend_Name'] = label
         except:
             print('Sub_MA must be an integer if you want to use an MA.')    
+    TheSeries['Data'] = data
 
 ###################### Change series to YoY or other annualized rate calcs if that option is chosen #################################
 normStr = 'Unaltered'; YoYStr = 'Year on year % change'; devStr = '% dev. from fit. trend'; ann3mStr = 'Annualised 3-month % change'
@@ -401,9 +479,9 @@ stepsize = (Xmax - Xmin) / 20
 XTickArr = np.arange(Xmin, Xmax, stepsize) 
 XTickArr = np.append(XTickArr, Xmax)
 if numAxii < 4:
-    Bot = 0.125
+    Bot = 0.145
 else:
-    Bot = 0.165
+    Bot = 0.195
 
 if numAxii < 3: 
     margins = {'top':0.95, 'bottom':Bot ,'left':0.06,'right': 0.94}
@@ -411,6 +489,11 @@ else:
     margins = {'top':0.95, 'bottom':Bot ,'left':0.065,'right':1-(numAxii*0.034)}
 
 print('######################## PLOTTING ####################################################################')
+
+for series in SeriesDict.keys():
+    data = SeriesDict[series]['Data']; name = SeriesDict[series]['Name']
+    # print("Dataset", "max: ", data.max(), "min: ", data.min())
+    data = scale_series(data); SeriesDict[series]['Data'] = data
 
 ############ This organises a list of data sources to add at bottom of chart. 
 DS_List = []
@@ -441,10 +524,18 @@ for word in Replaces.keys():
     DataSourceStr = DataSourceStr.replace(word,Replaces[word])
 
 ####### CALL THE CHART TEMPLATE FROM Charting.py in the MacroBackend folder ############
-smolFig = plt.figure(FigureClass = Charting.BMP_Fig,margins=margins,numaxii=numAxii,DataSourceStr=DataSourceStr,figsize=figsize)
+SeriesDict_agg = agg_to_axes(SeriesDict, axtraceDict)
+
+smolFig: Charting.BMP_Fig = plt.figure(FigureClass = Charting.BMP_Fig, plotDatas = SeriesDict_agg, margins=margins,
+                                       numaxii=numAxii,DataSourceStr=DataSourceStr,figsize=figsize)
 smolFig.set_Title(Title)
 
-smolFig.AddTraces(SeriesDict)
+smolFig.AddTraces()
+if numSeries > 5:
+    smolFig.make_legend(legtype="one_per_axes")
+else:
+    smolFig.make_legend(legtype="single")
+
 #path2image = wd+fdel+'Images'+fdel+'BMPleb2.png'
 ex = figsize_px[0]-0.1*figsize_px[0]; why = figsize_px[1] - 0.9*figsize_px[1]
 
@@ -454,7 +545,7 @@ if alignZeros == 'yes':
 
 ############## Add recession bars on chart if desired ###################################################################
 if recession_bars == 'yes':
-    bar_dates = PriceImporter.GetRecessionDates(StartDate)
+    bar_dates = PriceImporter.GetRecessionDates(StartDate, filepath=DataPath+fdel+'USRECDM.xlsx')
     bar_dates = pd.Series(bar_dates)
     bar_dates = bar_dates[pd.Timestamp(StartDate)::]
     vals = bar_dates.to_list(); dates = bar_dates.index.to_list()
@@ -467,13 +558,13 @@ if recession_bars == 'yes':
         if val == 1 and lastVal == 0:
             start_dates.append(dates[i])
         elif val == 0 and lastVal == 1:   
-            end_dates.append(dates[i-1])      
+            end_dates.append(dates[i-1])     
+
     ax1 = smolFig.axes[0]; lims = ax1.get_ylim()
     for i in range(len(start_dates)):
         ax1.axvspan(start_dates[i],end_dates[i],color='blue',alpha=0.25,label="Recessions (NBER)")
-    if Bot < 0.14: 
-        ax1.text(0.35,-0.135 ,"Shaded vertcial bars indicate recession periods (NBER).",fontsize='small',color='blue',horizontalalignment='left', transform=ax1.transAxes)
-    else:
-        ax1.text(0.35,-0.195,"Shaded vertcial bars indicate recession periods (NBER).",fontsize='small',color='blue',horizontalalignment='left', transform=ax1.transAxes)
+    
+    ax1.text(0.35, smolFig.text_box_row, "Shaded vertcial bars indicate recession periods (NBER).",fontsize='small',color='blue',horizontalalignment='left', transform=ax1.transAxes)
+   
 
 plt.show()        ## This shows the matplotlib figure.

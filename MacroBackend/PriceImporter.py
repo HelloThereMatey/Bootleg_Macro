@@ -37,20 +37,22 @@ class TimeInterval(enum.Enum):
     in_weekly = "1W"
     in_monthly = "1M"
 
-def CoinGeckoPriceHistory(CoinID: str, TimeLength: int):
+def CoinGeckoPriceHistory(CoinID: str, TimeLength: int = 365, api_key: str = None):
     #Call CoinGecko API:
     print("Pinging coin gecko API, requesting data for asset: "+CoinID)
+    print("NOTE: THE JERKS AT COIN GECKO HAVE LIMITED HISTORICAL DATA FOR FREE USERS OF THE API TO 365 DAYS.")
+    if api_key is None:
+        TimeLength = 365
     url = r'https://api.coingecko.com/api/v3/coins/'+CoinID+r'/market_chart?vs_currency=usd&days='+str(TimeLength)+r'&interval=daily' 
     r = requests.get(url)           #Requests calls the coin gecko API. I'll have to figure out how to add trading view too. 
-    df = pd.read_csv(io.StringIO(r.text))
     print("Coin gecko API response: \n",r)
     df = pd.DataFrame.from_dict(r.json())
 
     DateToday = datetime.date.today(); #DateToday = DateInstant.strftime("%d.%m.%y")
     length = len(df)
-    #print('CG_Raw data: ',df)
-    elementA1 = df.loc[0].at["prices"]     #Figure out the time string in the json response. 
-    elementA2 = df.loc[length-1].at["prices"]     #Turns out to be time elapsed in ms since start of price tracking!!
+    # print('CG_Raw data: ',df)
+    elementA1 = df.iloc[0].at["prices"]     #Figure out the time string in the json response. 
+    elementA2 = df.iloc[length-1].at["prices"]     #Turns out to be time elapsed in ms since start of price tracking!!
     startTime = elementA1[0]      
     endTime = elementA2[0]       
     numDays = int(floor((endTime-startTime)/(1000*60*60*24))+1); print('Number of days in data: ',numDays,'Data length ',len(df))
@@ -83,6 +85,18 @@ def GetFullListofCoinsCG():
     df = pd.read_csv(io.StringIO(r.text))
     df = pd.DataFrame.from_dict(r.json())
     return df
+
+def check_pd_inputDatas(inputs: dict):
+    for dataset in inputs.keys():
+        data = inputs[dataset]
+        if isinstance(data, pd.DataFrame):
+            inputs[dataset] = data[data.columns[0]]
+        elif isinstance(data, pd.Series):
+            pass
+        else:
+            print(f"Data for {dataset} is not in a format that can be used. It should be a pandas dataframe or series.")
+            quit()
+    return inputs    
 
 #### You can pull the full list of coins tracked by coin gecko and save it to an excel file using the function above, e.g:
 
@@ -195,7 +209,7 @@ def ReSampleToRefIndex(data,index,freq:str):   #This function will resample and 
         return (data) 
     index = pd.DatetimeIndex(index); index = index.drop_duplicates()
     data.reset_index(inplace=True); data.drop_duplicates(subset=data.columns[0],inplace=True)
-    data.set_index(pd.DatetimeIndex(data.iloc[:,0]),inplace=True)
+    data.set_index(pd.DatetimeIndex(data.iloc[:,0]),inplace=True, drop = True)
     data.drop(data.columns[0],axis=1,inplace=True)
     data = data.reindex(index=index)
     data.fillna(method='ffill',inplace=True)
@@ -478,8 +492,10 @@ class tv_data(object):
 ###### Functions ###############################################################################################################################################
 
 def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate Pearson Correlation co-efficient between two series with time frame: period. 
+    
     if (period=='Full'):
-        Cor = round(Series1.corr(other=Series2,method='pearson', min_periods=len(Series1)),3)
+        print("Correlation, series1, series 2: ", Series1, Series2, type(Series1), type(Series2))
+        Cor = round(Series1.corr(other=Series2,method='pearson', min_periods=len(Series1)-1),3)
         try:
             print('The correlation over the entire length between the two series: '+Series1.name+' and '+Series2.name+' is: '+str(round(Cor,3))+'.')
         except:
@@ -605,6 +621,10 @@ def PullTGA_Data(AccountName = 'Federal Reserve Account',start_date='2000-01-01'
     return FullData
 
 def AssCorr(series1:pd.Series, series2:pd.Series,periodsList:list, SaveDatas: str = None):    #This calculates the pearson correlation coefficient for two given series. 
+    datas = {"data_1": series1, "data_2": series2}
+    datas = check_pd_inputDatas(datas)
+    series1 = datas['data_1']; series2 = datas['data_2']
+    
     if (len(series1.index.difference(series2.index))) > 0:
         series1,series2 = GetIndiciiSame(series1,series2)
     elif (len(series2.index.difference(series1.index))) > 0:
@@ -614,11 +634,13 @@ def AssCorr(series1:pd.Series, series2:pd.Series,periodsList:list, SaveDatas: st
     if SaveDatas is not None:       #This function implements the correlation function on 
         output = pd.concat([series1,series2],axis=1)
         output.to_excel(SaveDatas+".xlsx")
-    CorrDict = {}
+
+    Correlations = pd.DataFrame()
     for period in periodsList:
-        CorrDict["CC_"+str(period)+r"$_{day}$"] = Correlation(series1,series2,period=period) 
+        Correlations["CC_"+str(period)+r"$_{day}$"] = Correlation(series1,series2,period=period) 
     #print('Correlation master function: ',CorrDict)    
-    Correlations = pd.DataFrame(CorrDict)  
+    print(Correlations) 
+    print("Full corr. calc. series lengths: ", len(series1), len(series2))
     return Correlations, Correlation(series1,series2)  
 
 ############### PullFX data to convert bal sheet data to USD  #############################################################################
@@ -626,7 +648,7 @@ def AssCorr(series1:pd.Series, series2:pd.Series,periodsList:list, SaveDatas: st
 ## Needs FRED apikey. Doesn't need TV account. ## Data pulled from TV using TVDataFeed so need it as a tuple like input: Exchange,Symbol 
 # e.g "ECONOMICS,CNCBBS" for PBoC bal  sheet and "FX_IDC,CNYUSD" for CNYUSD. Put them in a string though. 
 
-def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
+def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,datapath: str = parent+fdel+"User_Data",SerName:str=""):
     split = TV_Code.split(',')  ## Split the input string into exchange and asset symbol to get the DATA FROM tv. 
     if len(split) > 1:
         TV_Code = (split[0],split[1])
@@ -649,7 +671,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
     else:
         EndDate = datetime.date.today()   
 
-    FXDataPath = parent+fdel+'NetLiquidity'+fdel+'GlobalReserves'+fdel+'FXData'+fdel+FXSymbol[1]+'.xlsx' ### Get FX data for currency pair.
+    FXDataPath = datapath+fdel+'GlobalReserves'+fdel+'FXData'+fdel+FXSymbol[1]+'.xlsx' ### Get FX data for currency pair.
     if os.path.isfile(FXDataPath):
         FXData = pd.read_excel(FXDataPath)
         print('FXData for '+FXSymbol[1]+', loaded from file.')
@@ -698,7 +720,7 @@ def GetCBAssets_USD(TV_Code,FXSymbol,Start:str,end:str=None,SerName:str=""):
     
     print('FX Data: ',FXData)
  
-    BSDataPath = parent+fdel+'NetLiquidity'+fdel+'GlobalReserves'+fdel+'BalSheets'+fdel+TV_Code[1]+'.xlsx'
+    BSDataPath = datapath+fdel+'GlobalReserves'+fdel+'BalSheets'+fdel+TV_Code[1]+'.xlsx'
     if os.path.isfile(BSDataPath):
         BSData = pd.read_excel(BSDataPath)
         print('Bal sheet Data for '+TV_Code[1]+', loaded from file.')
@@ -818,51 +840,52 @@ def GetFedBillData(filePath, startDate:datetime.date,endDate:datetime.date=datet
     Xmax = max(TheData.index); Xmin = min(TheData.index)
     stepsize = (Xmax - Xmin) / 15
     XTicks = np.arange(Xmin, Xmax, stepsize); XTicks = np.append(XTicks,Xmax)   
+    if SepPlot:
+        fig = plt.figure(figsize=(12,7))
+        gs = GridSpec(2, 1, top = 0.96, bottom=0.09 ,left=0.06, right=0.94, hspace=0.01)
+        ax = fig.add_subplot(gs[0])
+        ax.set_title('Fed: weekly remittances to TGA',fontweight='bold')
+        ax.plot(TheData, color='black',label = SeriesInfo['title'])
+        ax.set_ylabel(SeriesInfo['units_short'],fontweight='bold',fontsize=9)
+        ax.tick_params(axis='y',labelsize=8)
+        ax.margins(0.02,0.02)
+        for axis in ['top','bottom','left','right']:
+            ax.spines[axis].set_linewidth(1.5)
 
-    fig = plt.figure(figsize=(12,7))
-    gs = GridSpec(2, 1, top = 0.96, bottom=0.09 ,left=0.06, right=0.94, hspace=0.01)
-    ax = fig.add_subplot(gs[0])
-    ax.set_title('Fed: weekly remittances to TGA',fontweight='bold')
-    ax.plot(TheData, color='black',label = SeriesInfo['title'])
-    ax.set_ylabel(SeriesInfo['units_short'],fontweight='bold',fontsize=9)
-    ax.tick_params(axis='y',labelsize=8)
-    ax.margins(0.02,0.02)
-    for axis in ['top','bottom','left','right']:
-        ax.spines[axis].set_linewidth(1.5)
+        ax2 = fig.add_subplot(gs[1],sharex=ax)
+        ax2.bar(Adj_ser.index,Adj_ser,width=10,color='xkcd:bright blue',label=Adj_ser.name)
+        ax2b = ax2.twinx()
+        ax2b.plot(cum_series,color='orangered',label="Cumulative remittance to TGA (right axis)")
+        ax2.set_ylabel(SeriesInfo['units_short'],fontweight='bold',fontsize=9)
+        ax2b.set_ylabel(SeriesInfo['units_short'],fontweight='bold',fontsize=9)
+        ax2.tick_params(axis='y',labelsize=8); ax2b.tick_params(axis='y',labelsize=8)
+        ax2.margins(0.01,0.02); ax2b.margins(0.01,0.02)
+        ax.minorticks_on(); ax2.minorticks_on(); ax2b.minorticks_on()
+        for axis in ['top','bottom','left','right']:
+            ax2.spines[axis].set_linewidth(1.5)
 
-    ax2 = fig.add_subplot(gs[1],sharex=ax)
-    ax2.bar(Adj_ser.index,Adj_ser,width=10,color='xkcd:bright blue',label=Adj_ser.name)
-    ax2b = ax2.twinx()
-    ax2b.plot(cum_series,color='orangered',label="Cumulative remittance to TGA (right axis)")
-    ax2.set_ylabel(SeriesInfo['units_short'],fontweight='bold',fontsize=9)
-    ax2b.set_ylabel(SeriesInfo['units_short'],fontweight='bold',fontsize=9)
-    ax2.tick_params(axis='y',labelsize=8); ax2b.tick_params(axis='y',labelsize=8)
-    ax2.margins(0.01,0.02); ax2b.margins(0.01,0.02)
-    ax.minorticks_on(); ax2.minorticks_on(); ax2b.minorticks_on()
-    for axis in ['top','bottom','left','right']:
-        ax2.spines[axis].set_linewidth(1.5)
+        ax.legend(loc=3,fontsize='small')
+        ax2.legend(loc=2,fontsize='small')
+        ax2b.legend(loc=2,fontsize='small',bbox_to_anchor=(0.4,1))
+        ax.grid(visible=True,axis='both',which='both',lw=0.5,color='gray',ls=":")
+        ax2.grid(visible=True,axis='both',which='both',lw=0.5,color='gray',ls=":")
+        ax.set_axisbelow(True); ax2.set_axisbelow(True)
 
-    ax.legend(loc=3,fontsize='small')
-    ax2.legend(loc=2,fontsize='small')
-    ax2b.legend(loc=2,fontsize='small',bbox_to_anchor=(0.4,1))
-    ax.grid(visible=True,axis='both',which='both',lw=0.5,color='gray',ls=":")
-    ax2.grid(visible=True,axis='both',which='both',lw=0.5,color='gray',ls=":")
-    ax.set_axisbelow(True); ax2.set_axisbelow(True)
-
-    ax.tick_params(axis="x",which='both',length=0,width=0,labelsize=0)
-    ax2.xaxis.set_ticks(XTicks); ax.set_xlim(Xmin-datetime.timedelta(days=15),Xmax+datetime.timedelta(days=15))
-    ax2.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b')) 
-    ax2.tick_params(axis='x',which='major',length=3.5,width=1.5,labelsize=9,labelrotation=45)
+        ax.tick_params(axis="x",which='both',length=0,width=0,labelsize=0)
+        ax2.xaxis.set_ticks(XTicks); ax.set_xlim(Xmin-datetime.timedelta(days=15),Xmax+datetime.timedelta(days=15))
+        ax2.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b')) 
+        ax2.tick_params(axis='x',which='major',length=3.5,width=1.5,labelsize=9,labelrotation=45)
 
     if SepPlot is True:
         return Adj_ser, fig
     else:
         return Adj_ser
     
-def GetRecessionDates(startDate:datetime.date)-> pd.Series:
-    Path = parent+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'USRECDM.xlsx'
+def GetRecessionDates(startDate:datetime.date, 
+        filepath: str = parent+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'USRECDM.xlsx')-> pd.Series:
+    
     try:
-        dates = pd.read_excel(Path,sheet_name='Series')
+        dates = pd.read_excel(filepath,sheet_name='Series')
         dates.set_index('date',inplace=True)
         dates = pd.Series(dates.squeeze(),name='Recessions_NBER')
         #print('NBER recession data loaded.', dates)
@@ -870,8 +893,8 @@ def GetRecessionDates(startDate:datetime.date)-> pd.Series:
         print('Pulling recession dates (NBER) from FRED.')
         SeriesInfo, dates = PullFredSeries('USRECDM','f632119c4e0599a3229fec5a9ac83b1c')
         dates = pd.Series(dates.squeeze(),name='Recessions_NBER')
-        dates.to_excel(Path,sheet_name='Series')
-        with pd.ExcelWriter(Path, engine='openpyxl', mode='a') as writer:  
+        dates.to_excel(filepath,sheet_name='Series')
+        with pd.ExcelWriter(filepath, engine='openpyxl', mode='a') as writer:  
             SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
             
     FirstDate =  dates.index[0]; print(FirstDate)  
@@ -879,8 +902,8 @@ def GetRecessionDates(startDate:datetime.date)-> pd.Series:
         SeriesInfo, dates = PullFredSeries('USRECDM','f632119c4e0599a3229fec5a9ac83b1c')
         dates = pd.Series(dates,name='Recessions_NBER')
         #print('Updated NBER recession data from FRED.',dates, SeriesInfo)
-        dates.to_excel(Path,sheet_name='Series')
-        with pd.ExcelWriter(Path, engine='openpyxl', mode='a') as writer:  
+        dates.to_excel(filepath,sheet_name='Series')
+        with pd.ExcelWriter(filepath, engine='openpyxl', mode='a') as writer:  
             SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
     return dates     
 
@@ -920,8 +943,10 @@ def export_series_to_chartist(series: pd.Series, SeriesInfo: pd.Series):
 
 if __name__ == "__main__":
 
-    tv = TvDatafeed()
-    data = tv.get_hist("CNM2","ECONOMICS",interval=Interval.in_weekly,n_bars=1000)
+    # tv = TvDatafeed()
+    # data = tv.get_hist("CNM2","ECONOMICS",interval=Interval.in_weekly,n_bars=1000)
+    # print(data)
+    data = yf.download("AAPL", start="2020-01-01", end="2020-12-31")
     print(data)
 
     # start_date = datetime.date(1997, 1, 1); end_date = datetime.date.today()
