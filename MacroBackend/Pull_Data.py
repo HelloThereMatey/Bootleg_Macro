@@ -14,44 +14,15 @@ import datetime
 import pandas as pd
 import pandas_datareader as pdr
 import quandl
+from yahoofinancials import YahooFinancials as yf
 
 class get_data_failure(Exception):
     pass
-
-# if len(SeriesInfo) > 0:
-#     if Source != 'load':    
-#         SeriesInfo['Source'] = Source            
-# else:
-#     print("Using default Series info for series: ", TheSeries['Legend_Name'], )
-#     SeriesInfo['units'] = 'US Dollars'; SeriesInfo['units_short'] = 'USD'
-#     SeriesInfo['title'] = TheSeries['Legend_Name']; SeriesInfo['id'] = TheSeries['Name']
-#     SeriesInfo['Source'] = Source
-# if Source != 'load':    
-#     SeriesInfo['Source'] = Source       
-
-# ######### Applies to all data loaded #####################
-# TheData.index.rename('date',inplace=True)
-# SeriesInfo.index.rename('Property',inplace=True); #SeriesInfo = pd.Series(SeriesInfo,name="Value")
-# TheData2 = TheData.copy()
-
-# if type(TheData2) == pd.Series:
-#     pass
-# else:
-#     if len(TheData2.columns) > 1:
-#         TheData2.name = TheSeries["Name"]
-#         pass
-#     else:
-#         TheData2 = pd.Series(TheData2[TheData2.columns[0]],name=TheSeries['Name'])
-# print('Data pull function, data series name: ',TheSeries['Name'],'Datatype:  ',type(TheData2))    
-# TheData2 = TheData2[StartDate:EndDate]
-# TheSeries['Data'] = TheData2
-# TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.   
-# SeriesDict[series] = TheSeries
       
-
 class dataset(object):
     def __init__(self, source: str, data_code: str, start_date: str, exchange_code: str = None, 
-                 end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close"):
+                 end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close",
+                 capitalize_column_names: bool = False):
         
         self.supported_sources = ['fred', 'yfinance', 'tv', 'coingecko', 'yahoo',
                                 'iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
@@ -85,14 +56,17 @@ class dataset(object):
 
         self.pull_data()
 
+        if capitalize_column_names and dtype != "close":
+            self.data.columns = self.data.columns.str.capitalize()
+
     def check_key(self):
-        print("Checking API keys: ", self.api_keys)
+        # print("Checking API keys: ", self.api_keys)
         if self.source in self.keySources and self.source not in self.api_keys.keys():
             print("No API key found for your source: ", self.source, "do you have the key at hand ready to paste into terminal?")
             if input("y/n?") == 'y':
                 self.keyz.add_key(self.source)
             else:
-                print("You need an API key too get data from ", self.source)    
+                print("You need an API key to get data from ", self.source)    
             quit()
         else:
             return    
@@ -177,42 +151,40 @@ class dataset(object):
                 quit()
 
     def filterData(self, TheData: pd.DataFrame):
+        TheData.columns = TheData.columns.str.capitalize()
         columns_to_keep = ['Open', 'High', 'Low', 'Close', 'Volume']
         columns_to_keep = list(set(TheData.columns) & set(columns_to_keep))
 
         if self.d_type == 'OHLCV':
-            try: 
-                self.data = TheData[columns_to_keep]
-            except:
-                columns_to_keep = ['open', 'high', 'low', 'close', 'volume']
-                columns_to_keep = list(set(TheData.columns) & set(columns_to_keep))
-                self.data = TheData[columns_to_keep]
+            self.data = TheData[columns_to_keep]
 
         elif self.d_type == 'close':    
-            try: 
-                self.data = pd.Series(TheData['Close'], name = self.dataName)     
-            except:
-                self.data = pd.Series(TheData['close'], name = self.dataName)    
+            self.data = pd.Series(TheData['Close'], name = self.dataName)       
         else:
-            self.data = TheData            
+            self.data = TheData          
+
 
 if __name__ == "__main__":
     
     # me_data = dataset(source = 'quandl', data_code = 'AAPL', exchange_code='WIKI',start_date = '2015-01-01')
     # print(me_data.data, me_data.dataName)
     # print(me_data.data.iloc[len(me_data.data)-1])
-    # keyz = Utilities.api_keys()
-    # res = PriceImporter.FREDSearch("Gross",apiKey=keyz.keys['fred'])
-    # print(res)
-    # full_results1, best_res1 = PriceImporter.Search_TV('BTCUSD', 'INDEX')
-    # full_results2, best_res2 = PriceImporter.Search_TV('WRESBAL')
-    # print(full_results1, best_res1)
-    # print(full_results2, best_res2)
+    keyz = Utilities.api_keys()
+    res = PriceImporter.FREDSearch("Gross",apiKey=keyz.keys['fred'])
+    print(res)
+    data = PriceImporter.tv_data("SPY", "NSE", search=True)
+    print(data.seriesInfo)
+   
+    
     # print(full_results1['symbol'][0], full_results1['exchange'][0])
-    tvd = PriceImporter.tv_data("BTCUSD", 'INDEX')#, username="NoobTrade181", password="4Frst6^YuiT!")
-    #tvd.all_data_for_timeframe(timeframe = "4H")
-    datas = tvd.tv.exp_ws("BTCUSD", exchange = 'INDEX', interval=PriceImporter.TimeInterval("4H"),n_bars=5000)
-    print(datas)
+    # data = yf('AAPL')
+    # print(data.get_financial_data('annual'))
+    #.get_historical_price_data('2020-01-01', '2020-01-10', 'daily')
+    #print(data)
+    # tvd = PriceImporter.tv_data("BTCUSD", 'INDEX')#, username="NoobTrade181", password="4Frst6^YuiT!")
+    # #tvd.all_data_for_timeframe(timeframe = "4H")
+    # datas = tvd.tv.exp_ws("BTCUSD", exchange = 'INDEX', interval=PriceImporter.TimeInterval("4H"),n_bars=5000)
+    # print(datas)
      
 
     
