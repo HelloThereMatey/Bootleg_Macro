@@ -18,12 +18,12 @@ parent = os.path.dirname(wd); grandpa = os.path.dirname(parent)
 fdel = os.path.sep
 
 try:
-    with open(wd+fdel+'system_settings.json') as f:      ##Load file containg display specific dimensions for the particular screen & OS. 
+    with open(parent+fdel+'system_settings.json') as f:      ##Load file containg display specific dimensions for the particular screen & OS. 
         system_set = f.read()
     system_set = json.loads(system_set); print(system_set)
     print('Settings for result box dimensions loaded from: ',wd+fdel+'ScreenData.json')
 except Exception as e:
-    print(e)
+    print(e, "No settings file found. Using measured values. No problemo.")
     system_set = {'os': 'undetermined', 'res_width': 58, 'res_height': 16}
 
 print('System information: ',platform,', directory delimiter: ', fdel, ', working directory: ', wd)
@@ -32,7 +32,7 @@ API_KEY = GlassNode_API.API_KEY
 defPath = wd+fdel+'Saved_Data'+fdel+'GN_MetricsList.xlsx'
 defPath = defPath.replace('\\','/')
 savePath = wd+fdel+'Saved_Data'; savePath = savePath.replace('\\','/')
-savePath2 = grandpa+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'Glassnode'; savePath2 = savePath2.replace('\\','/')
+savePath2 = grandpa+fdel+'User_Data'+fdel+'Glassnode'; savePath2 = savePath2.replace('\\','/')
 plt.rcParams.update({'font.family':'serif'})   #Font family for the preview figure. 
 
 def get_curr_screen_geometry():
@@ -54,10 +54,7 @@ def get_curr_screen_geometry():
 root = Tk()
 root.title('Pull data from Glassnode widget')
 root.config(bg='skyblue')
-# Get the screen width and height
-# Get the screen width and height
-#sw = root.winfo_screenwidth();  print('Screen width: ',sw) #This doesn't work across different systems.
-#sh = root.winfo_screenheight(); print('Screen height: ',sh)
+
 screen = get_curr_screen_geometry()    #This figures out the screen size & geometry. Input manually instead
 #to avoid the white flash at the start.
 split = screen.split('+'); geo = split[0]
