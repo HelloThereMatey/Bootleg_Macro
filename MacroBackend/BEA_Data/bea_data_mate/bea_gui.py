@@ -3,7 +3,7 @@ wd = os.path.dirname(__file__)  ## This gets the working directory which is the 
 parent = os.path.dirname(wd); grandpa = os.path.dirname(parent); ancestor = os.path.dirname(grandpa)
 print('Working directory: ',wd,'\n, parent folder',parent, '\nlevel above that: ', grandpa, '\nnext one up: ',ancestor)
 import sys;
-sys.path.append(parent); sys.path.append(grandpa); sys.path.append(ancestor); print(sys.path)
+sys.path.append(parent); sys.path.append(ancestor)
 from MacroBackend import Utilities ## Don't worry if your IDE shows that this module can't be found, it should stil work. 
 
 import customtkinter as ctk
@@ -21,13 +21,13 @@ import datetime
 from bea_data_mate import BEA_API_backend
 
 ###### Determine what OS this is running on and get appropriate path delimiter. #########
-FDel = os.path.sep
-print("Operating system: ",sys.platform, "Path separator character: ", FDel)
+fdel = os.path.sep
+print("Operating system: ",sys.platform, "Path separator character: ", fdel)
 
 ######### Set default font and fontsize ##################### Make this automatic and hide in utility files later on. 
 No_ScreenSettings = False; OldSesh = None
 try:
-    ScreenSetFile = open(grandpa+FDel+'SystemInfo'+FDel+'ScreenData.json')
+    ScreenSetFile = open(grandpa+fdel+'SystemInfo'+fdel+'ScreenData.json')
     ScreenSettings = dict(json.load(ScreenSetFile))
     OldSesh = {'OS': ScreenSettings['OS'], 'USER': ScreenSettings['USER']}
 except: 
@@ -62,7 +62,7 @@ print(ScreenSettings,win_widthT,win_heightT,win_widChars,win_HChars)
 # Initalize the new BEA client.
 keyz = Utilities.api_keys()
 api_key= keyz.keys['bea']
-defPath = parent+FDel+'Datasets'+FDel+'BEAAPI_Info.xlsx' ## This deafult path should lead to an excel file that has info on BEAAPI.
+defPath = parent+fdel+'Datasets'+fdel+'BEAAPI_Info.xlsx' ## This deafult path should lead to an excel file that has info on BEAAPI.
 bea = BEA_API_backend.BEA_Data(api_key=api_key,BEA_Info_filePath=defPath)
 
 ######## Tkinter initialization #########################################
@@ -204,7 +204,7 @@ def SaveData():
     folder = save.get()
     if bea.Data is not None:
         name = bea.Data_tCode
-    bea.Export_BEA_Data([name],saveLoc=folder+FDel)
+    bea.Export_BEA_Data([name],saveLoc=folder+fdel)
     
 def CustomExport():
     if bea.Data is not None:
@@ -237,7 +237,7 @@ Date = ctk.StringVar(master=root,value="",name='DataDateColumn')
 Data = ctk.StringVar(master=root,value="",name='DataColumn')
 cols = ctk.StringVar(master=root,value="",name='DataColumns')
 YAxis = ctk.StringVar(master=root,value='linear',name="Yaxis_Scale")
-savePath = parent+FDel+'Datasets'; export = ancestor+FDel+'Macro_Chartist'+FDel+'SavedData'+FDel+'BEA'
+savePath = parent+fdel+'Datasets'; export = ancestor+fdel+'User_Data'+fdel+'BEA'
 
 save = ctk.StringVar(master=root,value=savePath,name='DataSavePath')
 ExportPath = ctk.StringVar(master=root,value=export,name='Export_Path')
@@ -274,7 +274,7 @@ result_box.pack(padx=30,pady=15)
 # ########### Start and end dates #################################
 bottom.columnconfigure(0,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(1,weight=1,minsize=np.floor(win_widthT/4)*0.97)
 bottom.columnconfigure(2,weight=1,minsize=np.floor(win_widthT/4)*0.97); bottom.columnconfigure(3,weight=1,minsize=np.floor(win_widthT/4)*0.97)
-GetDataBtn = ctk.CTkButton(bottom, text="Get data series", text_color='black',command=PullBEASeries,font=('Arial',13,'bold'),border_width=1); GetDataBtn.grid(column=2,row=0,pady=5)
+GetDataBtn = ctk.CTkButton(bottom, text="Get data", text_color='black',command=PullBEASeries,font=('Arial',13,'bold'),border_width=1); GetDataBtn.grid(column=2,row=0,pady=5)
 hovInfo = Utilities.HoverInfo(GetDataBtn, text = "Get selected data table from BEA API")
 
 start = ctk.CTkEntry(bottom,textvariable=StartDate); start.grid(column=0,row=0,sticky='w',pady=5,padx=15)

@@ -9,12 +9,10 @@ from pybea.client import BureauEconomicAnalysisClient
 import pandas as pd
 import numpy as np
 import requests
-import re
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import matplotlib.colors as mcolors
 from typing import Union
-import datetime
 import customtkinter as ctk
 import tkinter as tk
 import tkinter.font as tkFont
@@ -425,7 +423,7 @@ class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page......
         
 class CustomIndexWindow(ctk.CTkToplevel):
 
-    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = ancestor+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'BEA'):
+    def __init__(self, master, dataTable:dict, name: str = 'Dataset', exportPath:str = ancestor+fdel+'User_Data'+fdel+'BEA'):
         super().__init__(master)
         default_font = ctk.CTkFont('Arial',13)
         self.data = pd.DataFrame(dataTable['Series_Split'])
