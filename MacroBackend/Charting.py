@@ -44,19 +44,20 @@ def get_fig_ax_sizes(fig: plt.Figure):
 
     return {"fig_width": fig_width, "fig_height": fig_height, "ax_width": ax_width, "ax_height": ax_height, "bottom_left_corner": (ax_position.x0, ax_position.y0)}
 
-def adjust_y_for_legHeight(fig: plt.Figure, leg: legend.Legend, locList: list, dimsdict: dict, heights: list = None, j: int = 0):
+def adjust_y_for_legHeight(fig: plt.Figure, leg: legend.Legend, locList: list, dimsdict: dict, heights: list = [], j: int = 0):
     # Assuming 'fig' is your Figure object and 'leg' is your Legend object
     renderer = fig.canvas.get_renderer()
     bbox = leg.get_window_extent(renderer)
     bbox = bbox.transformed(fig.dpi_scale_trans.inverted()) # Convert the bounding box to figure coordinates
     print("Box width, height: ", bbox.width, bbox.height) #These are in inches. 
-    if heights is not None:
-        heights.append(bbox.height)
+    
+    heights.append(bbox.height)
     # # Calculate the new y-coordinate for the legend
     new_y = locList[j][1] - ((bbox.height-0.216365)/dimsdict["fig_height"])
     print("Old y: ", locList[j][1], "New y: ", new_y)
     # # Set the new location of the legend
     leg.set_bbox_to_anchor((locList[j][0], new_y))
+    return heights, new_y
 
    #######. MatPlotLib Section. Making good figs with MPL takes many lines of code dagnammit.  ###################
 def FedFig(TheData:pd.Series,SeriesInfo:pd.Series,RightSeries:pd.Series=None,rightlab="",LYScale="linear",RYScale="linear",CustomXAxis=True):
@@ -565,7 +566,9 @@ class BMP_Fig(Figure):
                 labels += label
             leg = axes[0].legend(lines, labels, ncol = 5, loc = (-0.02, row_1), fontsize=  "small")
             leg.set_draggable(True)
-            adjust_y_for_legHeight(fig, leg, locList, self.dimsdict)
+            heights, new_y = adjust_y_for_legHeight(fig, leg, locList, self.dimsdict); row_ = new_y
+            leg_heights = heights[0]/self.dimsdict["ax_height"] 
+            bottom = ((leg_heights*3)/self.dimsdict["fig_height"]) + 0.14
 
         elif legtype == 'one_per_axes':  
             legdict = {}; i = 0; heights = []
@@ -593,7 +596,7 @@ class BMP_Fig(Figure):
                 leg.set_draggable(True)
                 #leg._legend_title_box._text.set_color(legdict[axes_name][2])
                 
-                adjust_y_for_legHeight(fig, leg, locList, self.dimsdict, heights = heights, j = j)
+                heights, _ = adjust_y_for_legHeight(fig, leg, locList, self.dimsdict, heights = heights, j = j)
                 
                 j += 1
 
@@ -604,22 +607,22 @@ class BMP_Fig(Figure):
                 leg_heights = (max(heights[::2]) + max(heights[3::]))/self.dimsdict["ax_height"]
                 bottom = ((max(heights[::2]) + max(heights[3::]) + min(heights))/self.dimsdict["fig_height"]) + 0.08
             print("Leg heights: ", leg_heights)
-        
-            ax = fig.get_axes()[0]  # Get the first axes
-            y0 = ax.get_position().y0; y1 = ax.get_position().y1 # Get the bottom position of the axes
-            self.text_box_row = row_1 - leg_heights - 0.015
-            print("Text box row should be at: ", self.text_box_row)
-            ax.text(-0.05, self.text_box_row , 'Charts by The Macro Bootlegger (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
-            ax.text(1.05, self.text_box_row , self.DataSourceStr, fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
-            
-            print("Heights of legends: ", heights)
-            print("Bottom: ", bottom)
-            self.bottom = bottom
-            self.subplots_adjust(bottom = bottom)
 
         else:
             print("Invalid legend type (legtype) specified. Choose 'single' or 'one_per_axes'.") 
-            quit()   
+            quit()  
+
+        ax = fig.get_axes()[0]  # Get the first axes
+        # y0 = ax.get_position().y0; y1 = ax.get_position().y1 # Get the bottom position of the axes
+        self.text_box_row = row_1 - leg_heights - 0.015
+        print("Text box row should be at: ", self.text_box_row)
+        ax.text(-0.05, self.text_box_row , 'Charts by The Macro Bootlegger (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
+        ax.text(1.05, self.text_box_row , self.DataSourceStr, fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
+        
+        print("Heights of legends: ", heights)
+        print("Bottom: ", bottom)
+        self.bottom = bottom
+        self.subplots_adjust(bottom = bottom)    
 
 def DF_DefPlot(data: pd.DataFrame, yLabel: str = "a.u", YScale:str='linear', title: str = "DataFrame contents"):
     plt.rcParams['font.family'] = 'serif'
