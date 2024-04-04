@@ -118,6 +118,7 @@ myFredAPI_key = Inputs.loc['FRED_Key'].at['Series_Ticker']
 if pd.isna(myFredAPI_key):
     keys = Utilities.api_keys()
     myFredAPI_key = keys.keys['fred']
+print("FRED key: ", myFredAPI_key)
 
 ######## Get the lower part of the Inputs dataframe with the optional parameters for traces 1 - 5 & append to side of trace_params.
 opt_params = Inputs.loc[11:20].reset_index(drop=True)
