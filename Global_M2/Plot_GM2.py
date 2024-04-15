@@ -8,17 +8,19 @@ import sys ; sys.path.append(parent)
 from MacroBackend import PriceImporter, Utilities, Charting ## This is one of my custom scripts holding functions for pulling price data from APIs. 
 #Your IDE might not find it before running script. 
 import pandas as pd
+import matplotlib
 from matplotlib import colors as mcolors
 import matplotlib.pylab as pl
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.gridspec import GridSpec
 import numpy as np
-import datetime
 import tkinter as tk
 from tkinter import Tk     # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import showinfo
+
+matplotlib.use("TkAgg")
 
 Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
 fdel = os.path.sep
