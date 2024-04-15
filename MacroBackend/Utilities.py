@@ -58,10 +58,16 @@ def EqualSpacedTicks(numTicks, data: Union[pd.Series, pd.DataFrame] = None,
         print("Data is not None.")
         if Ymin is None:
             print('No Ymin specified, using minimum of input data.')
-            Ymin = data.min().min()
+            if isinstance(data, pd.DataFrame):
+                Ymin = data.min().min()
+            else:
+                Ymin = data.min()    
         if Ymax is None:  
             print('No Ymax specified, using maximum of input data.')
-            Ymax = data.max().max()    #Major ticks custom right axis. 
+            if isinstance(data, pd.DataFrame):
+                Ymax = data.max().max()    #Major ticks custom right axis. 
+            else:
+                Ymax = data.max()
 
     decimals = count_zeros_after_decimal(median_value = (Ymax - Ymin)/2)
 
