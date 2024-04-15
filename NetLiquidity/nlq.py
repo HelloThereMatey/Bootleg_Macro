@@ -404,12 +404,16 @@ if __name__ == "__main__":
         deficit_d = deficit_d.groupby(deficit_d.index.to_period('M')).transform(lambda x: x / len(x))
         deficit_cs = deficit_d.cumsum()
         NetLiquidity3 -= deficit_d
+        
 
         deficit.to_excel(parent+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'US_Budget_Deficit.xlsx', sheet_name='Data')
         with pd.ExcelWriter(parent+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'US_Budget_Deficit.xlsx', engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:  
             deficit_info.to_excel(writer, sheet_name='SeriesInfo')
             deficit_d.to_excel(writer, sheet_name='Daily_Avg')
         MainLabel += '\n+ Gov. deficit'    
+        if Inputs.loc['Fed_Deficit'].at['Additional FRED Data'] == 'yes':
+            left = {"Fed_Def": (deficit_d,"red",1.5)}
+            red_hole_fig = Charting.TwoAxisFig(left, "linear", "USD (bil. of $)", "U.S Gov getting deep in the red son...., daily resample")
 
     if Inputs.loc['Include_BTFP'].at['Additional FRED Data'] == 'yes':
         print("Getting BTFP balance data from FRED.")
@@ -418,6 +422,9 @@ if __name__ == "__main__":
         btfp_d = PriceImporter.ReSampleToRefIndex(btfp_d,Findex,'D') 
         NetLiquidity3 += btfp_d
         MainLabel += ' + BTFP'
+        if Inputs.loc['BTFP'].at['Additional FRED Data'] == 'yes':
+            left = {"BTFP_Bal": (btfp_d,"black",1.5)}
+            btfp_fig = Charting.TwoAxisFig(left, "linear", "USD (bil. of $)", "Bank Term Funding Program balance, daily resample")
 
     #################  Chuck on a moving average of NLQ if requested by user. ############################################
     NLQ_MA = Inputs.loc['NLQ_MA (days)'].at['Additional FRED Data']; FaceColor = Inputs.loc['MainFig FaceColor'].at['Additional FRED Data']
