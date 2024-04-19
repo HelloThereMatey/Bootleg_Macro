@@ -9,3 +9,4 @@ yahoo_fin
 scipy
 quandl
 customtkinter
+yahoofinancials==1.18

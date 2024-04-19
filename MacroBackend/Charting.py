@@ -17,6 +17,8 @@ from . import Utilities, Fitting
 from typing import Union
 from pprint import pprint
 
+mpl.use("TkAgg")
+
 Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
  'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki', 'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 
