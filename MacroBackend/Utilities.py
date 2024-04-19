@@ -267,7 +267,7 @@ class StringMathOp:
             MathOpStr = MathOpStr[:start] + key + MathOpStr[end+1:]
             self.counter += 1
 
-        tokens = re.split('(\W)', MathOpStr)
+        tokens = re.split(r'(\W)', MathOpStr)
         for i in range(len(tokens)):
             if tokens[i]:
                 if tokens[i] in self.operators:
@@ -663,8 +663,8 @@ def Search_DF(df: Union[pd.DataFrame, pd.Series], searchTerm: str):
             for col in df.columns:
                 i = 0
                 for s in df[col]:
-                    if re.search(re.escape(search_regexes[0]), s, flags = re.IGNORECASE):
-                        matches.append(s)
+                    if re.search(re.escape(search_regexes[0]), str(s), flags = re.IGNORECASE):
+                        matches.append(str(s))
                         match_indices.append(i)
                         match_col.append(col)
                         matchRow = df.iloc[[i]]
