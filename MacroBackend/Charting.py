@@ -17,7 +17,11 @@ from . import Utilities, Fitting
 from typing import Union
 from pprint import pprint
 
+###### Global matplotlib parameters that I want always set ###################################
 mpl.use("TkAgg")
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['savefig.dpi'] = 300
+plt.rcParams['figure.dpi'] = 300
 
 Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 

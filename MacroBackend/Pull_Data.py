@@ -12,10 +12,29 @@ from MacroBackend import PriceImporter, Utilities
 from MacroBackend.Glassnode import GlassNode_API
 import datetime
 import pandas as pd
+import numpy as np
 import pandas_datareader as pdr
 import quandl
 from yahoofinancials import YahooFinancials as yf
 
+# These will let us use R packages:
+import rpy2.robjects as ro
+from rpy2.robjects.packages import importr
+from rpy2.robjects import pandas2ri
+pandas2ri.activate()
+
+ABS = importr("readabs")
+
+###### This function will convert an R dataframe to a pandas dataframe.
+def r_to_pd_df(r_df, method: int = 0):
+    if method == 0:
+        return pd.DataFrame({k: np.array(v) for k, v in r_df.items()})
+    else:
+        with (ro.default_converter + pandas2ri.converter).context():
+            return ro.conversion.get_conversion().rpy2py(r_df)
+    
+
+####### CLASSES ######################################################
 class get_data_failure(Exception):
     pass
       
@@ -29,8 +48,9 @@ class dataset(object):
                                 'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
                                 'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                 'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
-                                'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'glassnode']
-        self.added_sources = ['fred', 'yfinance', 'tv', 'coingecko', 'quandl', 'glassnode']
+                                'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'glassnode',
+                                'abs']
+        self.added_sources = ['fred', 'yfinance', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs']
         
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
         self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
@@ -39,7 +59,7 @@ class dataset(object):
         self.api_keys = dict(self.keyz.keys)
         self.data = None
         self.data_freq = data_freq
-        self.source = source
+        self.source = source.lower()
         if self.source not in self.supported_sources:
             print('The data source: ', source, 'is not supported. You must choose from the following sources: \n', self.supported_sources)
             print("Your specified source is not supported, get the fuck out of town you cunt.") 
@@ -137,10 +157,26 @@ class dataset(object):
             
             params = {'a':splitted[1].strip(),'i':splitted[2].strip(),'f':'json','api_key': self.api_keys['glassnode']} 
             data = GlassNode_API.GetMetric()
+
         elif self.source in self.pd_dataReader:
             print("Attempting to pull data from source: ", self.source, ', for ticker; ', self.data_code, 'using pandas datareader.')
             data = pdr.DataReader(self.data_code, self.source, start = self.start_date, end = self.end_date)
             print(data)
+
+        elif self.source.lower() == 'abs'.lower():  
+            abs_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"LastPull"
+            data_index = r_to_pd_df(ABS.read_abs_series(self.data_code, path = abs_path))
+            table_name = data_index.iloc[0].at['table_no']
+            data = pd.read_excel(abs_path+fdel+table_name+'.xlsx', sheet_name="Data1", index_col=0)
+            data.columns = data.columns.str.replace(";", "").str.strip()
+            data.to_excel(parent+fdel+"User_Data"+fdel+"ABS"+fdel+"Full_Sheets"+fdel+table_name+".xlsx")
+            column = data.columns[data.isin([self.data_code]).any()]
+            series = data[column]
+            self.SeriesInfo = series.iloc[0:9]
+            series = series.iloc[9:].squeeze()
+            index = pd.to_datetime(series.index).date
+            self.data = pd.Series(series.to_list(), index = pd.DatetimeIndex(index))
+            self.dataName = column[0]
 
         else:
             if self.source in self.supported_sources:
@@ -163,17 +199,16 @@ class dataset(object):
         else:
             self.data = TheData          
 
-
 if __name__ == "__main__":
     
-    # me_data = dataset(source = 'quandl', data_code = 'AAPL', exchange_code='WIKI',start_date = '2015-01-01')
-    # print(me_data.data, me_data.dataName)
-    # print(me_data.data.iloc[len(me_data.data)-1])
-    keyz = Utilities.api_keys()
-    res = PriceImporter.FREDSearch("Gross",apiKey=keyz.keys['fred'])
-    print(res)
-    data = PriceImporter.tv_data("SPY", "NSE", search=True)
-    print(data.seriesInfo)
+    me_data = dataset(source = 'abs', data_code = 'A2422352W',start_date="1990-01-01")
+    print(me_data.data, me_data.SeriesInfo, me_data.dataName )
+    #print(me_data.data.iloc[len(me_data.data)-1])
+    # keyz = Utilities.api_keys()
+    # res = PriceImporter.FREDSearch("Gross",apiKey=keyz.keys['fred'])
+    # print(res)
+    # data = PriceImporter.tv_data("SPY", "NSE", search=True)
+    # print(data.seriesInfo)
    
     
     # print(full_results1['symbol'][0], full_results1['exchange'][0])

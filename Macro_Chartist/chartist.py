@@ -173,6 +173,11 @@ alignZeros = Inputs.loc['Align_ZeroPos'].at['Series_Ticker']
 G_YMin = Inputs.loc['Global_Ymin'].at['Series_Ticker']
 G_YMax = Inputs.loc['Global_Ymax'].at['Series_Ticker']
 
+######## Paths for saving and loading data. ###########################################################################################
+defPath = dire+fdel+"User_Data"+fdel+'SavedData'; GNPath = defPath+fdel+'Glassnode'; BEAPath = defPath+fdel+'BEA'
+ABSPath = dire+fdel+"User_Data"+fdel+"ABS"+fdel+"Series"
+pathDict = {"ABS": ABSPath, "GNLOAD": GNPath, "LOAD": defPath, "LOAD_BEA": BEAPath}
+
 ########## PULL OR LOAD THE DATA ###########################################################################################
 trace_params['Plot_Axis'].fillna('auto', inplace=True)
 for i in range(1, len(trace_params) + 1, 1):
@@ -181,17 +186,20 @@ for i in range(1, len(trace_params) + 1, 1):
         pass
     else:
         name = ticker
-        source = trace_params.loc[i].at['Source']; Tipe = str(trace_params.loc[i].at['UnitsType']).strip()
+        source = str(trace_params.loc[i].at['Source']).lower(); Tipe = str(trace_params.loc[i].at['UnitsType']).strip()
         color = trace_params.loc[i].at['TraceColor']; label = trace_params.loc[i].at['Legend_Name']
         yscale = trace_params.loc[i].at['Yaxis']; Ymax = trace_params.loc[i].at['Ymax']; resample = trace_params.loc[i].at['ReS_2_D']
         axlabel = trace_params.loc[i].at['Axis_Label']; idx = trace_params.index[i-1]; MA =  trace_params.loc[i].at['Sub_MA']; LW = trace_params.loc[i].at['LineWidth']
         convert = trace_params.loc[i].at['Divide_data_by']; Ymin = trace_params.loc[i].at['Ymin']; aMA =  trace_params.loc[i].at['Add_MA']
         new_startDate = trace_params.loc[i].at['Limit_StartDate']; plot = trace_params.loc[i].at['Plot_Axis']
         fit_trend = trace_params.loc[i].at['Add_fitted_trendline']
+        dataPath = pathDict[source] if source in pathDict.keys() else defPath
+
         SeriesDict[ticker] = {'Index':idx,'Ticker': ticker, 'Source': source, 'UnitsType': Tipe, 'TraceColor': color, 'Legend_Name': label,\
                             'YScale': yscale,'axlabel': axlabel,'Ymax': float(Ymax), 'Name': name, 
                             'Resample2D': resample, 'useMA': MA, 'addMA':aMA, 'LW': LW, 'Ticker_Source':ticker,
-                            'ConvertUnits':convert,'Ymin': float(Ymin), "start_date": new_startDate, "FitTrend": fit_trend, "plot_axis": plot}      
+                            'ConvertUnits':convert,'Ymin': float(Ymin), "start_date": new_startDate, "FitTrend": fit_trend, "plot_axis": plot,
+                            "datapath": dataPath}      
 
 SeriesList = trace_params['Series_Ticker'].copy(); SeriesList = SeriesList[0:10]; SeriesList.dropna(inplace=True); numSeries = len(SeriesList) 
 # Filter the DataFrame where "Plot_Axis" column is 'Show'
@@ -228,9 +236,10 @@ if numAxii > 5:
           Remember to use 'auto' to let the script automatically assign series to axes, or leave empty which does the same.")
     quit()
 
-DataPath = dire+fdel+"User_Data"+fdel+'SavedData'; GNPath = DataPath+fdel+'Glassnode'; BEAPath = DataPath+fdel+'BEA'
 for series in SeriesDict.keys():
-    TheSeries = SeriesDict[series]; Source = TheSeries['Source']; ticker = TheSeries['Ticker']; TheIndex = TheSeries['Index']
+    TheSeries = SeriesDict[series]; 
+    DataPath = TheSeries['datapath']; Source = TheSeries['Source']
+    ticker = TheSeries['Ticker']; TheIndex = TheSeries['Index']
     SeriesInfo = pd.Series([],dtype=str)
     ticker = str(ticker); split = ticker.split(',')
     if len(split) > 1:
@@ -242,34 +251,14 @@ for series in SeriesDict.keys():
 
 ######### OPTIONS TO LOAD DATA FROM EXCEL FILE ##########################################################
     if Source == 'load':
-        SeriesInfo = pd.read_excel(DataPath+fdel+ticker+'.xlsx',sheet_name='SeriesInfo')
-        SeriesInfo.set_index(SeriesInfo[SeriesInfo.columns[0]],inplace=True,drop=True) 
+        SeriesInfo = pd.read_excel(DataPath+fdel+ticker+'.xlsx',sheet_name='SeriesInfo', index_col=0)
         SeriesInfo.index.rename('Property',inplace=True)
         if len(SeriesInfo.columns) > 1:
             SeriesInfo = pd.Series(SeriesInfo[SeriesInfo.columns[len(SeriesInfo.columns)-1]])
-        TheData = pd.read_excel(DataPath+fdel+ticker+'.xlsx',sheet_name='Closing_Price')
-        TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
-        TheData.drop(TheData.columns[0],axis=1,inplace=True)
-        TheData = pd.Series(TheData[TheData.columns[0]],name=ticker)
-        TheSeries['Source'] = SeriesInfo['Source']
-        
-    elif Source == 'GNload':
-        TheData = pd.read_excel(GNPath+fdel+ticker+'.xlsx')
-        TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
-        TheData.drop(TheData.columns[0],axis=1,inplace=True)
-        if type(TheData) == pd.DataFrame:
-            pass
-        else:
-            TheData = pd.Series(TheData.squeeze(),name=ticker)
-    
-    elif Source == 'load_BEA':
-        TheData = pd.read_excel(BEAPath+fdel+ticker+'.xlsx')
-        TheData.set_index(TheData[TheData.columns[0]],inplace=True); TheData.index.rename('date',inplace=True)
-        TheData.drop(TheData.columns[0],axis=1,inplace=True)
+        TheData = pd.read_excel(DataPath+fdel+ticker+'.xlsx',sheet_name='Closing_Price', index_col=0)
         if isinstance(TheData, pd.DataFrame):
-            pass
-        else:
-            TheData = pd.Series(TheData.squeeze(),name=ticker)
+            TheData = pd.Series(TheData[TheData.columns[0]],name=ticker)
+        TheSeries['Source'] = SeriesInfo['Source']
 
     elif Source == 'spread':
         add = ticker.split('+'); subtract = ticker.split('-'); multiply = ticker.split('*'); divide = ticker.split('/')
@@ -354,7 +343,9 @@ for series in SeriesDict.keys():
        TheSeries['axlabel'] = SeriesInfo['units_short']
       
     ########################## SAVE DATA ####################################################################################
-    if Source.upper() != loadStr.upper() and Source.upper() != SpreadStr.upper() and Source.upper() != GNstr.upper():
+    if Source.lower() == "ABS":
+        savePath = ABSPath+fdel+ticker+'.xlsx'
+    if Source.lower() != loadStr.lower() and Source.lower() != SpreadStr.lower() and Source.lower() != GNstr.lower():
         savePath = DataPath+fdel+ticker+'.xlsx'
         print('Saving new data set: ',ticker,'to: ',savePath)
         TheData2.to_excel(savePath,sheet_name='Closing_Price')
@@ -398,25 +389,25 @@ for series in SeriesDict.keys():
     Freqsplit = Freq.split("-")
     MatchTransform = re.search(devStr, TraceType, flags = re.IGNORECASE)
 
-    if TraceType.upper() == YoYStr.upper():
+    if TraceType.lower() == YoYStr.lower():
         data = Utilities.MonthPeriodAnnGrowth2(data,12)
         data.dropna(inplace=True)    
-    elif TraceType.upper() == ann3mStr.upper():    
+    elif TraceType.lower() == ann3mStr.lower():    
         print('3 month annualized % change transformation chosen for dataset: ',name)
         data = Utilities.MonthPeriodAnnGrowth2(data,3)  #The period here for this function is months. 
         data.dropna(inplace=True) 
-    elif TraceType.upper() == ann6mStr.upper():    
+    elif TraceType.lower() == ann6mStr.lower():    
         print('6 month annualized % change transformation chosen for dataset: ',name)
         data = Utilities.MonthPeriodAnnGrowth2(data,6) 
         data.dropna(inplace=True)   
-    elif TraceType.upper() == momStr.upper():    
+    elif TraceType.lower() == momStr.lower():    
         print('Month on month annualized % change transformation chosen for dataset: ',name)
         data = Utilities.MonthPeriodAnnGrowth2(data,1)   
         data.dropna(inplace=True)    
-    elif TraceType.upper() == yoySqStr.upper(): 
+    elif TraceType.lower() == yoySqStr.lower(): 
         FirstDer = Utilities.MonthPeriodAnnGrowth2(data,12) + 100
         data = Utilities.MonthPeriodAnnGrowth2(FirstDer,12) 
-    elif TraceType.upper() == cumStr.upper():
+    elif TraceType.lower() == cumStr.lower():
         print('Rolling sum calculation chosen....')
         data = data.cumsum(axis = 0)    
     elif MatchTransform is not None:  
@@ -520,7 +511,7 @@ for source in DataSource:
     i += 1 
 DataSourceStr = 'Source: '+strList
 Replaces = {"GNload":"Glassnode","fred":"FRED","yfinance":"Yahoo","yfinance":"Yahoo","tv":"Trading view","coingecko":"Coin gecko",
-            "load_BEA":"US BEA"}
+            "load_BEA":"US BEA", "abs":"ABS"}
 for word in Replaces.keys():
     DataSourceStr = DataSourceStr.replace(word,Replaces[word])
 
