@@ -174,9 +174,10 @@ G_YMin = Inputs.loc['Global_Ymin'].at['Series_Ticker']
 G_YMax = Inputs.loc['Global_Ymax'].at['Series_Ticker']
 
 ######## Paths for saving and loading data. ###########################################################################################
-defPath = dire+fdel+"User_Data"+fdel+'SavedData'; GNPath = defPath+fdel+'Glassnode'; BEAPath = defPath+fdel+'BEA'
+defPath = dire+fdel+"User_Data"+fdel+'SavedData'; GNPath = dire+fdel+"User_Data"+fdel+'Glassnode'
+BEAPath = dire+fdel+"User_Data"+fdel+'BEA'
 ABSPath = dire+fdel+"User_Data"+fdel+"ABS"+fdel+"Series"
-pathDict = {"ABS": ABSPath, "GNLOAD": GNPath, "LOAD": defPath, "LOAD_BEA": BEAPath}
+pathDict = {"abs": ABSPath, "gnload": GNPath, "load": defPath, "load_bea": BEAPath}
 
 ########## PULL OR LOAD THE DATA ###########################################################################################
 trace_params['Plot_Axis'].fillna('auto', inplace=True)
@@ -251,14 +252,14 @@ for series in SeriesDict.keys():
 
 ######### OPTIONS TO LOAD DATA FROM EXCEL FILE ##########################################################
     if Source == 'load':
-        SeriesInfo = pd.read_excel(DataPath+fdel+ticker+'.xlsx',sheet_name='SeriesInfo', index_col=0)
+        SeriesInfo = pd.read_excel(DataPath+fdel+ticker+'.xlsx',sheet_name='SeriesInfo', index_col=0).squeeze()
         SeriesInfo.index.rename('Property',inplace=True)
-        if len(SeriesInfo.columns) > 1:
-            SeriesInfo = pd.Series(SeriesInfo[SeriesInfo.columns[len(SeriesInfo.columns)-1]])
-        TheData = pd.read_excel(DataPath+fdel+ticker+'.xlsx',sheet_name='Closing_Price', index_col=0)
+        print("Loading data......", DataPath+fdel+ticker+'.xlsx', ticker, SeriesInfo, type(SeriesInfo))
+        TheData = pd.read_excel(DataPath+fdel+ticker+'.xlsx',sheet_name='Closing_Price', index_col=0).squeeze()
+        print(TheData, type(TheData))
         if isinstance(TheData, pd.DataFrame):
             TheData = pd.Series(TheData[TheData.columns[0]],name=ticker)
-        TheSeries['Source'] = SeriesInfo['Source']
+        TheSeries['Ticker_Source'] = SeriesInfo['Source']
 
     elif Source == 'spread':
         add = ticker.split('+'); subtract = ticker.split('-'); multiply = ticker.split('*'); divide = ticker.split('/')
@@ -309,14 +310,12 @@ for series in SeriesDict.keys():
             print("Errrrorrrr..........")    
             quit()
 
-    if len(SeriesInfo) > 0:
-        if Source != 'load':    
-            SeriesInfo['Source'] = Source            
-    else:
+    if len(SeriesInfo) == 0:
         print("Using default Series info for series: ", TheSeries['Legend_Name'], )
         SeriesInfo['units'] = 'US Dollars'; SeriesInfo['units_short'] = 'USD'
         SeriesInfo['title'] = TheSeries['Legend_Name']; SeriesInfo['id'] = TheSeries['Ticker']
         SeriesInfo['Source'] = Source
+
     if Source != 'load':    
         SeriesInfo['Source'] = Source       
     
@@ -343,8 +342,6 @@ for series in SeriesDict.keys():
        TheSeries['axlabel'] = SeriesInfo['units_short']
       
     ########################## SAVE DATA ####################################################################################
-    if Source.lower() == "ABS":
-        savePath = ABSPath+fdel+ticker+'.xlsx'
     if Source.lower() != loadStr.lower() and Source.lower() != SpreadStr.lower() and Source.lower() != GNstr.lower():
         savePath = DataPath+fdel+ticker+'.xlsx'
         print('Saving new data set: ',ticker,'to: ',savePath)
@@ -482,15 +479,17 @@ else:
 
 print('######################## PLOTTING ####################################################################')
 
+DS_List = []
+Replaces = {"GNload":"Glassnode","fred":"FRED","yfinance":"Yahoo","yfinance":"Yahoo","tv":"Trading view","coingecko":"Coin gecko",
+            "load_BEA":"US BEA", "abs":"ABS"}
 for series in SeriesDict.keys():
     data = SeriesDict[series]['Data']; name = SeriesDict[series]['Name']
     # print("Dataset", "max: ", data.max(), "min: ", data.min())
     data = scale_series(data); SeriesDict[series]['Data'] = data
 
 ############ This organises a list of data sources to add at bottom of chart. 
-DS_List = []
-for series in SeriesDict.keys():
-    TheSeries = SeriesDict[series]; source = TheSeries['Source']; ticker = str(TheSeries['Ticker_Source'])
+    TheSeries = SeriesDict[series]; source = TheSeries['Source']
+    seriesInfo = TheSeries['SeriesInfo']
     split = ticker.split(','); tickName = split[0]
     if len(split) > 1:
         exchange = split[1]
@@ -499,7 +498,8 @@ for series in SeriesDict.keys():
             pass
         else:
             source = exchange   
-    DS_List.append(source)
+    DS_List.append(source.replace("load", seriesInfo['Source']))
+
 DataSource = np.unique(DS_List); strList = ""; i = 0
 for source in DataSource:
     if i == 0:
@@ -510,8 +510,7 @@ for source in DataSource:
         strList += ", "+source; 
     i += 1 
 DataSourceStr = 'Source: '+strList
-Replaces = {"GNload":"Glassnode","fred":"FRED","yfinance":"Yahoo","yfinance":"Yahoo","tv":"Trading view","coingecko":"Coin gecko",
-            "load_BEA":"US BEA", "abs":"ABS"}
+
 for word in Replaces.keys():
     DataSourceStr = DataSourceStr.replace(word,Replaces[word])
 
