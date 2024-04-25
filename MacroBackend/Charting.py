@@ -22,6 +22,8 @@ mpl.use("TkAgg")
 plt.rcParams['font.family'] = 'serif'
 plt.rcParams['savefig.dpi'] = 300
 plt.rcParams['figure.dpi'] = 300
+# plt.rcParams['savefig.jpeg_quality'] = 95
+
 
 Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
@@ -526,6 +528,7 @@ class BMP_Fig(Figure):
         self.ax1.grid(visible=True,which='both',axis='x',lw=0.75,color='gray',ls=':')   
 
         self.org_x_axis()
+        print("Figure DPI in rcParams is: ", mpl.rcParams['figure.dpi'])
         
         ####### All this below is to ensure that we get the minorticks in the correct locations. They can be out of sync with majors due to rounding. #############
     def org_x_axis(self):
