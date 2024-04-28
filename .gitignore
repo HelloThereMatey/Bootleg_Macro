@@ -16,6 +16,7 @@
 !/User_Data/NLQ_Data/NLQ_Data.xlsx
 !/User_Data/SavedData/CPIAUCSL.xlsx
 !/User_Data/TreasuryData/TGA_Since2005.xlsx
+!User_Data/ABS/ABS_Series_MasterIndex.csv
 /MacroBackend/SystemInfo/*
 !/MacroBackend/SystemInfo/API_Keys_demo.json
 /MacroBackend/Glassnode/Saved_Data/*
