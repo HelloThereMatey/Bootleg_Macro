@@ -10,3 +10,5 @@ scipy
 quandl
 customtkinter
 yahoofinancials==1.18
+PyQt6
+rpy2
