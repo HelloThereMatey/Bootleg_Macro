@@ -1,4 +1,4 @@
-name: bootleg
+name: bootmac
 channels:
   - conda-forge
   - defaults
@@ -6,10 +6,6 @@ dependencies:
   - python=3.11
   - r-base
   - r-essentials
-  - r-readabs
-  - r-tidyverse
-  - r-zoo
-  - r-dplyr
   - pip
   - pip:
       - requests
