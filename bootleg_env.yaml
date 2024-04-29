@@ -1,0 +1,28 @@
+name: bootleg
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - r-base
+  - r-essentials
+  - r-readabs
+  - r-tidyverse
+  - r-zoo
+  - r-dplyr
+  - pip
+  - pip:
+      - requests
+      - pandas
+      - pandas-datareader
+      - numpy
+      - matplotlib
+      - openpyxl
+      - yfinance
+      - yahoo_fin
+      - scipy
+      - quandl
+      - customtkinter
+      - yahoofinancials==1.18
+      - PyQt6
+      - rpy2
