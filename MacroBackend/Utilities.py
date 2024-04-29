@@ -702,7 +702,7 @@ def DetermineSeries_Frequency(series: pd.Series):
 
     frequency_dict = {
                     "Weekly": ['W'],
-                    "Monthly": ['WOM', 'LWOM', 'M', 'MS', 'BM', 'BMS', 'CBM', 'CBMS', 'SM', 'SMS'],
+                    "Monthly": ['WOM', 'LWOM', 'M', 'ME', 'MS', 'BM', 'BMS', 'CBM', 'CBMS', 'SM', 'SMS'],
                     "Quarterly": ['Q', 'QS', 'BQ', 'BQS', 'REQ'],
                     "Yearly": ['A', 'AS', 'BYS', 'BA', 'BAS', 'RE'],
                     "Daily": ['D', 'B', 'C'],  
