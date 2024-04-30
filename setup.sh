@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the environment name and the YAML file path
-ENV_NAME="bootmac"
+ENV_NAME="bm"
 # Path to the YAML file - make sure to edit this according to your actual path
 YAML_PATH="bootleg_env.yaml"
 

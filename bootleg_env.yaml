@@ -1,4 +1,4 @@
-name: bootmac
+name: bm
 channels:
   - conda-forge
   - defaults
