@@ -19,9 +19,10 @@ R --vanilla <<EOF
 options(repos='http://cran.rstudio.com/')
 
 # Installing specific packages
-install.packages('readabs')
 install.packages('tidyverse')
 install.packages('dplyr')
+install.packages('readabs')
+install.packages('ggplot2')
 
 # Check installed packages and print session info for verification
 print(installed.packages()[,c("Package", "Version")])
@@ -29,3 +30,8 @@ sessionInfo()
 EOF
 
 echo "R package installation completed."
+
+echo "Installing python packages from requirements.txt using pip........"
+pip install -r requirements.txt
+pip install rpy2
+
