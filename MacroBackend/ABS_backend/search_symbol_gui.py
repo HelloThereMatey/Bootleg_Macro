@@ -8,9 +8,13 @@ wd = os.path.dirname(__file__); parent = os.path.dirname(wd); grampa = os.path.d
 fdel = os.path.sep
 sys.path.append(grampa)
 
-from MacroBackend import Utilities
+from MacroBackend import Utilities, Pull_Data, PriceImporter
 
+keys = Utilities.api_keys().keys
 abs_index_path = grampa+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
+
+######## Non-class functions ##################
+
 
 class PandasModel(QtCore.QAbstractTableModel):
     def __init__(self, data):
@@ -42,6 +46,9 @@ class Ui_MainWindow(object):
         self.setupUi(MainWindow)
         self.setupWidgets()
         self.connectSignals()
+        self.search_results = None
+        self.tableheader = None
+        self.results_count = 0
 
     def setupUi(self, MainWindow: QtWidgets.QMainWindow):
         # Set the application icon
@@ -81,9 +88,9 @@ class Ui_MainWindow(object):
         self.searchstr_entry.setObjectName("searchstr_entry")
         self.searchstr = ""
 
-        self.run_search = QtWidgets.QPushButton("Search Symbol", parent=self.centralwidget)
-        self.run_search.setGeometry(QtCore.QRect(1450, 10, 161, 31))
-        font = QtGui.QFont(); font.setPointSize(12)
+        self.run_search = QtWidgets.QPushButton("Search Source", parent=self.centralwidget)
+        self.run_search.setGeometry(QtCore.QRect(1450, 8, 161, 40))
+        font = QtGui.QFont(); font.setPointSize(14)
         self.run_search.setFont(font)
         self.run_search.setObjectName("run_search_symbol")
 
@@ -91,82 +98,111 @@ class Ui_MainWindow(object):
         self.results.setGeometry(QtCore.QRect(10, 50, 1601, 481))
         self.results.setObjectName("results")
 
-        self.resizeModeButton = QtWidgets.QRadioButton("Adjust column widths",parent=self.centralwidget)
-        self.resizeModeButton.setGeometry(QtCore.QRect(960, 10, 200, 31))
-        font = QtGui.QFont(); font.setPointSize(12); self.resizeModeButton.setFont(font)
-        self.resizeModeButton.setObjectName("interactive_resize")
-        self.resizeModeButton.setChecked(False)
-        self.resizeModeButton.hide()  # Initially hide the button
+        self.numres = QtWidgets.QLabel("Number of results", parent=self.centralwidget)
+        self.numres.setGeometry(QtCore.QRect(730, 10, 100, 30))
+
+        self.clear_button = QtWidgets.QPushButton("Clear results", parent=self.centralwidget)
+        self.clear_button.setGeometry(QtCore.QRect(960, 8, 100, 40))
+        font = QtGui.QFont(); font.setPointSize(12)
 
     def add_sources(self, sources: dict):
-        self.added_sources = sources
-        self.source_dropdown.addItems(self.added_sources)
+        self.sources = sources
+        self.source_dropdown.addItems(self.sources.keys())
 
     def connectSignals(self):
         self.searchstr_entry.textChanged.connect(self.update_searchstr)
         self.source_dropdown.currentIndexChanged.connect(self.dropdown_changed)
         self.run_search.clicked.connect(self.run_search_df)
+        self.clear_button.clicked.connect(self.clear_results)
     
     def update_searchstr(self):
         self.searchstr = self.searchstr_entry.toPlainText()
-
+    
     def dropdown_changed(self):
         self.selected_source = self.source_dropdown.currentText()
+        value = self.sources[self.selected_source]
         print(f"Selected source: {self.selected_source}")
-        if isinstance(self.selected_source, str):
-            self.source_table_path = sources[self.selected_source]
-        else:
+
+        # Check if the source_value is a callable (i.e., a function)
+        if callable(value):
+            # It's a function, call the function
+            print("The source value is a function...")
             self.source_table_path = None
-    
+            self.source_function = value
+        elif isinstance(value, str):
+            # It's a string, treat it as a file path
+            print("The source is a file path...")
+            self.source_table_path = value
+            self.source_function = None
+        else:
+            # If it's neither, set to None or handle appropriately
+            print("For the selected source, ", self.selected_source, ", no method of searching has been set yet....")
+            self.source_table_path = None
+            self.source_function = None
+        return
+
     def run_search_df(self):
-        if self.source_table_path:
-            print("Loading index of ABS time-series to dataframe from: ", self.source_table_path)
-            df = pd.read_csv(self.source_table_path, index_col=0)
-            results = Utilities.Search_DF(df, self.searchstr)
-            if len(results) == 0:
+        split = self.searchstr.strip().split(",")
+        terms = [x.strip() for x in split]
+        i = 0
+
+        for term in terms:
+            if self.search_results is not None:
+                results = Utilities.Search_DF(self.search_results, term)
+            else:
+                if self.source_table_path is not None:
+                    print("Loading index of ABS time-series to dataframe from: ", self.source_table_path)
+                    df = pd.read_csv(self.source_table_path, index_col=0)
+                    results = Utilities.Search_DF(df, term)
+                    if len(results) == 0:
+                        print("No results found, check search terms.")
+                        results = pd.DataFrame(["No results found, check search terms.",\
+                            "The search uses regex to match words exactly so spelling mistakes etc. are not tolerated."], columns = ["Result"], index=[0, 1])
+            
+                elif self.source_function is not None:
+                    results = self.source_function(term, keys['fred'], save_output=False)
+            
+                else:
+                    print("No source table selected")
+                    return
+            if results.empty:   # If no results are found, display a message
                 print("No results found, check search terms.")
                 results = pd.DataFrame(["No results found, check search terms.",\
-                    "The search uses regex to match words exactly so spelling mistakes etc. are not tolerated."], columns = ["Result"], index=[0, 1])
-            # Set the model to the QTableView
-            self.model = PandasModel(results)
-            self.results.setModel(self.model)
-            self.updateToggleButtonVisibility()
+                "The search uses regex to match words exactly so spelling mistakes etc. are not tolerated."], columns = ["Result"], index=[0, 1])
 
-            # Configure the horizontal header to initially stretch columns, then allow resizing
+            self.search_results = results
+
+        self.model = PandasModel(self.search_results)  # Set the model to the QTableView
+        self.results_count = len(self.search_results)
+        self.results.setModel(self.model)
+        self.numres.setText(str(self.results_count))
+        if self.tableheader is None:
             self.tableheader = self.results.horizontalHeader()
-            self.tableheader.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
-
-            self.resizeModeButton.toggled.connect(self.toggle_resize_mode)
-
-        else:
-            print("No source table selected")
-
-    def updateToggleButtonVisibility(self):
-        if self.results.model() and self.results.model().rowCount() > 0:
-            self.resizeModeButton.show()
-        else:
-            self.resizeModeButton.hide()
-        
-    def toggle_resize_mode(self, checked):
-        if checked:
-            self.tableheader.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
-        else:
-            self.tableheader.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+    
+        self.tableheader.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+        self.tableheader.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
+        return
+    
+    def clear_results(self):
+        self.search_results = None
+        self.results.setModel(None)
+        self.tableheader = None
+        return
 
 if __name__ == "__main__":
 
-    sources = {'fred': "", 
-               'yfinance': "", 
-               'tv': "", 
-               'coingecko': "", 
-               'quandl': "", 
-               'glassnode': "", 
+    sources = {'fred': PriceImporter.FREDSearch, 
+               'yfinance': None, 
+               'tv': None, 
+               'coingecko': None, 
+               'quandl': None, 
+               'glassnode': None, 
                'abs': abs_index_path}
     
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow(MainWindow)
-    ui.add_sources(sources.keys())
+    ui.add_sources(sources)
     MainWindow.show()
     sys.exit(app.exec())
 
