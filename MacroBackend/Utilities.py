@@ -873,8 +873,22 @@ if __name__ == "__main__":
     # SeriesFreq = DetermineSeries_Frequency(series)
     # print(SeriesFreq)
 
-    keyz = api_keys(JSONpath='/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/SystemInfo')
-    print(keyz.keys)
-    keyz.MakeKeyFile(fileName='API_Keys_test.json')
-    keyz.reload_keys()
-    print(keyz.keys)
+    # keyz = api_keys(JSONpath='/Users/jamesbishop/Documents/Python/Bootleg_Macro/MacroBackend/SystemInfo')
+    # print(keyz.keys)
+    # keyz.MakeKeyFile(fileName='API_Keys_test.json')
+    # keyz.reload_keys()
+    # print(keyz.keys)
+    import random
+    import string
+
+    # Generate a DataFrame with 100 rows and 4 columns
+    df = pd.DataFrame({
+        0: [' '.join(random.choices(string.ascii_lowercase, k=3)) for _ in range(100)],
+        1: [random.randint(100000, 999999) for _ in range(100)],
+        2: [''.join(random.choices(string.ascii_letters + string.digits, k=8)) for _ in range(100)],
+        3: [''.join(random.choices(string.ascii_letters + string.digits, k=8)) for _ in range(100)]
+    })
+
+    print(df)
+    resultz = Search_DF(df, "5pj")
+    print(resultz)
