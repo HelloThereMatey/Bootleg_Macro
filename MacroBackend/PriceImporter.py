@@ -11,6 +11,7 @@ import datetime
 import pandas_datareader.data as web
 import yfinance as yf
 import yahoo_fin.stock_info as si
+#import yahoofinancials
 from .tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
 import os
 from sys import platform

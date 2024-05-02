@@ -183,7 +183,7 @@ def MakeChoice(event):
     choice.set(ResultsList[cs[0]])
     tier.set(result.iloc[cs[0]].at['tier']); assets.set(assetsList)
     assChoice.set(assetsList[0]); currChoice.set(cuz[0]); resChoice.set('24h');formChoice.set(forma[0])
-    drop2 = OptionMenu(mid_right,assChoice,*assetsList); 
+    drop2 = ttk.Combobox(master = mid_right,textvariable=assChoice,values = assetsList, width = 10)
     drop3 = OptionMenu(mid_right,currChoice,*cuz)
     drop4 = OptionMenu(mid_right,resChoice,*rez)
     drop5 = OptionMenu(mid_right,formChoice,*forma)
