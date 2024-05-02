@@ -8,7 +8,7 @@ wd = os.path.dirname(__file__); parent = os.path.dirname(wd); grampa = os.path.d
 fdel = os.path.sep
 sys.path.append(grampa)
 
-from MacroBackend import Utilities, Pull_Data, PriceImporter
+from MacroBackend import Utilities, PriceImporter
 
 keys = Utilities.api_keys().keys
 abs_index_path = grampa+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
