@@ -1,16 +1,22 @@
 import pandas as pd
 import numpy as np
 from typing import Union
-import os
-fdel = os.path.sep
 import json
+import os
 
-wd = os.path.dirname(__file__); parent = os.path.dirname(wd)  #Specifies folder where this file is. 
+wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
+parent = os.path.dirname(wd); grandpa = os.path.dirname(parent); ancestor = os.path.dirname(grandpa)
+fdel = os.path.sep
+#print('Working directory: ',wd,'\n, parent folder',parent, '\nlevel above that: ', grandpa, '\nnext one up: ',ancestor)
+
+import sys
+sys.path.append(ancestor)
+from MacroBackend import Utilities ## Don't worry if your IDE shows that this module can't be found, it should stil work. 
 
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.gridspec import GridSpec
-from fuzzywuzzy import fuzz, process
+from fuzzywuzzy import process
 
 ####### UTILITY FUNCTIONS ##################################################################################################
 
@@ -291,6 +297,8 @@ class BEA_FisherIndex(object):
             self.FI_1b_pct = 100*(self.Fisher_Index_1b-1).rename('FI_1b_PctChange').fillna(0)  #Convert Fisher Prcie index to % change from previous period. 
             if self.ref_priceIndex is not None:
                 self.residual_1b, self.resPct_1b, self.fudged_1b = self.FudgeIt(self.FI_1b_chain, self.ref_priceIndex)
+            else:
+                self.residual_1b, self.resPct_1b, self.fudged_1b = None, None, None
             print("Fisher index calculated from price & quantity data derived from PCE current dollar data & price index data (method '1b').")
         elif method == "1a": 
             if self.Quantities_Indexes is not None:
@@ -735,12 +743,14 @@ class PCE_Fig(Figure):
         else:
             self.manI_pct = self.manualIndex.copy().pct_change()*100
 
-        freq = pd.infer_freq(self.manualIndex.index)
-        freqs = {'D': "daily",'M': "monthly", 'Q': "quarter", 'A': "annual"}
-    
-        fStr = freq[0]
-        if fStr in freqs.keys():
-            Frequency = freqs[fStr]
+        frequen, perId, freq = Utilities.DetermineSeries_Frequency(self.manualIndex)
+        freqs = {'D': "daily",'M': "monthly", 'Q': "quarterly", 'A': "annual"}
+        print("Your freq ser....: ", frequen, perId, freq)
+       
+        if frequen in freqs.keys():
+            Frequency = freqs[frequen]
+        else:
+            Frequency = "Unknown"    
 
         metricName1 = 'Manually calculated '+self.metricName; metricName2 = 'Official '+self.metricName
         if manual_metricName is not None:
