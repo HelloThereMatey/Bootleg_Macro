@@ -32,7 +32,17 @@ def r_to_pd_df(r_df, method: int = 0):
     else:
         with (ro.default_converter + pandas2ri.converter).context():
             return ro.conversion.get_conversion().rpy2py(r_df)
-    
+
+def yf_get_data(ticker: str, start_date: str, end_date: str, data_freq: str = "daily"):
+    yfobj = yf(ticker)
+    data = yfobj.get_historical_price_data(start_date, end_date, data_freq)
+    data = pd.DataFrame(data[ticker]["prices"]).set_index("formatted_date", drop=True).drop("date", axis=1)
+    # if dtype == "close":
+    #     return pd.Series(data['prices']['close'], name = ticker)
+    # elif dtype == "OHLCV":
+    #     return pd.DataFrame(data['prices'])[['open', 'high', 'low', 'close', 'volume']]
+    # else:
+    return data
 
 ####### CLASSES ######################################################
 class get_data_failure(Exception):
@@ -43,14 +53,14 @@ class dataset(object):
                  end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close",
                  capitalize_column_names: bool = False):
         
-        self.supported_sources = ['fred', 'yfinance', 'tv', 'coingecko', 'yahoo',
+        self.supported_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'yahoo',
                                 'iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
                                 'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
                                 'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                 'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
                                 'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'glassnode',
                                 'abs']
-        self.added_sources = ['fred', 'yfinance', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs']
+        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs']
         
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
         self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
@@ -107,6 +117,7 @@ class dataset(object):
 
         elif self.source == 'yfinance':
             try:
+                print("Trying yfinance package to get historical data for ", self.data_code)  
                 TheData, ticker = PriceImporter.pullyfseries(self.data_code, start = self.start_date.strftime('%Y-%m-%d'),
                                                    interval = self.data_freq)
                 if len(TheData) < 1:
@@ -115,10 +126,16 @@ class dataset(object):
             
             except Exception as e:
                 print("Could not score data for asset: "+ticker," from yfinance. Error: ", e, "Trying other scraper packages...") 
-                print("Trying yahoo_fin web scraper.....")   
-                TheData = PriceImporter.Yahoo_Fin_PullData(self.data_code, self.start_date.strftime('%Y-%m-%d'), 
-                                                           end_date = self.end_date.strftime('%Y-%m-%d'))   
+                print("Trying yahoo financials.....")   
+                # TheData = PriceImporter.Yahoo_Fin_PullData(self.data_code, self.start_date.strftime('%Y-%m-%d'), 
+                #                                            end_date = self.end_date.strftime('%Y-%m-%d'))   
+                TheData = yf_get_data(self.data_code, self.start_date.strftime('%Y-%m-%d'), self.end_date.strftime('%Y-%m-%d'))
                 self.filterData(TheData)
+
+        elif self.source == 'yfinance2':
+            print("Trying yahoo financials package to get historical data..")  
+            TheData = yf_get_data(self.data_code, self.start_date.strftime('%Y-%m-%d'), self.end_date.strftime('%Y-%m-%d'))
+            self.filterData(TheData)
 
         elif self.source == 'tv': 
             TheData, info = PriceImporter.DataFromTVGen(self.data_code, self.exchange_code, start_date = self.start_date, 
@@ -201,8 +218,8 @@ class dataset(object):
 
 if __name__ == "__main__":
     
-    me_data = dataset(source = 'abs', data_code = 'A2422352W',start_date="1990-01-01")
-    print(me_data.data, me_data.SeriesInfo, me_data.dataName )
+    me_data = dataset(source = 'yfinance', data_code = 'BTC-USD',start_date="2011-01-01", dtype="OHLCV")
+    print(me_data.data, me_data.SeriesInfo, me_data.dataName)
     #print(me_data.data.iloc[len(me_data.data)-1])
     # keyz = Utilities.api_keys()
     # res = PriceImporter.FREDSearch("Gross",apiKey=keyz.keys['fred'])

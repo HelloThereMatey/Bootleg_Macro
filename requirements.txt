@@ -14,3 +14,4 @@ quandl
 customtkinter
 PyQt6
 streamlit
+fuzzywuzzy

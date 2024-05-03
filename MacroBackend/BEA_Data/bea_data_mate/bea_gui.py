@@ -16,6 +16,9 @@ import tkinter.tix as tix
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("QtAgg")
+
 import json
 import datetime
 from bea_data_mate import BEA_API_backend
