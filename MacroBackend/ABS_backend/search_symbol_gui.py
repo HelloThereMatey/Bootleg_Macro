@@ -78,7 +78,7 @@ class Ui_MainWindow(object):
         font.setPointSize(14)
 
         self.source_dropdown = QtWidgets.QComboBox(self.centralwidget)
-        self.source_dropdown.setGeometry(QtCore.QRect(1220, 10, 211, 31))
+        self.source_dropdown.setGeometry(QtCore.QRect(1220, 12, 211, 31))
         self.source_dropdown.setFont(font)
         self.source_dropdown.setObjectName("source_dropdown")
 
@@ -160,8 +160,14 @@ class Ui_MainWindow(object):
                             "The search uses regex to match words exactly so spelling mistakes etc. are not tolerated."], columns = ["Result"], index=[0, 1])
             
                 elif self.source_function is not None:
-                    results = self.source_function(term, keys['fred'], save_output=False)
-            
+                    if self.selected_source == 'fred':
+                        results = self.source_function(term, keys['fred'], save_output=False)
+                    elif self.selected_source == 'tv':    
+                        results = self.source_function(searchstr = term)
+                    else:
+                        print("No source table selected")
+                        return    
+                
                 else:
                     print("No source table selected")
                     return
@@ -193,18 +199,23 @@ if __name__ == "__main__":
 
     sources = {'fred': PriceImporter.FREDSearch, 
                'yfinance': None, 
-               'tv': None, 
+               'tv': PriceImporter.Search_TV, 
                'coingecko': None, 
                'quandl': None, 
                'glassnode': None, 
                'abs': abs_index_path}
     
-    app = QtWidgets.QApplication(sys.argv)
-    MainWindow = QtWidgets.QMainWindow()
-    ui = Ui_MainWindow(MainWindow)
-    ui.add_sources(sources)
-    MainWindow.show()
-    sys.exit(app.exec())
+    # app = QtWidgets.QApplication(sys.argv)
+    # MainWindow = QtWidgets.QMainWindow()
+    # ui = Ui_MainWindow(MainWindow)
+    # ui.add_sources(sources)
+    # MainWindow.show()
+    # sys.exit(app.exec())
+    tv = PriceImporter.TvDatafeed(username="NoobTrade181", password="4Frst6^YuiT!")
+    search = PriceImporter.Search_TV(tv = tv, searchstr="AAPL", exchange = "NASDAQ")
+    print(search)
 
+    # data = PriceImporter.DataFromTVGen("AAPL", "", start_date = "2021-01-01", end_date = "2024-01-31", BarTimeFrame='D')
+    # print(data)
 
 

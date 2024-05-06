@@ -340,10 +340,12 @@ class TvDatafeed:
         symbols_list = []
         try:
             resp = requests.get(url)
+            print(resp.text, resp.status_code)
 
             symbols_list = json.loads(resp.text.replace(
                 '</em>', '').replace('<em>', ''))
         except Exception as e:
+            print(e)
             logger.error(e)
 
         return symbols_list
