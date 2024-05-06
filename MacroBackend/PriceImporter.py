@@ -438,24 +438,26 @@ def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_d
         seriesInfo = pd.Series(info.values(), index = info.keys(), name = 'Series info')
         return data, seriesInfo
 
-def Search_TV(tv_insts: TvDatafeed, text: str, exchange: str = ''):
-    tv = tv_insts
-    results = tv.search_symbol(text, exchange)
+def Search_TV(tv: TvDatafeed = None, searchstr: str = "", exchange: str = ''):
+    if tv is None: 
+        tv = TvDatafeed()
+    results = tv.search_symbol(searchstr, exchange)
+    print(results)
     result_df = pd.Series()
     for res in results:
         line = pd.Series(res)
         result_df = pd.concat([result_df, line], axis = 1)
-    result_df = result_df.T.set_index("symbol", drop = True) 
-    result_df.drop(result_df.index[0], inplace = True)
+    # result_df = result_df.T.set_index("symbol", drop = True) 
+    # result_df.drop(result_df.index[0], inplace = True)
 
-    theOne = result_df[(result_df.index == text) & (result_df['exchange'] == exchange)]
-    if len(theOne) == 1:    
-        best_res = theOne
-    elif len(result_df) == 1:
-        best_res = result_df
-    else:
-        best_res = "Couldn't automatically get a best result for serach, choose manually amoungst results."    
-    return result_df, best_res
+    # theOne = result_df[(result_df.index == searchstr) & (result_df['exchange'] == exchange)]
+    # if len(theOne) == 1:    
+    #     best_res = theOne
+    # elif len(result_df) == 1:
+    #     best_res = result_df
+    # else:
+    #     best_res = "Couldn't automatically get a best result for serach, choose manually amoungst results."    
+    return result_df#, best_res
 
 class tv_data(object):
 
@@ -950,8 +952,10 @@ if __name__ == "__main__":
     # tv = TvDatafeed()
     # data = tv.get_hist("CNM2","ECONOMICS",interval=Interval.in_weekly,n_bars=1000)
     # print(data)
-    data = yf.download("AAPL", start="2020-01-01", end="2020-12-31")
-    print(data)
+    # data = yf.download("AAPL", start="2020-01-01", end="2020-12-31")
+    # print(data)
+    search = Search_TV(searchstr="AAPL", exchange="NASDAQ")
+    print(search)
 
     # start_date = datetime.date(1997, 1, 1); end_date = datetime.date.today()
     # numDays = (end_date-start_date).days; print('Number of days: ', numDays)
