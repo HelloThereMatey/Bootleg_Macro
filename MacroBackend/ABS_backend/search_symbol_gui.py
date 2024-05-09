@@ -205,17 +205,11 @@ if __name__ == "__main__":
                'glassnode': None, 
                'abs': abs_index_path}
     
-    # app = QtWidgets.QApplication(sys.argv)
-    # MainWindow = QtWidgets.QMainWindow()
-    # ui = Ui_MainWindow(MainWindow)
-    # ui.add_sources(sources)
-    # MainWindow.show()
-    # sys.exit(app.exec())
-    tv = PriceImporter.TvDatafeed(username="NoobTrade181", password="4Frst6^YuiT!")
-    search = PriceImporter.Search_TV(tv = tv, searchstr="AAPL", exchange = "NASDAQ")
-    print(search)
-
-    # data = PriceImporter.DataFromTVGen("AAPL", "", start_date = "2021-01-01", end_date = "2024-01-31", BarTimeFrame='D')
-    # print(data)
+    app = QtWidgets.QApplication(sys.argv)
+    MainWindow = QtWidgets.QMainWindow()
+    ui = Ui_MainWindow(MainWindow)
+    ui.add_sources(sources)
+    MainWindow.show()
+    sys.exit(app.exec())
 
 

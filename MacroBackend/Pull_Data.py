@@ -9,6 +9,7 @@ sys.path.append(parent)
 
 ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
 from MacroBackend import PriceImporter, Utilities
+from MacroBackend.ABS_backend import abs_series_by_r
 from MacroBackend.Glassnode import GlassNode_API
 import datetime
 import pandas as pd
@@ -16,22 +17,6 @@ import numpy as np
 import pandas_datareader as pdr
 import quandl
 from yahoofinancials import YahooFinancials as yf
-
-# These will let us use R packages:
-import rpy2.robjects as ro
-from rpy2.robjects.packages import importr
-from rpy2.robjects import pandas2ri
-pandas2ri.activate()
-
-ABS = importr("readabs")
-
-###### This function will convert an R dataframe to a pandas dataframe.
-def r_to_pd_df(r_df, method: int = 0):
-    if method == 0:
-        return pd.DataFrame({k: np.array(v) for k, v in r_df.items()})
-    else:
-        with (ro.default_converter + pandas2ri.converter).context():
-            return ro.conversion.get_conversion().rpy2py(r_df)
 
 def yf_get_data(ticker: str, start_date: str, end_date: str, data_freq: str = "daily"):
     yfobj = yf(ticker)
@@ -181,19 +166,23 @@ class dataset(object):
             print(data)
 
         elif self.source.lower() == 'abs'.lower():  
-            abs_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"LastPull"
-            data_index = r_to_pd_df(ABS.read_abs_series(self.data_code, path = abs_path))
-            table_name = data_index.iloc[0].at['table_no']
-            data = pd.read_excel(abs_path+fdel+table_name+'.xlsx', sheet_name="Data1", index_col=0)
-            data.columns = data.columns.str.replace(";", "").str.strip()
-            data.to_excel(parent+fdel+"User_Data"+fdel+"ABS"+fdel+"Full_Sheets"+fdel+table_name+".xlsx")
-            column = data.columns[data.isin([self.data_code]).any()]
-            series = data[column]
-            self.SeriesInfo = series.iloc[0:9]
-            series = series.iloc[9:].squeeze()
-            index = pd.to_datetime(series.index).date
-            self.data = pd.Series(series.to_list(), index = pd.DatetimeIndex(index))
-            self.dataName = column[0]
+
+            series, SeriesInfo = abs_series_by_r.get_abs_series_r(series_id = self.data_code)
+            # abs_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"LastPull"
+            # data_index = r_to_pd_df(ABS.read_abs_series(self.data_code, path = abs_path))
+            # table_name = data_index.iloc[0].at['table_no']
+            # data = pd.read_excel(abs_path+fdel+table_name+'.xlsx', sheet_name="Data1", index_col=0)
+            # data.columns = data.columns.str.replace(";", "").str.strip()
+            # data.to_excel(parent+fdel+"User_Data"+fdel+"ABS"+fdel+"Full_Sheets"+fdel+table_name+".xlsx")
+            # column = data.columns[data.isin([self.data_code]).any()]
+            # series = data[column]
+            # self.SeriesInfo = series.iloc[0:9]
+            # series = series.iloc[9:].squeeze()
+            # index = pd.to_datetime(series.index).date
+            # self.data = pd.Series(series.to_list(), index = pd.DatetimeIndex(index))
+            self.data = series
+            self.SeriesInfo = SeriesInfo
+            self.dataName = series.name
 
         else:
             if self.source in self.supported_sources:
@@ -218,7 +207,9 @@ class dataset(object):
 
 if __name__ == "__main__":
     
-    me_data = dataset(source = 'yfinance', data_code = 'BTC-USD',start_date="2011-01-01", dtype="OHLCV")
+    # me_data = dataset(source = 'yfinance', data_code = 'BTC-USD',start_date="2011-01-01", dtype="OHLCV")
+    # print(me_data.data, me_data.SeriesInfo, me_data.dataName)
+    me_data = dataset(source = 'abs', data_code = 'A3605929A',start_date="2011-01-01")
     print(me_data.data, me_data.SeriesInfo, me_data.dataName)
     #print(me_data.data.iloc[len(me_data.data)-1])
     # keyz = Utilities.api_keys()
