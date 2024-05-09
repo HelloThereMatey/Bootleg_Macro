@@ -25,5 +25,6 @@
 !/MacroBackend/BEA_Data/Datasets/BEAAPI_Info.xlsx
 *.DS_Store
 .DS_Store
+.*
 __pycache__/
 **/$*
