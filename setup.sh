@@ -33,5 +33,4 @@ echo "R package installation completed."
 
 echo "Installing python packages from requirements.txt using pip........"
 pip install -r requirements.txt
-pip install rpy2
 

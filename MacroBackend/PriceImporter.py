@@ -10,8 +10,6 @@ import matplotlib.dates as mdates
 import datetime
 import pandas_datareader.data as web
 import yfinance as yf
-import yahoo_fin.stock_info as si
-#import yahoofinancials
 from .tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
 import os
 from sys import platform
@@ -232,15 +230,15 @@ def pullyfseries(ticker,start:str="2020-01-01",interval="1d"):
         PriceData.set_index(ind.date,inplace=True)   
     return PriceData, ticker 
 
-def Yahoo_Fin_PullData(Ticker, start_date = None, end_date = None): #Pull daily data for an asset using yahoo_fin web scraper
-    data = si.get_data(Ticker,start_date = start_date, end_date = end_date) #Start date end date in YYYY-MM-DD str format. 
-    print(data); data.drop("ticker",axis=1,inplace=True)
-    data = data.resample('D').mean()
-    data.fillna(method='pad',inplace=True)
-    data.rename({"open":"Open","high":"High","low":"Low","close":"Close","adjclose":"AdjClose","volume":"Volume","ticker":"Ticker"},\
-        axis=1,inplace=True)
-    print(data)
-    return data
+# def Yahoo_Fin_PullData(Ticker, start_date = None, end_date = None): #Pull daily data for an asset using yahoo_fin web scraper
+#     data = si.get_data(Ticker,start_date = start_date, end_date = end_date) #Start date end date in YYYY-MM-DD str format. 
+#     print(data); data.drop("ticker",axis=1,inplace=True)
+#     data = data.resample('D').mean()
+#     data.fillna(method='pad',inplace=True)
+#     data.rename({"open":"Open","high":"High","low":"Low","close":"Close","adjclose":"AdjClose","volume":"Volume","ticker":"Ticker"},\
+#         axis=1,inplace=True)
+#     print(data)
+#     return data
 
 ##PriceAPI choices: "coingecko", "yfinance" or any from the pandas datareader:
 #expected_source = ["yahoo","iex","iex-tops","iex-last","iex-last","bankofcanada","stooq","iex-book","enigma","fred","famafrench","oecd",\
@@ -248,67 +246,67 @@ def Yahoo_Fin_PullData(Ticker, start_date = None, end_date = None): #Pull daily 
             #"av-weekly","av-weekly-adjusted","av-monthly","av-monthly-adjusted","av-intraday","econdb","naver"]
 ## Also tv for tradingview and alpha for alpha vantage. Still being developed.          
 
-def PullDailyAssetData(ticker:str,PriceAPI:str,startDate:str,endDate:str=None):  ## This is my main data pulling function. 
-    StartDate = datetime.datetime.strptime(startDate,"%Y-%m-%d").date()
-    if endDate is not None:
-        EndDate = datetime.datetime.strptime(endDate,"%Y-%m-%d").date()
-    else:
-        EndDate = datetime.date.today()
-    TimeLength=(EndDate-StartDate).days
-    print('Looking for data for ticker:',ticker,'using',PriceAPI,'for date range: ',StartDate,' to ',EndDate,type(StartDate),type(EndDate))
-    AssetData = []
+# def PullDailyAssetData(ticker:str,PriceAPI:str,startDate:str,endDate:str=None):  ## This is my main data pulling function. 
+#     StartDate = datetime.datetime.strptime(startDate,"%Y-%m-%d").date()
+#     if endDate is not None:
+#         EndDate = datetime.datetime.strptime(endDate,"%Y-%m-%d").date()
+#     else:
+#         EndDate = datetime.date.today()
+#     TimeLength=(EndDate-StartDate).days
+#     print('Looking for data for ticker:',ticker,'using',PriceAPI,'for date range: ',StartDate,' to ',EndDate,type(StartDate),type(EndDate))
+#     AssetData = []
 
-    if PriceAPI == 'coingecko':
-        CoinID = getCoinID(ticker,InputTablePath=wd+fdel+'AllCG.xlsx')
-        AssetData = CoinGeckoPriceHistory(CoinID[1],TimeLength=TimeLength) 
-        AssetData.rename({"Price (USD)":"Close"},axis=1,inplace=True)
-    elif PriceAPI == 'yfinance':
-        try:
-            asset = pullyfseries(ticker=ticker,start=StartDate,interval="1d")
-            AssetData = asset[0]; AssetName = asset[1]
-            if len(AssetData) < 1:
-                print('No data for ',ticker,' scored using yfinance package, now trying yahoo_fin package....')
-                AssetData = Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)
-            else:
-                print("Data pulled from yfinance for: "+str(AssetName))    
-        except:
-            print("Could not score data for asset: "+ticker," from yfinance. Trying other APIs.") 
-            print("Trying yahoo_fin web scraper.....")   
-            AssetData = Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)
-        if len(AssetData) < 1: 
-            AssetData = Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate) 
-        if len(AssetData) < 1:     
-            AssetData = DataReaderAllSources(ticker,DataStart=StartDate,end_date = EndDate) 
-    elif  PriceAPI == 'tv': 
-        split = ticker.split(',')
-        if len(split) > 1:
-            ticker = (split[0],split[1]); print(ticker,type(ticker))
-        else:
-            pass
-        if isinstance(ticker,tuple):
-            symbol = ticker[0]; exchange = ticker[1]
-            AssetData = DataFromTVDaily(symbol,exchange,start_date=StartDate,end_date=EndDate)
-            AssetData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
-            AssetData.drop('Symbol',axis=1,inplace=True)
-            print('Data pulled from TV for: ',ticker,"\n")
-        else:
-            print('You should provide "ticker" as a tuple with (ticker,exchange) when using data from TV. Otherwise exchange will be "NSE" by default.')
-            AssetData = DataFromTVDaily(ticker,start_date=StartDate,end_date=EndDate)    
-            AssetData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
-            AssetData.drop('Symbol',axis=1,inplace=True)
-            print('Data pulled from TV for: ',ticker,"\n")
-    else:
-        try:        
-            AssetData = pd.DataFrame(web.DataReader(ticker,PriceAPI,start=StartDate)) 
-        except:
-            print('Could not score data from '+str(PriceAPI)+', trying DataReader, all sources....')
-            AssetData = DataReaderAllSources(ticker,DataStart=StartDate)
-            print("Asset data pulled for "+str(ticker)+": ")   
-    if len(AssetData) < 1: 
-        print("Could not score data for asset: ",ticker," from any of the usual sources. Pulling out")  
-    else:  
-        AssetData = AssetData[StartDate:EndDate]         
-        return AssetData     
+#     if PriceAPI == 'coingecko':
+#         CoinID = getCoinID(ticker,InputTablePath=wd+fdel+'AllCG.xlsx')
+#         AssetData = CoinGeckoPriceHistory(CoinID[1],TimeLength=TimeLength) 
+#         AssetData.rename({"Price (USD)":"Close"},axis=1,inplace=True)
+#     elif PriceAPI == 'yfinance':
+#         try:
+#             asset = pullyfseries(ticker=ticker,start=StartDate,interval="1d")
+#             AssetData = asset[0]; AssetName = asset[1]
+#             if len(AssetData) < 1:
+#                 print('No data for ',ticker,' scored using yfinance package, now trying yahoo_fin package....')
+#                 AssetData = Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)
+#             else:
+#                 print("Data pulled from yfinance for: "+str(AssetName))    
+#         except:
+#             print("Could not score data for asset: "+ticker," from yfinance. Trying other APIs.") 
+#             print("Trying yahoo_fin web scraper.....")   
+#             AssetData = Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)
+#         if len(AssetData) < 1: 
+#             AssetData = Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate) 
+#         if len(AssetData) < 1:     
+#             AssetData = DataReaderAllSources(ticker,DataStart=StartDate,end_date = EndDate) 
+#     elif  PriceAPI == 'tv': 
+#         split = ticker.split(',')
+#         if len(split) > 1:
+#             ticker = (split[0],split[1]); print(ticker,type(ticker))
+#         else:
+#             pass
+#         if isinstance(ticker,tuple):
+#             symbol = ticker[0]; exchange = ticker[1]
+#             AssetData = DataFromTVDaily(symbol,exchange,start_date=StartDate,end_date=EndDate)
+#             AssetData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
+#             AssetData.drop('Symbol',axis=1,inplace=True)
+#             print('Data pulled from TV for: ',ticker,"\n")
+#         else:
+#             print('You should provide "ticker" as a tuple with (ticker,exchange) when using data from TV. Otherwise exchange will be "NSE" by default.')
+#             AssetData = DataFromTVDaily(ticker,start_date=StartDate,end_date=EndDate)    
+#             AssetData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
+#             AssetData.drop('Symbol',axis=1,inplace=True)
+#             print('Data pulled from TV for: ',ticker,"\n")
+#     else:
+#         try:        
+#             AssetData = pd.DataFrame(web.DataReader(ticker,PriceAPI,start=StartDate)) 
+#         except:
+#             print('Could not score data from '+str(PriceAPI)+', trying DataReader, all sources....')
+#             AssetData = DataReaderAllSources(ticker,DataStart=StartDate)
+#             print("Asset data pulled for "+str(ticker)+": ")   
+#     if len(AssetData) < 1: 
+#         print("Could not score data for asset: ",ticker," from any of the usual sources. Pulling out")  
+#     else:  
+#         AssetData = AssetData[StartDate:EndDate]         
+#         return AssetData     
 
 def YoYCalcFromDaily(series): 
     print('\nYoY calcuation on series: , data frequency: ',pd.infer_freq(series.index))
