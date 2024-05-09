@@ -95,8 +95,7 @@ def pull_comp_asset_data(Inputs: pd.DataFrame) -> dict:
         else:
             exchange = None    
         
-        ## Here you set the asset you want to compare against data. 
-        #AssetData = PriceImporter.PullDailyAssetData(ComparisonAsset,PriceAPI,DataStart,endDate=EndDateStr) ##This function tries a range of APIs to get price history for a given asset. 
+        ## Here you set the asset you want to compare against data
         pulled_data = Pull_Data.dataset(source, ComparisonAsset, start_date, exchange_code=exchange, end_date=end_date, capitalize_column_names=True)
         AssetData = pulled_data.data; SeriesInfo = pulled_data.SeriesInfo
         print(f"Data pulled from {source} for {ComparisonAsset} from {start_date} to {end_date}. Datatype: ", type(AssetData))
@@ -385,8 +384,7 @@ if __name__ == "__main__":
     if pd.isna(Get_DXY) or str(Get_DXY).upper() == NoString.upper():
         Norm2DXY = False
     else:
-        DXY = PriceImporter.PullDailyAssetData("DX-Y.NYB","yfinance",DataStart,endDate=EndDateStr)  #Plot the series from FRED along with asset #1. 
-        DXY = pd.Series(DXY['Close'],name='US Dollar Index') 
+        DXY = Pull_Data.dataset("yfinance","DX-Y.NYB", DataStart,endDate=EndDateStr).data  #Plot the series from FRED along with asset #1. 
         DXY = PriceImporter.ReSampleToRefIndex(DXY,Findex,'D') 
         Norm2DXY = True
         NetLiquidity3 = NetLiquidity3/(1/DXY)

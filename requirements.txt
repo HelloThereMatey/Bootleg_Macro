@@ -7,7 +7,6 @@ plotly
 altair
 openpyxl
 yfinance
-yahoo_fin
 yahoofinancials==1.18
 scipy
 quandl

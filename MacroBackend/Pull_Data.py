@@ -211,6 +211,8 @@ if __name__ == "__main__":
     # print(me_data.data, me_data.SeriesInfo, me_data.dataName)
     me_data = dataset(source = 'abs', data_code = 'A3605929A',start_date="2011-01-01")
     print(me_data.data, me_data.SeriesInfo, me_data.dataName)
+
+    #DXY = PriceImporter.ReSampleToRefIndex(DXY,Findex,'D') 
     #print(me_data.data.iloc[len(me_data.data)-1])
     # keyz = Utilities.api_keys()
     # res = PriceImporter.FREDSearch("Gross",apiKey=keyz.keys['fred'])
