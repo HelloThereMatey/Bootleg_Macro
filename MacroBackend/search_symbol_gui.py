@@ -6,12 +6,12 @@ import os
 import sys
 wd = os.path.dirname(__file__); parent = os.path.dirname(wd); grampa = os.path.dirname(parent)
 fdel = os.path.sep
-sys.path.append(grampa)
+sys.path.append(parent)
 
-from MacroBackend import Utilities, PriceImporter
+from MacroBackend import Utilities, PriceImporter, js_funcs
 
 keys = Utilities.api_keys().keys
-abs_index_path = grampa+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
+abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
 
 ######## Non-class functions ##################
 
@@ -163,7 +163,8 @@ class Ui_MainWindow(object):
                     if self.selected_source == 'fred':
                         results = self.source_function(term, keys['fred'], save_output=False)
                     elif self.selected_source == 'tv':    
-                        results = self.source_function(searchstr = term)
+                        resdict = self.source_function(searchstr = term)
+                        results = pd.DataFrame(resdict).T
                     else:
                         print("No source table selected")
                         return    
@@ -199,7 +200,7 @@ if __name__ == "__main__":
 
     sources = {'fred': PriceImporter.FREDSearch, 
                'yfinance': None, 
-               'tv': PriceImporter.Search_TV, 
+               'tv': js_funcs.js_search_tv, 
                'coingecko': None, 
                'quandl': None, 
                'glassnode': None, 

@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@mathieuc/tradingview": "^3.4.2",
+    "yfinance2": "^0.2.0"
+  }
+}
