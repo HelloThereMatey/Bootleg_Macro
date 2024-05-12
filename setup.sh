@@ -34,3 +34,6 @@ echo "R package installation completed."
 echo "Installing python packages from requirements.txt using pip........"
 pip install -r requirements.txt
 
+echo "Installing node packages using npm........"
+npm i @mathieuc/tradingview
+
