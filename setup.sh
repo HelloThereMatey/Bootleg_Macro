@@ -36,4 +36,7 @@ pip install -r requirements.txt
 
 echo "Installing node packages using npm........"
 npm i @mathieuc/tradingview
+npm i yahoo-finance2
+
+echo "Bootleg_Macro setup complete."
 
