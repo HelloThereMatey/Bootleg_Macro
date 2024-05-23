@@ -195,6 +195,9 @@ class Ui_MainWindow(object):
         self.results.setModel(None)
         self.tableheader = None
         return
+    
+    # def select_line(self):
+    #     self.selected = self.results.clicked.
 
 if __name__ == "__main__":
 
