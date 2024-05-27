@@ -364,6 +364,67 @@ class FitTrend():
             for axis in ['top','bottom','left','right']:
                 ax1.spines[axis].set_linewidth(1.5) 
             return fig
+        
+####### A funcion for finding the peak locations in a time series. Optionally brings up a plot where yu can add
+### additional peak locations manually. 
+def get_peak_locs(data_series: pd.Series, yscale: str = 'log', ylabel: str = "Bil. of U.S $", 
+                  title: str = "M2 monetary Aggregate USA", mode: str = "automan")-> pd.Series:
+    """
+    mode: string, options: ["auto", "manual", "automan"]...
+    """
+    if mode == "manual":
+        peaks = []
+    else:
+        peaks = identify_peaks_and_troughs(data_series, x_range=datetime.timedelta(weeks=156))[0]
+
+    def final_locs(data: pd.Series, x_locs: list) -> pd.Series:
+        print(" X locs: ", x_locs)
+        vals = []; index = []
+        for loc in x_locs:
+            date_loc = Utilities.GetClosestDateInIndex(data.index, searchDate = loc.strftime('%Y-%m-%d'))
+            #sub_range = data.iloc[date_loc_index-5: date_loc_index+5]
+            #all_locs.append(argrelextrema(sub_range.values, np.greater_equal, order=len(sub_range))[0])
+            vals.append(date_loc[0])
+            index.append(date_loc[1]) 
+        
+        return pd.Series(vals, index = index, name = "Peak locations, "+data.name).sort_index()
+
+    if mode == "auto":
+        peak_locs = peaks
+    else:
+        text_note = "Left-click at peak location to add red vertical line.Right-click to remove last red line. \n\
+            Peak locations will be exported to a Series."
+        # Initial plot
+        LeftTraces = {data_series.name: (data_series,"blue",1.5)}
+        fig = TwoAxisFig(LeftTraces, yscale, ylabel, title, text1=text_note)
+        x_locs = peaks.to_list(); lines = []
+        ax = fig.axes[0]
+
+        for date in peaks:
+            ax.axvline(x=date, color='black', linestyle='--', lw=1)
+
+        # Event handler for mouse clicks
+        def onclick(event):
+            # Right click removes the last line
+            if event.button == 3 and lines:
+                line = lines.pop()
+                line.remove()
+            # Left click adds a vertical line
+            elif event.button == 1:
+                line = ax.axvline(x=event.xdata, color='r', ls = "--", lw = 1)
+                lines.append(line)
+                x_locs.append(mdates.num2date(event.xdata))
+                print(x_locs)
+            # Redraw the figure
+            fig.canvas.draw()
+            # Print the corresponding dates        
+
+        # Connect the event handler
+        fig.canvas.mpl_connect('button_press_event', onclick)
+        plt.show()
+        peak_locs = final_locs(data_series, x_locs)
+
+    return peak_locs
 
 if __name__ == '__main__':
     data = pd.Series(pd.read_excel(parent+fdel+'Macro_Chartist/SavedData/CPIAUCSL.xlsx', sheet_name="Closing_Price", index_col=0).squeeze())
