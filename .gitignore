@@ -17,6 +17,8 @@
 !/User_Data/SavedData/CPIAUCSL.xlsx
 !/User_Data/TreasuryData/TGA_Since2005.xlsx
 !User_Data/ABS/ABS_Series_MasterIndex.csv
+!/User_Data/GlobalReserves/BalSheets/CNCBBS.xlsx
+!/User_Data/GlobalReserves/FXData/CNYUSD.xlsx
 /MacroBackend/SystemInfo/*
 !/MacroBackend/SystemInfo/API_Keys_demo.json
 /MacroBackend/Glassnode/Saved_Data/*
