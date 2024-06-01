@@ -20,7 +20,10 @@ from tkinter import Tk     # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import showinfo
 
-matplotlib.use("TkAgg")
+matplotlib.use("QtAgg")
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 200   ###Set the resolution of the displayed figs & saved fig respectively. 
+
 
 Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
 fdel = os.path.sep
@@ -370,7 +373,6 @@ if __name__ == '__main__':
     FullDF.set_index(index,inplace=True); FullDF.drop('Date',axis=1,inplace=True)
 
     ######## MatPlotlib functions ########################################################################################################################
-    plt.rcParams['figure.dpi'] = 105; plt.rcParams['savefig.dpi'] = 200   ###Set the resolution of the displayed figs & saved fig respectively. 
 
     DataComp = DataComp[0:10]
     PlotM2Data(FullDF,DataComp,colors=colors)
