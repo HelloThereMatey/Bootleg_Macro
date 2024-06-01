@@ -3,7 +3,6 @@
 !/Macro_Chartist/Chart_templates/GDP vs GDI.xlsx
 /Global_M2/M2_USD_Tables/*
 /Global_M2/Datasums/*
-/User_Data/*
 !/User_Data/BEA/GDP_PriceDeflator.xlsx
 !/User_Data/FRED_Data/WRESBAL.xlsx
 !/User_Data/Glassnode/GN_MetricsList.xlsx
@@ -13,6 +12,17 @@
 !/User_Data/GM2_Data/FinalData/China.xlsx
 !/User_Data/GM2_Data/FX_Data/China_FX.xlsx
 !/User_Data/GM2_Data/M2_Data/China_M2.xlsx
+/User_Data/GlobalReserves/BalSheets/*
+/User_Data/GlobalReserves/FXData/*
+/User_Data/BEA/*
+/User_Data/FRED_Data/*
+/User_Data/Glassnode/*
+/User_Data/TreasuryData/*
+/User_Data/GM2_Data/FinalData/*
+/User_Data/GM2_Data/FX_Data/*
+/User_Data/GM2_Data/M2_Data/*
+/User_Data/NLQ_Data/*
+/User_Data/SavedData/*
 !/User_Data/NLQ_Data/NLQ_Data.xlsx
 !/User_Data/SavedData/CPIAUCSL.xlsx
 !/User_Data/TreasuryData/TGA_Since2005.xlsx
