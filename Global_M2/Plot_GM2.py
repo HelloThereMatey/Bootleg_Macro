@@ -18,7 +18,6 @@ import numpy as np
 import tkinter as tk
 from tkinter import Tk     # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askopenfilename
-from tkinter.messagebox import showinfo
 
 matplotlib.use("QtAgg")
 plt.rcParams['font.family'] = 'serif'
@@ -243,7 +242,7 @@ class USD_vs_nativeCurr(object):
         ax.margins(0.02, 0.02)        
         ax2.margins(0.02, 0.02) 
      
-class YoY_Forecast(object):
+class YoY_forecast(object):
       
     def __init__(self, series: pd.Series, convert_units: int = 1):
         self.series = series/convert_units
@@ -256,38 +255,46 @@ class YoY_Forecast(object):
         self.series_MoM_3MMA = self.series_MoM.rolling(3).mean()
         self.series_YoY = series.pct_change(12)*100
 
-    def MakeForecastSeries(self, multiplesList: list = [-4, -2, 0, 1, 2, 4]):
+    def MakeForecastSeries(self, moms: list = [-1, -0.5, -0.25, -0.1, 0, 0.1, 0.25, 0.5, 1]):
         nextYear = pd.date_range(start = self.series.index[len(self.series)-1] + pd.Timedelta(weeks=4), periods = 12, freq = 'MS')
-        self.forecasts = {}
         self.forecasted = {}
-        latest_3M_av = abs(self.series_MoM_3MMA[self.series_MoM_3MMA.index[len(self.series_MoM_3MMA)-1]])
-        print('Average of last 3M MoM move: ', latest_3M_av)
-        latest_val = self.series[self.series.index[len(self.series)-1]]
+        latest_3M_av = self.series_MoM_3MMA[self.series_MoM_3MMA.index[-1]]
+        moms.append(latest_3M_av)  # Last forecast trace will be the average of last 3 months MoM growth rates. 
+    
+        latest_val = self.series[self.series.index[-1]]
         padSeries = pd.Series(np.nan, index = self.series.index); padSeries2 = pd.Series(np.nan, index = nextYear)
         fullPad = pd.concat([padSeries, padSeries2], axis = 0); fullIndex = fullPad.index
 
         self.x_min = fullIndex[0]; self.x_max = fullIndex[len(fullIndex)-1]
         self.margin = round((self.x_max - self.x_min).days * 0.025)
         print("Margin (days): ", self.margin)
-      
-        for mult in multiplesList:
-            serList = []
-            multName = 'Constant growth @ '+str((round(mult*(latest_3M_av/2), 1)))+' MoM '+r'$\Delta$%'
-            for i in range(len(nextYear)):
-                if i == 0:
-                    serList.append(latest_val * (1 + ((latest_3M_av/2)*mult)/100))
-                else:
-                    serList.append(serList[i-1] * (1 + ((latest_3M_av/2)*mult)/100))  
-            The_ser = pd.Series(serList, index = nextYear, name = multName)
-            #print('The series ',The_ser)
+        print('Average of last 3M MoM move: ', latest_3M_av)
+        print('Latest value in GM2 series: ', latest_val)
+        self.av3m_name = 'Average last 3 months'
         
-            self.forecasts[multName] = pd.Series(pd.concat([padSeries, The_ser], axis = 0), name = self.series.name+str((round(mult*(latest_3M_av/2), 2)))+' MoM '+r'$\Delta$%')
-            self.forecasted[multName] = pd.Series(pd.concat([self.series, The_ser], axis = 0), name = self.series.name+str((round(mult*(latest_3M_av/2), 2)))+' MoM '+r'$\Delta$%')
+        for i in range(len(moms)):
+            if i == len(moms)-1:
+                multName = self.av3m_name
+            else:
+                multName = str(moms[i])+r' $\Delta$%'+' MoM'
+
+            # Create an array with the same length as nextYear
+            serList = np.empty(len(nextYear))
+
+            # Calculate the multiplier
+            multiplier = 1 + (moms[i])/100
+
+            # For the first element, use latest_val, for the rest use the previous value
+            serList[0] = latest_val * multiplier
+            for i in range(1, len(serList)):
+                serList[i] = serList[i-1] * multiplier
+
+            TheSer  = pd.Series(serList, index=nextYear, name=multName)
+            self.forecasted[multName] = pd.concat([self.series, TheSer], axis = 0)
 
         self.casted_YoY = {}
         for cast in self.forecasted.keys():
             self.casted_YoY[cast] =  self.forecasted[cast].pct_change(12) * 100    
-            self.forecasted[cast].tail(15)
 
     def PlotEm(self, title, ax_ylabel: str = 'USD', ax2_ylabel: str = r'YoY $\Delta$%', yaxis: str = 'log'):
         plt.rcParams['font.family'] = 'serif'
@@ -301,7 +308,10 @@ class YoY_Forecast(object):
 
         maxes = {}
         for forecast in self.forecasted.keys():
-            ax.plot(self.forecasted[forecast], label = forecast, lw = 1)
+            if forecast == self.av3m_name:
+                ax.plot(self.forecasted[forecast], label = forecast, color = "dodgerblue", lw = 2)
+            else:
+                ax.plot(self.forecasted[forecast], label = forecast, lw = 1)
             maxVal = max(self.forecasted[forecast]); maxes[forecast] = maxVal
             print(self.forecasted[forecast].index[0])    
         ax.plot(self.series, color = 'black', label = self.series.name, lw = 2.5)    
@@ -316,8 +326,11 @@ class YoY_Forecast(object):
         ax2.set_ylabel(ax2_ylabel, fontweight='bold',fontsize=12)
         ax2.axhline(y=0,linestyle='dashed',color='red')    
         for forecast in self.casted_YoY.keys():
-            ax2.plot(self.casted_YoY[forecast], label = forecast, lw = 1)
-            print(self.casted_YoY[forecast].index[0])
+            if forecast == self.av3m_name:
+                ax2.plot(self.casted_YoY[forecast], label = forecast, color = "dodgerblue", lw = 2)
+            else:
+                ax2.plot(self.casted_YoY[forecast], label = forecast, lw = 1)
+
         ax2.plot(self.series_YoY, label = self.series_YoY.name +r" YoY $\Delta$%", color = 'black', lw = 2)
 
         ax.tick_params(axis='x',labelsize=0)
@@ -361,7 +374,12 @@ if __name__ == '__main__':
     template.plot(left_traces=data_dict, axDeets = axDeets, title = 'M2 monetary aggregates, top 50 economies')
 
 #################################### ACTIVE CODE BELOW, FUNCTIONS ABOVE. #####################################################      
-    filename = askopenfilename(title="Choose excel file (.xlsx only), with M2 (USD) data generated by 'Update_M2.py', e.g: Top33_M2_USD.xlsx",defaultextension='.xlsx',initialdir=wd) 
+    filname = None
+    ##Set a default file to use or comment this out to use the file dialog.
+    filename = wd+fdel+'M2_USD_Tables'+fdel+'Top50_M2_USD.xlsx'
+
+    if filename is None:
+        filename = askopenfilename(title="Choose excel file (.xlsx only), with M2 (USD) data generated by 'Update_M2.py', e.g: Top33_M2_USD.xlsx",defaultextension='.xlsx',initialdir=wd) 
     des = filename.rsplit('.',1)[0].rsplit('/',1)[1].split('_')[0]
     print(des, wd+fdel+'Datasums'+fdel+des+'_DataComp.xlsx')
 
@@ -374,8 +392,6 @@ if __name__ == '__main__':
 
     ######## MatPlotlib functions ########################################################################################################################
 
-    DataComp = DataComp[0:10]
-    PlotM2Data(FullDF,DataComp,colors=colors)
     DataComp = DataComp[0:5]
     PlotM2Data(FullDF,DataComp)
     Plot_GlobalM2(FullDF['Global M2 (USD, ffill)'], FullDF)
@@ -383,9 +399,9 @@ if __name__ == '__main__':
     series = pd.read_excel(parent+fdel+'User_Data'+fdel+'SavedData'+fdel+'Top50GM2.xlsx', sheet_name='Closing_Price', index_col=0)
     series = series[series.columns[0]].rename('Global M2 aggregate (top 50)')
 
-    fore = YoY_Forecast(series, convert_units = 10**12)
+    fore = YoY_forecast(series, convert_units = 10**12) #GM2 series units is trillions of USD.
     print(fore.series)
-    fore.MakeForecastSeries(multiplesList = [-3, -2, -1, 0, 1, 2, 3])
+    fore.MakeForecastSeries(moms=[-1, -0.5, 0, 0.5, 1]) # default growth rate range: [-1, -0.5, -0.25, -0.1, 0, 0.1, 0.25, 0.5, 1]
     fore.PlotEm('Forecasting GM2 based on constant MoM changes', ax_ylabel='USD (trillions of dollaridoos)')
     fore.save_em()
     plt.show()
