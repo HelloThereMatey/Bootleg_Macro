@@ -14,7 +14,7 @@ from matplotlib import colors as mcolors
 import matplotlib.pylab as pl
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
-from tvDatafeedz import TvDatafeed, Interval
+from MacroBackend import tvDatafeedz
 import numpy as np
 import tkinter as tk
 from tkinter import Tk     # from tkinter import Tk for Python 3.x
@@ -26,7 +26,7 @@ Tk().withdraw() # we don't want a full GUI, so keep the root window from appeari
 ################################################### CODE FOR UPDATING EXISTING M2 & FX DATA FOR COUNTRIES SUPPLIED IN A LIST TAKEN FROM EXCEL FILE #############
 def PullData(FullInfo:pd.DataFrame,username=None,password=None,Rank:list=None): #Use the full dataframe with M2 and FX ticker infos to pull the data for them from TV.  
     name="NoobTrade181"; pw="4Frst6^YuiT!" #Use username, password to access some data that may be restricted for free TV tiers. 
-    tv = TvDatafeed()
+    tv = tvDatafeedz.tvdatafeed()
     DataDict = {}
 
     if Rank is not None:
@@ -41,14 +41,14 @@ def PullData(FullInfo:pd.DataFrame,username=None,password=None,Rank:list=None): 
         FXEx = FullInfo.iloc[i].at['FX_Exchange']
         CurrCode = FullInfo.iloc[i].at['M2_currency_code']
         print(TheCountry,M2Sym,M2Ex,FXSym,FXEx)
-        M2_Data = tv.multi_attempt_pull(symbol=M2Sym,exchange=M2Ex,interval=Interval.in_monthly,n_bars=500)
+        M2_Data = tv.multi_attempt_pull(symbol=M2Sym,exchange=M2Ex,interval=tvDatafeedz.Interval.in_monthly,n_bars=500)
         shitlist = []
         if (CurrCode == 'USD'):
             DataDict[TheCountry] = (M2_Data,"\nNo FX Data. M2 is measured in USD already") 
             continue
         else:
             try:
-                FXData = tv.multi_attempt_pull(symbol=FXSym,exchange=FXEx,interval=Interval.in_monthly,n_bars=500)
+                FXData = tv.multi_attempt_pull(symbol=FXSym,exchange=FXEx,interval=tvDatafeedz.Interval.in_monthly,n_bars=500)
             except:
                 print('TVDataFeed failed to get data for: '+FXSym+', for country: '+TheCountry)
                 shitlist.append(TheCountry+'_'+FXSym+'_'+FXEx)
