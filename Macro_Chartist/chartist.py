@@ -357,7 +357,7 @@ for series in SeriesDict.keys():
 ########### Resample all series to daily frequency and/or convert units ###############################################################
 for series in SeriesDict.keys():
     TheSeries = SeriesDict[series]; data = TheSeries['Data']
-    if not pd.isna(TheSeries["Resample2D"]):
+    if TheSeries["Resample2D"] == 'yes':
         data = resample_to_daily(data, DataStart, end_date = EndDateStr)
     
 #### Substitute a data series for an MA of that series if wanted. ##########################################################################################    
@@ -482,10 +482,13 @@ print('######################## PLOTTING #######################################
 DS_List = []
 Replaces = {"GNload":"Glassnode","fred":"FRED","yfinance":"Yahoo","yfinance":"Yahoo","tv":"Trading view","coingecko":"Coin gecko",
             "load_BEA":"US BEA", "abs":"ABS"}
+
 for series in SeriesDict.keys():
     data = SeriesDict[series]['Data']; name = SeriesDict[series]['Name']
-    # print("Dataset", "max: ", data.max(), "min: ", data.min())
-    data = scale_series(data); SeriesDict[series]['Data'] = data
+    print("Dataset", "max: ", data.max(), "min: ", data.min())
+
+      ###### This was an attempt to scale all series to the same order of magnitude so Y-axes have not too many digits on labels.. Come back to this later....
+#     data = scale_series(data); SeriesDict[series]['Data'] = data
 
 ############ This organises a list of data sources to add at bottom of chart. 
     TheSeries = SeriesDict[series]; source = TheSeries['Source']

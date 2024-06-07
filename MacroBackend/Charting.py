@@ -466,6 +466,7 @@ class BMP_Fig(Figure):
                 quit()    
         else:
             pass        
+        print("plotDatas: ", plotDatas)
 
         i = 0; AxList =  self.axes
         for axes_name in plotDatas:
@@ -473,8 +474,8 @@ class BMP_Fig(Figure):
             the_axdict = plotDatas[axes_name]; ymax = the_axdict['Ymax']; ymin = the_axdict['Ymin']
   
             primary_trace = the_axdict['data'][0]
-            Ylabel = primary_trace['axlabel']
-            if Ylabel == 'nan':
+        
+            if primary_trace['UnitsType'] not in ['Unaltered','Rolling sum']:
                 primary_trace['axlabel'] = primary_trace['UnitsType']
 
             if pd.isna(ymax) or ymax == '':
@@ -488,7 +489,7 @@ class BMP_Fig(Figure):
 
             scales = ['linear', 'log', 'symlog', 'asinh', 'logit', 'function', 'functionlog']
             nc_scales = ['symlog', 'asinh', 'logit', 'function', 'functionlog']
-            if primary_trace['YScale'] in nc_scales:
+            if primary_trace['YScale'] in nc_scales or primary_trace['YScale'] not in scales:
                 print("Y-scales other than linear or log are not yet supported, choose only linear or log.")
                 quit()
             else:    
@@ -509,13 +510,14 @@ class BMP_Fig(Figure):
             ticks, ticklabs = Utilities.EqualSpacedTicks(10, primary_trace['Data'], LogOrLin=primary_trace['YScale'],LabOffset=LabOffset,labSuffix=labSuffix,Ymax=Ymax,Ymin=Ymin)
             TheAx.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
             TheAx.set_yticks(ticks); TheAx.set_yticklabels(ticklabs)
+
             axLabel = primary_trace["axlabel"]
             if pd.isna(axLabel) and primary_trace['UnitsType'] in ['Unaltered','Rolling sum']:
                 axLabel = "USD"
             elif pd.isna(axLabel) and primary_trace['UnitsType'] not in ['Unaltered','Rolling sum']: 
                 axLabel = primary_trace['UnitsType']   
-            if pd.isna(axLabel):
-                axLabel = ""
+            else:
+                pass
 
             if i > 0:
                 TheAx.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=True,labelright=True,labelcolor=primary_trace['TraceColor'],color=primary_trace['TraceColor'])
@@ -562,7 +564,8 @@ class BMP_Fig(Figure):
                 # elif Ymax is not None and Ymin is None:  
                 #     TheAx.set_ylim(primary_trace['Data'].min(),Ymax)    
                 # elif Ymax is None and Ymin is not None:  
-                #     TheAx.set_ylim(Ymin,primary_trace['Data'].max())     
+                #     TheAx.set_ylim(Ymin,primary_trace['Data'].max())   
+                  
                 if i > 1:
                     TheAx.spines.right.set_position(("axes", 1+((i-1)*0.055))); 
                 TheAx.margins(0.02,0.02)
@@ -682,6 +685,9 @@ class BMP_Fig(Figure):
         print("Bottom: ", bottom)
         self.bottom = bottom
         self.subplots_adjust(bottom = bottom)    
+
+
+        
 
 def DF_DefPlot(data: pd.DataFrame, yLabel: str = "a.u", YScale:str='linear', title: str = "DataFrame contents"):
     plt.rcParams['font.family'] = 'serif'
