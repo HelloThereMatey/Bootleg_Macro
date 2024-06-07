@@ -466,7 +466,6 @@ class BMP_Fig(Figure):
                 quit()    
         else:
             pass        
-        print("plotDatas: ", plotDatas)
 
         i = 0; AxList =  self.axes
         for axes_name in plotDatas:
@@ -498,7 +497,8 @@ class BMP_Fig(Figure):
 
             if primary_trace['YScale'] == 'log' and primary_trace['UnitsType'] not in ['Unaltered','Rolling sum']:
                 print('Using offset log axis for series: ',primary_trace['Name'])
-                primary_trace['Data'] += 100
+                for trace in the_axdict['data']:
+                    trace['Data'] += 100
                 if Ymin is not None:
                     Ymin += 100
                 if Ymax is not None:
@@ -526,7 +526,7 @@ class BMP_Fig(Figure):
                 self.ax1.tick_params(axis='y',which='major',width=1,length=3,labelsize=8,right=False,labelright=False,labelcolor=primary_trace['TraceColor'],color=primary_trace['TraceColor'])   
                 self.ax1.set_ylabel(axLabel,fontweight='bold')               
 
-            for axData in the_axdict['data']:
+            for axData in reversed(the_axdict['data']):
                 traceData = axData
                 data = traceData['Data']; name = traceData['Name']
 
@@ -537,7 +537,8 @@ class BMP_Fig(Figure):
                         TheAx.plot(data[col], label = data[col].name, lw=LW)
                 else:        
                     TheAx.plot(traceData['Data'],label = traceData['Legend_Name'],color=traceData['TraceColor'],lw=LW)
-                
+                print("Plot position: ", traceData['Data'], traceData['Legend_Name'])
+
                 if not pd.isna(traceData['addMA']):
                     period = round(traceData['addMA'])
                     ThisTrace = pd.Series(traceData['Data'])

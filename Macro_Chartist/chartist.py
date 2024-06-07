@@ -333,7 +333,7 @@ for series in SeriesDict.keys():
         else:
             TheData2 = pd.Series(TheData2[TheData2.columns[0]],name=TheSeries['Name'])
     print('Data pull function, data series name: ',TheSeries['Legend_Name'],'Datatype:  ',type(TheData2))    
-    TheData2 = TheData2[StartDate:EndDate]
+    TheData2 = TheData2[StartDate::]
     TheSeries['Data'] = TheData2
     TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.  
     SeriesDict[series] = TheSeries

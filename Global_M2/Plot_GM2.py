@@ -257,7 +257,7 @@ class YoY_forecast(object):
 
     def MakeForecastSeries(self, moms: list = [-1, -0.5, -0.25, -0.1, 0, 0.1, 0.25, 0.5, 1]):
         nextYear = pd.date_range(start = self.series.index[len(self.series)-1] + pd.Timedelta(weeks=4), periods = 12, freq = 'MS')
-        self.forecasted = {}
+        self.forecasted = {}; self.nanfc = {}
         latest_3M_av = self.series_MoM_3MMA[self.series_MoM_3MMA.index[-1]]
         moms.append(latest_3M_av)  # Last forecast trace will be the average of last 3 months MoM growth rates. 
     
@@ -291,6 +291,7 @@ class YoY_forecast(object):
 
             TheSer  = pd.Series(serList, index=nextYear, name=multName)
             self.forecasted[multName] = pd.concat([self.series, TheSer], axis = 0)
+            self.nanfc[multName+"_n"] = pd.concat([padSeries, TheSer], axis = 0)
 
         self.casted_YoY = {}
         for cast in self.forecasted.keys():
@@ -347,11 +348,15 @@ class YoY_forecast(object):
     def save_em(self, savePath: str = parent + fdel + 'User_Data' + fdel + 'SavedData'):
         for forecast in self.forecasted.keys():
             SeriesInfo = pd.Series({'units':'US Dollars','units_short': 'USD','title':forecast,'id':forecast,"Source":"tv"},name='SeriesInfo')
-            saveName = savePath+fdel+forecast.replace(" ", "_").replace("-","neg").replace(r'$\Delta$%', "_")+'.xlsx'
-            pd.Series(self.forecasted[forecast], name = forecast).to_excel(saveName, sheet_name='Closing_Price')
+            saveName = savePath+fdel+"GM2_fc_"+forecast.replace(" ", "").replace("-","neg").replace(r'$\Delta$%', "_")\
+                .replace("Average_last_3_months", "Av3m")+'.xlsx'
+            saveName2 = saveName.replace(".xlsx", "_n.xlsx")
+            pd.Series(self.forecasted[forecast]*(10**12), name = forecast).to_excel(saveName, sheet_name='Closing_Price')
+            pd.Series(self.nanfc[forecast+"_n"]*(10**12), name = forecast).to_excel(saveName2, sheet_name='Closing_Price')
             with pd.ExcelWriter(saveName, engine='openpyxl', mode='a') as writer:  
                 SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
-
+            with pd.ExcelWriter(saveName2, engine='openpyxl', mode='a') as writer2:  
+                SeriesInfo.to_excel(writer2, sheet_name='SeriesInfo')
 
 if __name__ == '__main__':
 
