@@ -13,8 +13,15 @@ from MacroBackend import Utilities, PriceImporter, js_funcs
 keys = Utilities.api_keys().keys
 abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
 
-######## Non-class functions ##################
+######## Custom classess ##################
 
+class MyTableView(QtWidgets.QTableView):
+    returnPressed = QtCore.pyqtSignal()
+
+    def keyPressEvent(self, event):
+        super().keyPressEvent(event)
+        if event.key() == QtCore.Qt.Key_Return or event.key() == QtCore.Qt.Key_Enter:
+            self.returnPressed.emit()
 
 class PandasModel(QtCore.QAbstractTableModel):
     def __init__(self, data):
@@ -49,6 +56,8 @@ class Ui_MainWindow(object):
         self.search_results = None
         self.tableheader = None
         self.results_count = 0
+        self.selected_row = None
+        self.return_dict = {}
 
     def setupUi(self, MainWindow: QtWidgets.QMainWindow):
         # Set the application icon
@@ -114,6 +123,7 @@ class Ui_MainWindow(object):
         self.source_dropdown.currentIndexChanged.connect(self.dropdown_changed)
         self.run_search.clicked.connect(self.run_search_df)
         self.clear_button.clicked.connect(self.clear_results)
+        self.results.doubleClicked.connect(self.select_row)
     
     def update_searchstr(self):
         self.searchstr = self.searchstr_entry.toPlainText()
@@ -165,6 +175,9 @@ class Ui_MainWindow(object):
                     elif self.selected_source == 'tv':    
                         resdict = self.source_function(searchstr = term)
                         results = pd.DataFrame(resdict).T
+                    elif self.selected_source == 'yfinance':
+                        resdict = self.source_function(searchstr = term)
+                        results = resdict['tickers_df']
                     else:
                         print("No source table selected")
                         return    
@@ -196,24 +209,43 @@ class Ui_MainWindow(object):
         self.tableheader = None
         return
     
-    # def select_line(self):
-    #     self.selected = self.results.clicked.
-
-if __name__ == "__main__":
-
-    sources = {'fred': PriceImporter.FREDSearch, 
-               'yfinance': None, 
-               'tv': js_funcs.js_search_tv, 
-               'coingecko': None, 
-               'quandl': None, 
-               'glassnode': None, 
-               'abs': abs_index_path}
+    def select_row(self, index):
+        self.selected_row = self.search_results.iloc[index.row()]
+        print("Row selected: ", self.selected_row)
+        self.add_row_to_return_dict()
     
-    app = QtWidgets.QApplication(sys.argv)
+    def add_row_to_return_dict(self):
+        if self.selected_row is not None:
+            self.return_dict[self.selected_row.name] = self.selected_row
+            print("Series addded to return dict: ", self.selected_row)
+    
+    # def cleanup(self):
+    #     self.deleteLater()
+
+def run_app():
+    sources = {'fred': PriceImporter.FREDSearch, 
+            'yfinance': js_funcs.search_yf_tickers, 
+            'tv': js_funcs.js_search_tv, 
+            'coingecko': None, 
+            'quandl': None, 
+            'glassnode': None, 
+            'abs': abs_index_path}
+    
+    app = QtWidgets.QApplication.instance()
+    if app is None:
+        app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow(MainWindow)
     ui.add_sources(sources)
     MainWindow.show()
-    sys.exit(app.exec())
+
+    app.aboutToQuit.connect(ui.cleanup)
+    app.exec()
+    return ui.return_dict
+
+if __name__ == "__main__":
+
+    resultsdict = run_app()
+    print("Results dict: \n\n\n", resultsdict)
 
 

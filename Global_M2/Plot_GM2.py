@@ -406,7 +406,7 @@ if __name__ == '__main__':
 
     fore = YoY_forecast(series, convert_units = 10**12) #GM2 series units is trillions of USD.
     print(fore.series)
-    fore.MakeForecastSeries(moms=[-1, -0.5, 0, 0.5, 1]) # default growth rate range: [-1, -0.5, -0.25, -0.1, 0, 0.1, 0.25, 0.5, 1]
+    fore.MakeForecastSeries() # default growth rate range: [-1, -0.5, -0.25, -0.1, 0, 0.1, 0.25, 0.5, 1]
     fore.PlotEm('Forecasting GM2 based on constant MoM changes', ax_ylabel='USD (trillions of doCllaridoos)')
     fore.save_em()
     plt.show()
