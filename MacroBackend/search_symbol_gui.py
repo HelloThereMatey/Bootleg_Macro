@@ -239,7 +239,7 @@ def run_app():
     ui.add_sources(sources)
     MainWindow.show()
 
-    app.aboutToQuit.connect(ui.cleanup)
+    #app.aboutToQuit.connect(ui.cleanup)
     app.exec()
     return ui.return_dict
 
