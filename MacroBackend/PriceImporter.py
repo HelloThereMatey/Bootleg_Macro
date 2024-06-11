@@ -257,7 +257,7 @@ def pullyfseries(ticker,start:str="2020-01-01",interval="1d"):
 #     AssetData = []
 
 #     if PriceAPI == 'coingecko':
-#         CoinID = getCoinID(ticker,InputTablePath=wd+fdel+'AllCG.xlsx')
+#         CoinID = getCoinID(ticker,InputTablePath=wd+fdel+'AllCG.csv')
 #         AssetData = CoinGeckoPriceHistory(CoinID[1],TimeLength=TimeLength) 
 #         AssetData.rename({"Price (USD)":"Close"},axis=1,inplace=True)
 #     elif PriceAPI == 'yfinance':
