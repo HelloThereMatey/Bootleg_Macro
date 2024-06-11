@@ -137,7 +137,7 @@ class dataset(object):
             self.data = TheData[self.start_date:self.end_date]      
         
         elif self.source == 'coingecko':
-            CoinID = PriceImporter.getCoinID(self.data_code, InputTablePath=parent+fdel+'MacroBackend'+fdel+'AllCG.xlsx')
+            CoinID = PriceImporter.getCoinID(self.data_code, InputTablePath=parent+fdel+'MacroBackend'+fdel+'AllCG.csv')
             numDays = (self.end_date - self.start_date).days
             TheData = PriceImporter.CoinGeckoPriceHistory(CoinID[1],TimeLength = numDays) 
             TheData.rename({"Price (USD)":"Close"},axis=1,inplace=True) 

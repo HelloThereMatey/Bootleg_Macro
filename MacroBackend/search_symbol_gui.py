@@ -12,6 +12,7 @@ from MacroBackend import Utilities, PriceImporter, js_funcs
 
 keys = Utilities.api_keys().keys
 abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
+cG_allshitsPath = wd+fdel+"AllCG.csv"
 
 ######## Custom classess ##################
 
@@ -226,7 +227,7 @@ def run_app():
     sources = {'fred': PriceImporter.FREDSearch, 
             'yfinance': js_funcs.search_yf_tickers, 
             'tv': js_funcs.js_search_tv, 
-            'coingecko': None, 
+            'coingecko': cG_allshitsPath, 
             'quandl': None, 
             'glassnode': None, 
             'abs': abs_index_path}
