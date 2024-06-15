@@ -17,6 +17,9 @@ import numpy as np
 import pandas_datareader as pdr
 import quandl
 from yahoofinancials import YahooFinancials as yf
+import json
+
+keys = Utilities.api_keys().keys
 
 def yf_get_data(ticker: str, start_date: str, end_date: str, data_freq: str = "daily"):
     yfobj = yf(ticker)
@@ -203,14 +206,37 @@ class dataset(object):
         elif self.d_type == 'close':    
             self.data = pd.Series(TheData['Close'], name = self.dataName)       
         else:
-            self.data = TheData          
+            self.data = TheData        
+
+class glassnode_data(object):
+
+    def __init__(self):
+        self.metric_df = pd.read_excel(wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.xlsx")
+        self.metric_list = pd.Series([str(path).split("/")[-1] for path in self.metric_df["path"]])
+        
+    def chosen_met(self, metric):
+        metIndex = (self.metric_list == metric).idxmax()
+        self.metric_path = self.metric_df['path'].iloc[metIndex]
+        ass_json = json.loads(str(self.metric_df['assets'].iloc[metIndex]).strip().replace("'", '"'))
+        self.met_assets = [asset["symbol"] for asset in ass_json]
+        self.met_currs = [curr for curr in self.metric_df['currencies'].iloc[metIndex]]
+        self.met_resolutions = [res for res in self.metric_df['resolutions'].iloc[metIndex]]
+        self.met_formats = [form for form in self.metric_df['formats'].iloc[metIndex]]
+        dom_json = json.loads(str(self.metric_df['paramsDomain'].iloc[metIndex]).strip().replace("'", '"'))
+        self.met_domain = [dom for dom in dom_json.values()]
+
+    def get_data(self, metric, asset: str = "BTC", tier: int = 1, resolution: str = '24h', format: str = 'csv', paramsDomain: str = "a"):
+        params = {'a': asset,'i': resolution,'f': format,'api_key': keys['glassnode']} 
+        self.data = GlassNode_API.GetMetric(path = self.metric_path, APIKey = keys['glassnode'], params = params)
+        
+        
 
 if __name__ == "__main__":
     
     # me_data = dataset(source = 'yfinance', data_code = 'BTC-USD',start_date="2011-01-01", dtype="OHLCV")
     # print(me_data.data, me_data.SeriesInfo, me_data.dataName)
-    me_data = dataset(source = 'abs', data_code = 'A3605929A',start_date="2011-01-01")
-    print(me_data.data, me_data.SeriesInfo, me_data.dataName)
+    # me_data = dataset(source = 'abs', data_code = 'A3605929A',start_date="2011-01-01")
+    # print(me_data.data, me_data.SeriesInfo, me_data.dataName)
 
     #DXY = PriceImporter.ReSampleToRefIndex(DXY,Findex,'D') 
     #print(me_data.data.iloc[len(me_data.data)-1])
@@ -231,6 +257,12 @@ if __name__ == "__main__":
     # datas = tvd.tv.exp_ws("BTCUSD", exchange = 'INDEX', interval=PriceImporter.TimeInterval("4H"),n_bars=5000)
     # print(datas)
      
+    gn = glassnode_data()
+    gn.chosen_met("price_usd_ohlc")
+    print(gn.met_assets, gn.met_resolutions, gn.met_formats, gn.met_currs, gn.met_domain)
+    gn.get_data("price_usd_ohlc", asset = "BTC", resolution = '24h', format = 'json', paramsDomain = "a")
+    print(gn.data)
+
 
     
 
