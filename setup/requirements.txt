@@ -8,6 +8,7 @@ altair
 openpyxl
 yfinance
 yahoofinancials==1.18
+Nasdaq-Data-Link
 scipy
 quandl
 customtkinter

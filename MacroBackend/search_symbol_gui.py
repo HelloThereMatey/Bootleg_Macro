@@ -8,7 +8,7 @@ wd = os.path.dirname(__file__); parent = os.path.dirname(wd); grampa = os.path.d
 fdel = os.path.sep
 sys.path.append(parent)
 
-from MacroBackend import Utilities, PriceImporter, js_funcs
+from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode
 
 keys = Utilities.api_keys().keys
 abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
@@ -223,6 +223,17 @@ class Ui_MainWindow(object):
     # def cleanup(self):
     #     self.deleteLater()
 
+##### STANDALONE FUNCTIONS ####################
+
+def update_GNmetrics():
+    path = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.xlsx"
+    old_df = pd.read_excel(path)
+    print("Number of metrics in existing table: ", len(old_df))
+    gnmets = Glassnode.GlassNode_API.UpdateGNMetrics(keys['glassnode'])
+    print("Number of metrics in new table: ", len(gnmets))
+    path = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.xlsx"
+    gnmets.to_excel(path)
+
 def run_app():
     sources = {'fred': PriceImporter.FREDSearch, 
             'yfinance': js_funcs.search_yf_tickers, 
@@ -248,5 +259,6 @@ if __name__ == "__main__":
 
     resultsdict = run_app()
     print("Results dict: \n\n\n", resultsdict)
+    # update_GNmetrics()
 
 

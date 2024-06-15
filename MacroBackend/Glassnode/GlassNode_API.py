@@ -36,7 +36,7 @@ def search_series(search_string, series:pd.Series):  ##This unction will be used
         i += 1
     return matches, match_indices
 
-def UpdateGNMetrics(APIKey:str) -> pd.DataFrame(): #Use this to occaisonally update the excel file containing the list of all GN metrics. 
+def UpdateGNMetrics(APIKey:str) -> pd.DataFrame: #Use this to occaisonally update the excel file containing the list of all GN metrics. 
     print('Updating excel file that has the list of all GlassNode metrics/endpoints.....')
     #make API request
     res = requests.get('https://api.glassnode.com/v2/metrics/endpoints', params={'a': 'BTC', 'api_key': APIKey})
