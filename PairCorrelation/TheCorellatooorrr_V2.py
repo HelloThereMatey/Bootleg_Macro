@@ -79,6 +79,25 @@ def CovCorrMA(period: int, AssetPrice1: np.ndarray, AssetPrice2: np.ndarray, ind
     CovCorrDF = pd.DataFrame(CovCorrDict, index=index)
     return CovCorrDF       #Dataframe containing the MA for the given period, 1st column co-variance, second column correlation co-efficient. 
 
+def efficient_cov_corr(period, asset_price1, asset_price2):
+    # Convert the numpy arrays to pandas Series
+    asset_price1 = pd.Series(asset_price1)
+    asset_price2 = pd.Series(asset_price2)
+
+    # Calculate rolling covariance
+    rolling_cov = asset_price1.rolling(window=period).cov(asset_price2)
+
+    # Calculate rolling correlation
+    rolling_corr = asset_price1.rolling(window=period).corr(asset_price2)
+
+    # Create a DataFrame from the results
+    df = pd.DataFrame({
+        'CV_'+str(period)+'day': rolling_cov,
+        'CC_'+str(period)+'day': rolling_corr
+    })
+
+    return df
+
 def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate Pearson Correlation co-efficient between two series with time frame: period. 
     if (period=='Full'):
         Cor = round(Series1.corr(Series2),3)
@@ -224,11 +243,13 @@ if type2 == 'yoy':
 MasterDF = pd.concat([PriceMatrix1,PriceMatrix2],axis=1) # Create the master dataframe to output to csv.  
 Index = pd.DatetimeIndex(MasterDF.index)
 for i in range(numCCAvs):
-    CorrAv = CovCorrMA(int(CCAvs[i]),Price1, Price2,Index)
+    #CorrAv = CovCorrMA(int(CCAvs[i]),Price1, Price2,Index)
+    CorrAv = efficient_cov_corr(int(CCAvs[i]), Price1, Price2)
     PDCor = Correlation(Series1, Series2, period=int(CCAvs[i]))
     PDCor = pd.Series(PDCor, name='Pandas rolling corr ('+str(int(CCAvs[i]))+'d)')
     MasterDF = pd.concat([MasterDF, CorrAv, PDCor],axis=1)
-CovCorr_Full = CovCorrMA(TimeLength, Price1, Price2,Index)
+CovCorr_Full = efficient_cov_corr(TimeLength, Price1, Price2)
+#CovCorrMA(TimeLength, Price1, Price2,Index)
 
 MasterDF = pd.concat([MasterDF, CovCorr_Full],axis=1)
 if save_data:
