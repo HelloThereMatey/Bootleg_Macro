@@ -274,7 +274,7 @@ class YoY_forecast(object):
         
         for i in range(len(moms)):
             if i == len(moms)-1:
-
+                multName = self.av3m_name
             else:
                 multName = str(moms[i])+" "+r'$\Delta$%'+' MoM'
 

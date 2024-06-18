@@ -12,6 +12,7 @@ import datetime
 import time
 import os
 from sys import platform
+mpl.use('QtAgg')
 
 wd = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(wd); grandpa = os.path.dirname(parent)
@@ -29,7 +30,7 @@ except Exception as e:
 print('System information: ',platform,', directory delimiter: ', fdel, ', working directory: ', wd)
 # Insert your glassnode API key here
 API_KEY = GlassNode_API.API_KEY
-defPath = wd+fdel+'Saved_Data'+fdel+'GN_MetricsList.xlsx'
+defPath = wd+fdel+'Saved_Data'+fdel+'GN_MetricsList.csv'
 defPath = defPath.replace('\\','/')
 savePath = wd+fdel+'Saved_Data'; savePath = savePath.replace('\\','/')
 savePath2 = grandpa+fdel+'User_Data'+fdel+'Glassnode'; savePath2 = savePath2.replace('\\','/')
@@ -130,10 +131,10 @@ def SetSavingPath():
 
 def UpdateMetricList():
     Loc = root.getvar(name='GNMetricList_Path'); loc = Loc[0]
-    olDF = pd.read_excel(loc); olLength = len(olDF)
+    olDF = pd.read_csv(loc, index_col=0); olLength = len(olDF)
     df = pd.DataFrame(GlassNode_API.UpdateGNMetrics(API_KEY))
     print('Metrics list updated, old length: ',olLength,'new length: ',len(df))
-    df.to_excel(loc)
+    df.to_csv(loc)
 
 def SearchBtn():
     update_text()
@@ -219,31 +220,25 @@ def getGNData():
     else:
         print('End date will be now.')      
     
-    series = pd.Series(GlassNode_API.GetMetric(ep,API_KEY,params=params),name=name)
+    series = GlassNode_API.GetMetric(ep,API_KEY,params=params)
+    if isinstance(series,pd.DataFrame):
+        SerOrDF = 'dataframe'
+    elif isinstance(series,pd.Series):
+        SerOrDF = 'series'
+    else:
+        print("Data type not recognized. Returning None.")
+        return None
+
     Info = {"Asset": assChoice.get(),'Data frequency':resChoice.get(),'Data format':formChoice.get(),
             'units': "a.u", 'units_short': "a.u", 'title': name.upper(),'Legend_Name': name.upper(), 'id': name,
-            'Source': "GlassNode"
-            }
+            'Source': "GlassNode"}
     info = json.dumps(Info)
     Ser_Info.set(info); print(info)
 
-    try:
-        series = series.astype(float)
-        SerOrDF = 'series'
-    except Exception as err:
-        print(err,series.dtype,type(series.iloc[0]))    
-        if str(type(series.iloc[0])) == "<class 'dict'>":
-            print("That's a big dict. Let's break it up"); 
-            df = pd.DataFrame(series.tolist(),index=series.index)
-            SerOrDF = 'df'
-            print(df)    
-        else: 
-            print("dtype of series is not dict, need to figure out how to deal with this type. Pulling out....")
-            print(series,type(series),series.dtype,type(series.iloc[0]))
-            quit()        
     dates = pd.DatetimeIndex(series.index); dates.rename('date',inplace=True)
     dateColumn = dates.to_list(); Date.set(dateColumn)
     tree.delete(*tree.get_children())
+
     if SerOrDF == "series":
         dataForm.set(0); dataColumn = series.to_list()
         series = pd.Series(dataColumn,index=dates,name=name)
@@ -257,6 +252,7 @@ def getGNData():
             values = [dateColumn[i],dataColumn[i]]
             tree.insert('',tk.END,values=values)   
     else:
+        df = series.copy()
         dataForm.set(1)
         allCols = df.columns.to_list(); allCols.insert(0,'Date')
         Data.set(df.to_json())
