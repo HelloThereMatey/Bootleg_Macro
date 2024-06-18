@@ -13,6 +13,7 @@ from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode
 keys = Utilities.api_keys().keys
 abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
 cG_allshitsPath = wd+fdel+"AllCG.csv"
+metricsListPath = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv"
 
 ######## Custom classess ##################
 
@@ -226,13 +227,13 @@ class Ui_MainWindow(object):
 ##### STANDALONE FUNCTIONS ####################
 
 def update_GNmetrics():
-    path = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.xlsx"
-    old_df = pd.read_excel(path)
+    path = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv"
+    old_df = pd.read_csv(path, index_col=0)
     print("Number of metrics in existing table: ", len(old_df))
     gnmets = Glassnode.GlassNode_API.UpdateGNMetrics(keys['glassnode'])
     print("Number of metrics in new table: ", len(gnmets))
-    path = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.xlsx"
-    gnmets.to_excel(path)
+    path = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv"
+    gnmets.to_csv(path)
 
 def run_app():
     sources = {'fred': PriceImporter.FREDSearch, 
@@ -240,7 +241,7 @@ def run_app():
             'tv': js_funcs.js_search_tv, 
             'coingecko': cG_allshitsPath, 
             'quandl': None, 
-            'glassnode': None, 
+            'glassnode': metricsListPath, 
             'abs': abs_index_path}
     
     app = QtWidgets.QApplication.instance()

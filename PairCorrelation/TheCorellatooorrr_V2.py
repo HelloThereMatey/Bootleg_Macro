@@ -1,7 +1,7 @@
 import os
 wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
 dir = os.path.dirname(wd)
-print(wd,dir)
+print(wd,dir); fdel =os.path.sep
 import sys ; sys.path.append(dir)
 from MacroBackend import PriceImporter, Pull_Data ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it yet, it will be found when run. 
 from MacroBackend import Utilities
@@ -15,10 +15,8 @@ import matplotlib.dates as mdates
 from datetime import timedelta
 from tkinter import Tk     # from tkinter import Tk for Python 3.x
 from tkinter.filedialog import askopenfilename
-True
-Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
 
-CURR_DIR = os.path.dirname(os.path.realpath(__file__))
+Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
 
 def CovCorrCalc(AssetPrice1: np.ndarray, AssetPrice2: np.ndarray) -> np.ndarray:         #Function for the cov and Corr. 
     num = len(AssetPrice1)
@@ -38,6 +36,8 @@ def CovCorrCalc(AssetPrice1: np.ndarray, AssetPrice2: np.ndarray) -> np.ndarray:
     return CovCorr       #Returns a two number list that has the covariance in the first slot and correlation in the second.
 
 ########################## Correlation for certain periods calculated like a moving average function:
+### This is a slow, bullshit, manual way to do this that I wrote early on in my coding career.
+## Must replace with a more efficient method that uses numpy and pandas to do the same thing.   
 def CovCorrMA(period: int, AssetPrice1: np.ndarray, AssetPrice2: np.ndarray, index) -> pd.DataFrame:
     ProperLength = len(index)
     Numerator = 0; asset1_std = 0; asset2_std = 0; count = 0
@@ -47,6 +47,7 @@ def CovCorrMA(period: int, AssetPrice1: np.ndarray, AssetPrice2: np.ndarray, ind
     CorrColName = 'CC_'+str(period)+'day'
     Cov = np.array([]); Corr = np.array([])
     asset1Sublist = []; asset2Sublist = []
+
     for it in range(num):
         mean_asset1 = np.mean(AssetPrice1[it:(it+(period))])
         mean_asset2 = np.mean(AssetPrice2[it:(it+(period))])            
@@ -89,51 +90,51 @@ def Correlation(Series1:pd.Series, Series2:pd.Series,period='Full'): #Calculate 
 #You can change to manual coin and time length selection instead of auto selection based on what you've already saved in the input .csv file
 # by commenting out the relevant 6 lines below here and uncommenting lines 23 - 25. 
 #Auto input of coin selection and parameters:
-dfIn = pd.read_excel(CURR_DIR+"/PairCorrInput.xlsx")  #We need to make sure the little r is there next to the path string to make it a raw string.
-print(dfIn)
+dfIn = pd.read_excel(wd+fdel+"/PairCorrInput.xlsx", index_col=0)  #We need to make sure the little r is there next to the path string to make it a raw string.
 
-scamFimode = bool(dfIn.loc[6].at["api1"])
+
+scamFimode = dfIn.loc["Defi_LP_mode"].at["asset1"] == "True"
+save_data = dfIn.loc["OUTPUT DATA"].at["asset1"] == "True"
+dollabillzyo = dfIn.loc["add_$_ax2"].at["asset1"] == "True"
+
 if scamFimode is True:
     print("Are you some kind of degen fuck? Stop playing with silly circular number scams and learn what money is.")
-    LP_Entry_Date = str(dfIn.loc[7].at["api1"])
-    LP_Exit_Date = str(dfIn.loc[8].at["api1"])
+    LP_Entry_Date = str(dfIn.loc["LP_Entry_Date"].at["asset1"])
+    LP_Exit_Date = str(dfIn.loc["LP_Exit_Date"].at["asset1"])
     LP_Entry = datetime.datetime.strptime(LP_Entry_Date.split(' ')[0],'%Y-%m-%d').date()
     LP_Exit = datetime.datetime.strptime(LP_Exit_Date.split(' ')[0],'%Y-%m-%d').date()
     print("Scamfi mode on, entry, exit dates: ", LP_Entry, LP_Exit)
 
-api1 = str(dfIn.loc[0].at["api1"]); api2 = str(dfIn.loc[0].at["api2"])
-type1 = str(dfIn.loc[1].at["api1"]); type2 = str(dfIn.loc[1].at["api2"])
-mode = str(dfIn.loc[3].at["api1"])
-plot2axii = str(dfIn.loc[2].at["api1"])
+api1 = str(dfIn.loc['assets'].at["api1"]); api2 = str(dfIn.loc['assets'].at["api2"])
+type1 = str(dfIn.loc['type'].at["asset1"]); type2 = type1
+mode = str(dfIn.loc['Mode'].at["asset1"])
+
+plot2axii = str(dfIn.loc['plot2axii'].at["asset1"])
+strAss1 = str(dfIn.loc['assets'].at["asset1"])
+strAss2 = str(dfIn.loc['assets'].at["asset2"])
 if api1 == 'tv':
-    strAss1 = str(dfIn.loc[0].at["asset1"])
     splits = strAss1.split(',')
-    print(splits)
     asset1 = splits[0]
 else:
-    asset1 = dfIn.loc[0].at["asset1"] 
-    strAss1 = asset1    
+    asset1 = strAss1 
 if api2 == 'tv':
-    strAss2 = str(dfIn.loc[0].at["asset2"])
     splits = strAss2.split(',')
-    print(splits)
     asset2 = splits[0]
 else:    
-    asset2 = dfIn.loc[0].at["asset2"] 
-    strAss2 = asset2 
+    asset2 = strAss2
 
-CCAvs = pd.Series.dropna(dfIn["CC Averages"])
+CCAvs = dfIn["CC Averages"].dropna()
 numCCAvs = len(CCAvs)
 print("Correlation averages to calculate: \n",CCAvs,numCCAvs)
 
-TimeLength = int(dfIn.loc[0].at["NumDays"])
+TimeLength = int(dfIn.loc['assets'].at["NumDays"])
 end = datetime.date.today()
-Start_Date = dfIn.loc[4].at["api1"].date()
-End_Date = dfIn.loc[5].at["api1"].date()
+Start_Date = dfIn.loc['Start_Date'].at["asset1"].date()
+End_Date = dfIn.loc['End_Date'].at["asset1"].date()
 
 start = Start_Date.strftime("%Y-%m-%d")
 
-if mode == 'disk':
+if mode == 'load_dialogue':
     filename = askopenfilename(title='Choose excel file (.xlsx only) to load data for asset 1.',defaultextension='.xlsx') 
     pathList = filename.split('/'); namePlusExt = pathList[len(pathList)-1]; nameList = namePlusExt.split('.'); name = nameList[0]
     asset1 = name; strAss1 = name
@@ -150,12 +151,21 @@ if mode == 'disk':
     df2.set_index(pd.DatetimeIndex(df2[df2.columns[0]]),inplace=True)
     print('Asset 2, name of data: ',asset2,'data: ', df2)
     df = df[start:df.index[len(df)-1]]; df2 = df2[start:df2.index[len(df2)-1]]
-else:    
+elif mode == 'local':  
+    df = pd.read_excel(wd+fdel+"asset1Data.xlsx")
+    df2 = pd.read_excel(wd+fdel+"asset2Data.xlsx")
+elif mode == 'api':    
     #Pull data from APIs:
     print('Asset 1 is: '+str(asset1)); print('Asset 2 is: '+str(asset2))
-    df = Pull_Data.dataset(api1, strAss1, start).data
-    df2 = Pull_Data.dataset(api2, strAss2, start).data
-    df = df[start:end]; df2 = df2[start:end]
+    dat = Pull_Data.dataset(); dat.get_data(api1, strAss1, start)
+    df = dat.data
+    dat2 = Pull_Data.dataset(); dat2.get_data(api2, strAss2, start)
+    df2 = dat2.data
+    df = df[Start_Date:end]
+    df2 = df2[Start_Date:end]
+else:
+    print('Mode not recognised, please check the input file for errors in the "Mode" field.')
+    quit()
 
 act_start = pd.to_datetime(df.index[0]).date()
 req_start = datetime.datetime.strptime(start,'%Y-%m-%d').date()
@@ -181,8 +191,7 @@ print(df,df2)
 PriceMatrix1 = pd.DataFrame(df); PriceMatrix2 = pd.DataFrame(df2)
 PriceMatrix1.fillna(method='ffill',inplace=True); PriceMatrix2.fillna(method='ffill',inplace=True)
 PriceMatrix1 = PriceMatrix1[Start_Date:End_Date]; PriceMatrix2 = PriceMatrix2[Start_Date:End_Date]
-PriceMatrix1.to_excel(CURR_DIR+"/Asset1Data.xlsx")
-PriceMatrix2.to_excel(CURR_DIR+"/Asset2Data.xlsx")
+PriceMatrix1.to_excel(wd+fdel+"asset1Data.xlsx"); PriceMatrix2.to_excel(wd+fdel+"asset1Data.xlsx")
 
 if len(PriceMatrix1.columns) < 2:
     Series1 = pd.Series(PriceMatrix1.squeeze(),name=strAss1)
@@ -211,6 +220,7 @@ if type1 == 'yoy':
     Series1 = pd.Series(PriceImporter.YoYCalcFromDaily(Series1),name=strAss1)
 if type2 == 'yoy':   
     Series2 = pd.Series(PriceImporter.YoYCalcFromDaily(Series2) ,name=strAss2)
+
 MasterDF = pd.concat([PriceMatrix1,PriceMatrix2],axis=1) # Create the master dataframe to output to csv.  
 Index = pd.DatetimeIndex(MasterDF.index)
 for i in range(numCCAvs):
@@ -221,8 +231,9 @@ for i in range(numCCAvs):
 CovCorr_Full = CovCorrMA(TimeLength, Price1, Price2,Index)
 
 MasterDF = pd.concat([MasterDF, CovCorr_Full],axis=1)
-MasterDF.to_excel(CURR_DIR+"/PairCorrOutput.xlsx", index = False) 
-print('Data output to: '+CURR_DIR+"/PairCorrOutput.csv") 
+if save_data:
+    MasterDF.to_excel(wd+fdel+"PairCorrOutput.xlsx", index = False) 
+    print('Data output to: '+wd+fdel+"PairCorrOutput.csv") 
 
 #Calculate normalised price ratio wave and normalized percentage changed from median wave.
 print(Series1,Series2)
@@ -237,7 +248,7 @@ for i in range(int(points)):
     Percentage.iloc[i] = ((Percentage.iloc[i] - midpoint)/midpoint)*100+100
 
 # # ################################### #Plot figures #############################################################
-Ticks, tickLabs = Utilities.EqualSpacedTicks(10,data=Percentage,LogOrLin='log',LabOffset=-100,labSuffix='%')
+Ticks, tickLabs = Utilities.EqualSpacedTicks(10,data=Percentage,LogOrLin=plot2axii,LabOffset=-100,labSuffix='%')
 
 #Price ratio plot.
 fig = plt.figure(figsize=(10,9.5))
@@ -247,7 +258,7 @@ ax1 = fig.add_subplot(gs1[0])
 TitleString = 'Price ratio: '+str(asset1)+'/'+str(asset2)+r', $\Delta$% from median'
 ax1.set_title(TitleString, fontsize=12, fontweight = 'bold')
 trace3 = ax1.plot(Percentage, c = 'black', label=ratString)
-ax1.invert_xaxis(); ax1.minorticks_off(); ax1.set_yscale('log')
+ax1.invert_xaxis(); ax1.minorticks_off()
 ax1.tick_params(axis='both',which='both',length=0,width=0,labelsize=0,labelleft=False,left=False)
 ax1.set_yticks(Ticks)
 ax1.tick_params(axis='y',which='major',length=3,width=1,labelsize=9,left=True,right=True,labelright=True,labelleft=True)
@@ -293,8 +304,8 @@ XMargin = round(0.01*TimeLength)
 xleft = PriceMatrix1.index[0] - timedelta(days = XMargin); xright = PriceMatrix1.index[len(PriceMatrix1)-1] + timedelta(days = XMargin)
 ax1.set_xlim(xleft, xright)    
 #Price of both assets on the one graph.
-Ticks2, tickLabs2 = Utilities.EqualSpacedTicks(8, data = Series1,LogOrLin='log')
-Ticks3, tickLabs3 = Utilities.EqualSpacedTicks(8, data = Series2,LogOrLin='log')
+Ticks2, tickLabs2 = Utilities.EqualSpacedTicks(8, data = Series1, LogOrLin=plot2axii)
+Ticks3, tickLabs3 = Utilities.EqualSpacedTicks(8, data = Series2, LogOrLin=plot2axii)
 
 ax2 = fig.add_subplot(gs1[1],sharex=ax1)
 TitleString = str(asset1)+' vs left axis, '+str(asset2)+' vs right axis'
@@ -305,15 +316,19 @@ trace2 = ax2b.plot(Series2, c='red',label =asset2+'\n(right)')
 ax2b.set_ylabel('Price (USD)', fontsize=12, fontweight = 'bold')
 ax2.legend(loc=2,fontsize='small'); ax2b.legend(loc=1,fontsize='small')
 if plot2axii == 'log':    
-    ax2.set_yscale('log'); ax2b.set_yscale('log')
+    ax2.set_yscale('log'); ax2b.set_yscale('log'); ax1.set_yscale('log')
+else:
+    ax2.set_yscale('linear'); ax2b.set_yscale('linear'); ax1.set_yscale('linear')
+
 ax2.tick_params(axis='both',which='both',length=0,width=0,labelsize=0,labelleft=False,left=False,labelright=False,right=False)
-ax2.set_yticks(Ticks2); ax2.set_yticklabels(tickLabs2)
 ax2b.tick_params(axis='both',which='both',length=0,width=0,labelsize=0,labelleft=False,left=False,labelright=False,right=False)
+ax2.set_yticks(Ticks2); ax2.set_yticklabels(tickLabs2)
 ax2b.set_yticks(Ticks3); ax2b.set_yticklabels(tickLabs3)
 ax2.tick_params(axis='y',which='major',length=3,width=1,labelsize=9,left=True,labelleft=True)
 ax2b.tick_params(axis='y',which='major',length=3,width=1,labelsize=9,right=True,labelright=True)
-ax2.yaxis.set_major_formatter('${x}')
-ax2b.yaxis.set_major_formatter('${x}')
+if dollabillzyo:
+    ax2.yaxis.set_major_formatter('${x}')
+    ax2b.yaxis.set_major_formatter('${x}')  
 ax2.grid(visible=True,axis='y',which='major',linewidth=0.55,linestyle=':')   
 
 for axis in ['top','bottom','left','right']:

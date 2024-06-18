@@ -206,6 +206,7 @@ def ReSampleToRefIndex(data,index,freq:str):   #This function will resample and 
     else:
         print('This function needs a datetime index as a reference index. This index will not do, pulling out.')
         return (data) 
+    
     index = pd.DatetimeIndex(index); index = index.drop_duplicates()
     data.reset_index(inplace=True); data.drop_duplicates(subset=data.columns[0],inplace=True)
     data.set_index(pd.DatetimeIndex(data.iloc[:,0]),inplace=True, drop = True)

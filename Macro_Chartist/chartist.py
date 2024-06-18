@@ -295,7 +295,9 @@ for series in SeriesDict.keys():
 
 ######### OPTIONS TO PULL DATA FROM DIFFERENT API SOURCES ########################################################## 
     else:
-        data = Pull_Data.dataset(source = Source, data_code = ticker, exchange_code = exchange, start_date = DataStart, end_date = EndDateStr)     
+        data = Pull_Data.dataset()
+        data.get_data(source = Source, data_code = ticker, exchange_code = exchange, start_date = DataStart, end_date = EndDateStr)    
+         
         if isinstance(data.data, pd.Series):
             TheData = data.data
         elif isinstance(data.data, pd.DataFrame):

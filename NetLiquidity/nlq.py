@@ -98,7 +98,8 @@ def pull_comp_asset_data(Inputs: pd.DataFrame) -> dict:
             exchange = None    
         
         ## Here you set the asset you want to compare against data
-        pulled_data = Pull_Data.dataset(source, ComparisonAsset, start_date, exchange_code=exchange, end_date=end_date, capitalize_column_names=True)
+        pulled_data = Pull_Data.dataset()
+        pulled_data.get_data(source, ComparisonAsset, start_date, exchange_code=exchange, end_date=end_date, capitalize_column_names=True)
         AssetData = pulled_data.data; SeriesInfo = pulled_data.SeriesInfo
         print(f"Data pulled from {source} for {ComparisonAsset} from {start_date} to {end_date}. Datatype: ", type(AssetData))
 
@@ -394,18 +395,15 @@ if __name__ == "__main__":
     if Inputs.loc['Include_Deficit'].at['Additional FRED Data'] == 'yes':
         print("Getting US budget deficit data from FRED.")
         deficit_info, deficit = PriceImporter.PullFredSeries("MTSDS133FMS",myFredAPI_key,start=DataStart,end=EndDateStr,Con2Bil=True)
-        #Resample to start of each month and forward fill
-        deficit_d = deficit.resample('M').last()
-        # Resample to daily frequency
-        deficit_d = deficit_d.resample('D').ffill()
-        deficit_d.bfill(inplace=True)
+        last_value = pd.Series([deficit.iloc[-1]], index=[deficit.index[-1] + pd.offsets.MonthEnd(1)])
+        deficit = pd.concat([deficit, last_value])  
+        deficit_d = deficit.resample('D').ffill()
         # Divide each month's data by the number of days in that month
-        deficit_d = PriceImporter.ReSampleToRefIndex(deficit_d,Findex,'D') 
         deficit_d = deficit_d.groupby(deficit_d.index.to_period('M')).transform(lambda x: x / len(x))
-        deficit_cs = deficit_d.cumsum()
-        NetLiquidity3 -= deficit_d
-        
-
+        # deficit_cs = deficit_d.cumsum()
+        deficit_de = PriceImporter.ReSampleToRefIndex(deficit_d,Findex,'D') 
+        NetLiquidity3 -= deficit_de
+    
         deficit.to_excel(parent+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'US_Budget_Deficit.xlsx', sheet_name='Data')
         with pd.ExcelWriter(parent+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'US_Budget_Deficit.xlsx', engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:  
             deficit_info.to_excel(writer, sheet_name='SeriesInfo')

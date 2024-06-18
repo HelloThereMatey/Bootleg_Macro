@@ -19,8 +19,6 @@ import quandl
 from yahoofinancials import YahooFinancials as yf
 import json
 
-keys = Utilities.api_keys().keys
-
 def yf_get_data(ticker: str, start_date: str, end_date: str, data_freq: str = "daily"):
     yfobj = yf(ticker)
     data = yfobj.get_historical_price_data(start_date, end_date, data_freq)
@@ -37,9 +35,7 @@ class get_data_failure(Exception):
     pass
       
 class dataset(object):
-    def __init__(self, source: str, data_code: str, start_date: str, exchange_code: str = None, 
-                 end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close",
-                 capitalize_column_names: bool = False):
+    def __init__(self):
         
         self.supported_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'yahoo',
                                 'iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
@@ -56,14 +52,19 @@ class dataset(object):
         self.keyz = Utilities.api_keys(JSONpath = parent + fdel + 'MacroBackend' + fdel + 'SystemInfo')
         self.api_keys = dict(self.keyz.keys)
         self.data = None
+
+    def get_data(self, source: str, data_code: str, start_date: str, exchange_code: str = None, 
+                 end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close",
+                 capitalize_column_names: bool = False):
+        
         self.data_freq = data_freq
         self.source = source.lower()
+        self.check_key()
         if self.source not in self.supported_sources:
             print('The data source: ', source, 'is not supported. You must choose from the following sources: \n', self.supported_sources)
             print("Your specified source is not supported, get the fuck out of town you cunt.") 
             quit()
-        
-        self.check_key()
+
         self.data_code = data_code
         self.exchange_code = exchange_code
         self.start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
@@ -72,6 +73,7 @@ class dataset(object):
         self.dataName = data_code
         self.d_type = dtype 
 
+        print("Looking for data from source: ", self.source, "data code: ", self.data_code)
         self.pull_data()
 
         if capitalize_column_names and dtype != "close":
@@ -90,11 +92,7 @@ class dataset(object):
             return    
         
     def pull_data(self):
-        if ',' in self.data_code:    #Ths is for tickers that are formulated for tvdataFeed format: ticker,exchange.
-            split = self.data_code.split(',', maxsplit=1)
-            self.data_code = split[0]
-            self.exchange_code = split[1]
-        
+
         if self.source == 'fred':
             SeriesInfo, TheData = PriceImporter.PullFredSeries(self.data_code, self.api_keys['fred'],
                         start = self.start_date.strftime('%Y-%m-%d'), end = self.end_date.strftime('%Y-%m-%d'))
@@ -126,9 +124,11 @@ class dataset(object):
             self.filterData(TheData)
 
         elif self.source == 'tv': 
+            split = self.data_code.split(',', maxsplit=1)   #Data codes for tv are input in the format: DATA_CODE,EXCHANGE_CODE
+            self.data_code = split[0]; self.exchange_code = split[1]
+
             TheData, info = PriceImporter.DataFromTVGen(self.data_code, self.exchange_code, start_date = self.start_date, 
                                                         end_date = self.end_date, BarTimeFrame='D')
-            print(TheData)
             dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(TheData.index).date)
             TheData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'}, axis=1, inplace=True)
             if 'Symbol' in TheData.columns:
@@ -158,10 +158,23 @@ class dataset(object):
 
         elif self.source == 'glassnode':
             # For GlassNode we need the data_code. specification to be in thee format METRIC,ASSET,TIME_RESOLUTION
+            # TIME_RESOLUTION parameter is optional, default = '24h'            
             splitted = self.data_code.split(',')
+            if len(splitted) < 2:
+                print("You need to specify the metric, asset in the data_code parameter at minimum for Glassnode. \
+                      Can also add time resolution as third parameter after another comma.")
+                quit()
+            elif len(splitted) == 2:
+                splitted.append('24h')
+            else:
+                pass
             
-            params = {'a':splitted[1].strip(),'i':splitted[2].strip(),'f':'json','api_key': self.api_keys['glassnode']} 
-            data = GlassNode_API.GetMetric()
+            # params = {'a':splitted[1].strip(),'i':splitted[2].strip(),'f':'json','api_key': self.api_keys['glassnode']} 
+            gnpull = glassnode_data()
+            gnpull.chosen_met(splitted[0].strip())
+            gnpull.get_data(asset = splitted[1].strip(), resolution = splitted[2].strip(), format = 'json')
+            self.data = gnpull.data
+            self.SeriesInfo = gnpull.seriesInfo; self.dataName = gnpull.seriesInfo["metric_short"]
 
         elif self.source in self.pd_dataReader:
             print("Attempting to pull data from source: ", self.source, ', for ticker; ', self.data_code, 'using pandas datareader.')
@@ -208,13 +221,15 @@ class dataset(object):
         else:
             self.data = TheData        
 
-class glassnode_data(object):
+class glassnode_data(object):   ## One can use this class to get data from Glassnode without using dataset class. 
 
     def __init__(self):
-        self.metric_df = pd.read_excel(wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.xlsx")
+        self.metric_df = pd.read_csv(wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv", index_col=0)
         self.metric_list = pd.Series([str(path).split("/")[-1] for path in self.metric_df["path"]])
-        
+        self.keys = Utilities.api_keys().keys
+
     def chosen_met(self, metric):
+        self.metric = metric
         metIndex = (self.metric_list == metric).idxmax()
         self.metric_path = self.metric_df['path'].iloc[metIndex]
         ass_json = json.loads(str(self.metric_df['assets'].iloc[metIndex]).strip().replace("'", '"'))
@@ -225,11 +240,12 @@ class glassnode_data(object):
         dom_json = json.loads(str(self.metric_df['paramsDomain'].iloc[metIndex]).strip().replace("'", '"'))
         self.met_domain = [dom for dom in dom_json.values()]
 
-    def get_data(self, metric, asset: str = "BTC", tier: int = 1, resolution: str = '24h', format: str = 'csv', paramsDomain: str = "a"):
-        params = {'a': asset,'i': resolution,'f': format,'api_key': keys['glassnode']} 
-        self.data = GlassNode_API.GetMetric(path = self.metric_path, APIKey = keys['glassnode'], params = params)
-        
-        
+    def get_data(self, asset: str = "BTC", tier: int = 1, resolution: str = '24h', format: str = 'csv', paramsDomain: str = "a"):
+        params = {'a': asset,'i': resolution,'f': format,'api_key': self.keys['glassnode']} 
+        self.data = GlassNode_API.GetMetric(path = self.metric_path, APIKey = self.keys['glassnode'], params = params)
+        self.seriesInfo = {"Source": "glassnode", "metric_short": self.metric, "metric_full": self.metric_path, "asset": asset,
+                           "tier": tier, "resolution": resolution, "format": format, "paramsDomain": paramsDomain}
+               
 
 if __name__ == "__main__":
     
@@ -257,11 +273,14 @@ if __name__ == "__main__":
     # datas = tvd.tv.exp_ws("BTCUSD", exchange = 'INDEX', interval=PriceImporter.TimeInterval("4H"),n_bars=5000)
     # print(datas)
      
-    gn = glassnode_data()
-    gn.chosen_met("price_usd_ohlc")
-    print(gn.met_assets, gn.met_resolutions, gn.met_formats, gn.met_currs, gn.met_domain)
-    gn.get_data("price_usd_ohlc", asset = "BTC", resolution = '24h', format = 'json', paramsDomain = "a")
-    print(gn.data)
+    # gn = glassnode_data()
+    # gn.chosen_met("price_usd_ohlc")
+    # print(gn.met_assets, gn.met_resolutions, gn.met_formats, gn.met_currs, gn.met_domain)
+    # gn.get_data("price_usd_ohlc", asset = "BTC", resolution = '24h', format = 'json', paramsDomain = "a")
+    # print(gn.data)
+
+    me_data = dataset(source = 'glassnode', data_code = 'price_usd_ohlc,BTC,24h',start_date="2011-01-01", dtype="OHLCV")
+    print(me_data.data, me_data.SeriesInfo, me_data.dataName)
 
 
     
