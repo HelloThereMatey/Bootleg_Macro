@@ -128,9 +128,18 @@ api1 = str(dfIn.loc['assets'].at["api1"]); api2 = str(dfIn.loc['assets'].at["api
 type1 = str(dfIn.loc['type'].at["asset1"]); type2 = type1
 mode = str(dfIn.loc['Mode'].at["asset1"])
 
-plot2axii = str(dfIn.loc['plot2axii'].at["asset1"])
+ax1scale = str(dfIn.loc['ax1scale'].at["asset1"])
+ax2scale = str(dfIn.loc['ax2scale'].at["asset1"])
 strAss1 = str(dfIn.loc['assets'].at["asset1"])
 strAss2 = str(dfIn.loc['assets'].at["asset2"])
+ax2left = str(dfIn.loc['ax2labels'].at["asset1"])
+ax2right = str(dfIn.loc['ax2labels'].at["asset2"])
+
+if pd.isna(ax2left):
+    ax2left = "Price (USD)"
+if pd.isna(ax2right):
+    ax2left = "Price (USD)"
+
 if api1 == 'tv':
     splits = strAss1.split(',')
     asset1 = splits[0]
@@ -177,9 +186,9 @@ elif mode == 'api':
     #Pull data from APIs:
     print('Asset 1 is: '+str(asset1)); print('Asset 2 is: '+str(asset2))
     dat = Pull_Data.dataset(); dat.get_data(api1, strAss1, start)
-    df = dat.data
+    df = dat.data; ass1Info = dat.SeriesInfo
     dat2 = Pull_Data.dataset(); dat2.get_data(api2, strAss2, start)
-    df2 = dat2.data
+    df2 = dat2.data; ass2Info = dat2.SeriesInfo
     df = df[Start_Date:end]
     df2 = df2[Start_Date:end]
 else:
@@ -210,7 +219,13 @@ print(df,df2)
 PriceMatrix1 = pd.DataFrame(df); PriceMatrix2 = pd.DataFrame(df2)
 PriceMatrix1.fillna(method='ffill',inplace=True); PriceMatrix2.fillna(method='ffill',inplace=True)
 PriceMatrix1 = PriceMatrix1[Start_Date:End_Date]; PriceMatrix2 = PriceMatrix2[Start_Date:End_Date]
-PriceMatrix1.to_excel(wd+fdel+"asset1Data.xlsx"); PriceMatrix2.to_excel(wd+fdel+"asset1Data.xlsx")
+PriceMatrix1.to_excel(wd+fdel+"asset1Data.xlsx",sheet_name='Closing_Price')
+with pd.ExcelWriter(wd+fdel+"asset1Data.xlsx", engine='openpyxl', mode='a') as writer:  
+    ass1Info.to_excel(writer, sheet_name='SeriesInfo')
+
+PriceMatrix2.to_excel(wd+fdel+"asset2Data.xlsx",sheet_name='Closing_Price')
+with pd.ExcelWriter(wd+fdel+"asset2Data.xlsx", engine='openpyxl', mode='a') as writer:  
+    ass2Info.to_excel(writer, sheet_name='SeriesInfo')
 
 if len(PriceMatrix1.columns) < 2:
     Series1 = pd.Series(PriceMatrix1.squeeze(),name=strAss1)
@@ -269,7 +284,7 @@ for i in range(int(points)):
     Percentage.iloc[i] = ((Percentage.iloc[i] - midpoint)/midpoint)*100+100
 
 # # ################################### #Plot figures #############################################################
-Ticks, tickLabs = Utilities.EqualSpacedTicks(10,data=Percentage,LogOrLin=plot2axii,LabOffset=-100,labSuffix='%')
+Ticks, tickLabs = Utilities.EqualSpacedTicks(10,data=Percentage,LogOrLin=ax1scale,LabOffset=-100,labSuffix='%')
 
 #Price ratio plot.
 fig = plt.figure(figsize=(10,9.5))
@@ -280,14 +295,13 @@ TitleString = 'Price ratio: '+str(asset1)+'/'+str(asset2)+r', $\Delta$% from med
 ax1.set_title(TitleString, fontsize=12, fontweight = 'bold')
 trace3 = ax1.plot(Percentage, c = 'black', label=ratString)
 ax1.invert_xaxis(); ax1.minorticks_off()
+ax1.set_yscale(ax1scale)
 ax1.tick_params(axis='both',which='both',length=0,width=0,labelsize=0,labelleft=False,left=False)
-ax1.set_yticks(Ticks)
+ax1.set_yticks(Ticks); ax1.set_yticklabels(tickLabs)
 ax1.tick_params(axis='y',which='major',length=3,width=1,labelsize=9,left=True,right=True,labelright=True,labelleft=True)
-ax1.set_yticklabels(tickLabs)
 ax1.grid(axis='y',visible=True,which='major',linewidth=0.6,linestyle=':')
 ax1.grid(axis='x',visible=True,which='both',linewidth=0.6,linestyle=':')
 ax1.set_ylabel(r'$\Delta$ price from median (%)', fontsize=12, fontweight = 'bold')
-#ax1.yaxis.set_major_formatter('{x:1.0f}%')
 ax1.axhline(y=100,color='red',lw=0.75,ls=':')
 ax1.legend(loc=1,framealpha=1,fontsize=10)   
 ax1.tick_params(axis='x', labelsize=0,labelrotation=90)  
@@ -325,21 +339,18 @@ XMargin = round(0.01*TimeLength)
 xleft = PriceMatrix1.index[0] - timedelta(days = XMargin); xright = PriceMatrix1.index[len(PriceMatrix1)-1] + timedelta(days = XMargin)
 ax1.set_xlim(xleft, xright)    
 #Price of both assets on the one graph.
-Ticks2, tickLabs2 = Utilities.EqualSpacedTicks(8, data = Series1, LogOrLin=plot2axii)
-Ticks3, tickLabs3 = Utilities.EqualSpacedTicks(8, data = Series2, LogOrLin=plot2axii)
+Ticks2, tickLabs2 = Utilities.EqualSpacedTicks(8, data = Series1, LogOrLin=ax2scale)
+Ticks3, tickLabs3 = Utilities.EqualSpacedTicks(8, data = Series2, LogOrLin=ax2scale)
 
 ax2 = fig.add_subplot(gs1[1],sharex=ax1)
 TitleString = str(asset1)+' vs left axis, '+str(asset2)+' vs right axis'
-ax2.set_ylabel('Price (USD)', fontsize=12, fontweight = 'bold')
+ax2.set_ylabel(ax2left, fontsize=12, fontweight = 'bold')
 trace1 = ax2.plot(Series1, c='black',label =str(asset1)+'\n(left)')
 ax2b = ax2.twinx()
 trace2 = ax2b.plot(Series2, c='red',label =asset2+'\n(right)')
-ax2b.set_ylabel('Price (USD)', fontsize=12, fontweight = 'bold')
+ax2b.set_ylabel(ax2right, fontsize=12, fontweight = 'bold')
 ax2.legend(loc=2,fontsize='small'); ax2b.legend(loc=1,fontsize='small')
-if plot2axii == 'log':    
-    ax2.set_yscale('log'); ax2b.set_yscale('log'); ax1.set_yscale('log')
-else:
-    ax2.set_yscale('linear'); ax2b.set_yscale('linear'); ax1.set_yscale('linear')
+ax2.set_yscale(ax2scale); ax2b.set_yscale(ax2scale)
 
 ax2.tick_params(axis='both',which='both',length=0,width=0,labelsize=0,labelleft=False,left=False,labelright=False,right=False)
 ax2b.tick_params(axis='both',which='both',length=0,width=0,labelsize=0,labelleft=False,left=False,labelright=False,right=False)
