@@ -35,27 +35,57 @@ class get_data_failure(Exception):
     pass
       
 class dataset(object):
+
     def __init__(self):
-        
+        """
+        The PullData class is responsible for pulling data from various sources.
+
+        Attributes:
+        - supported_sources (list): A list of supported data sources.
+        - added_sources (list): A list of sources that have been added.
+        - pd_dataReader (list): A list of data sources that have not been added.
+        - keySources (list): A list of sources that need api-key to access.
+        - keyz (Utilities): An instance of the Utilities.api_keys class that should have access to your keys.
+        - api_keys (dict): A dictionary containing API keys.
+        - data (None): Placeholder for the pulled data.
+        """
         self.supported_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'yahoo',
-                                'iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
-                                'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
-                                'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
-                                'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
-                                'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'glassnode',
-                                'abs']
+                                    'iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
+                                    'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
+                                    'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
+                                    'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
+                                    'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'glassnode',
+                                    'abs']
         self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs']
-        
+
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
         self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
-        
-        self.keyz = Utilities.api_keys(JSONpath = parent + fdel + 'MacroBackend' + fdel + 'SystemInfo')
+
+        self.keyz = Utilities.api_keys(JSONpath=parent + fdel + 'MacroBackend' + fdel + 'SystemInfo')
         self.api_keys = dict(self.keyz.keys)
         self.data = None
 
     def get_data(self, source: str, data_code: str, start_date: str, exchange_code: str = None, 
                  end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close",
                  capitalize_column_names: bool = False):
+        """
+        The get_data method is responsible for pulling data from various sources. Pulled data will be stored in 3 important 
+        attributes: 
+        
+        - self.data -> Contains the data as a pandas DataFrame or Series.
+        - self.SeriesInfo -> contains metdata about the data series pulled, as a series.
+        - self.dataName -> contains the name of the data series pulled, string. 
+
+        Parameters:
+        - source: str, the source to pull data from, source options can be listed by printing self.added_sources attribute
+        - data_code: str, the data code/ticker/id for the asset or data series you want to pull.
+        - start_date: str YYYY-MM-DD format, the start date for the data series you want to pull.
+        - exchange_code: str, the exchange code for the asset you want to pull data for, default is None. This applies to tv source only atm. 
+        - end_date: str YYYY-MM-DD format, the end date for the data series you want to pull, default is to use today's date.
+        - data_freq: str, the frequency of the data you want to pull, default is daily, formats of the string vary by source. Try "1w" for weekly maybe.
+        - dtype: str, the type of data you want to pull, default is "close", other options are "OHLCV" for open, high, low, close, volume data.
+        - capitalize_column_names: bool, default is False, if True, the column names of the data will be capitalized.
+        """
         
         self.data_freq = data_freq
         self.source = source.lower()
