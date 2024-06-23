@@ -16,3 +16,4 @@ PyQt6
 streamlit
 fuzzywuzzy
 levenshtein
+ipywidgets
