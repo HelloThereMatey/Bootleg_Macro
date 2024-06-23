@@ -9,11 +9,13 @@ fdel = os.path.sep
 sys.path.append(parent)
 
 from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode
+from MacroBackend.BEA_Data import bea_data_mate
 
 keys = Utilities.api_keys().keys
 abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
 cG_allshitsPath = wd+fdel+"AllCG.csv"
 metricsListPath = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv"
+bea_path = wd+fdel+"BEA_Data"+fdel+"Datasets"+fdel+"BEA_First3_Datasets.csv"
 
 ######## Custom classess ##################
 
@@ -34,7 +36,11 @@ class PandasModel(QtCore.QAbstractTableModel):
         return self._data.shape[0]
 
     def columnCount(self, parent=None):
-        return self._data.shape[1]
+        if isinstance(self._data, pd.Series):
+            self._data = self._data.reset_index()
+            return 1
+        else:
+            return self._data.shape[1]
 
     def data(self, index, role=QtCore.Qt.ItemDataRole.DisplayRole):
         if index.isValid() and role == QtCore.Qt.ItemDataRole.DisplayRole:
@@ -163,7 +169,7 @@ class Ui_MainWindow(object):
                 results = Utilities.Search_DF(self.search_results, term)
             else:
                 if self.source_table_path is not None:
-                    print("Loading index of ABS time-series to dataframe from: ", self.source_table_path)
+                    print("Loading index of time-series data for source: ", self.selected_source, " to dataframe from: ", self.source_table_path)
                     df = pd.read_csv(self.source_table_path, index_col=0)
                     results = Utilities.Search_DF(df, term)
                     if len(results) == 0:
@@ -180,6 +186,8 @@ class Ui_MainWindow(object):
                     elif self.selected_source == 'yfinance':
                         resdict = self.source_function(searchstr = term)
                         results = resdict['tickers_df']
+                    elif self.selected_source == 'bea':
+                        results =  self.source_function(term, keys['bea'])
                     else:
                         print("No source table selected")
                         return    
@@ -213,13 +221,13 @@ class Ui_MainWindow(object):
     
     def select_row(self, index):
         self.selected_row = self.search_results.iloc[index.row()]
-        print("Row selected: ", self.selected_row)
+        print("Row selected: ", self.selected_row.name)
         self.add_row_to_return_dict()
     
     def add_row_to_return_dict(self):
         if self.selected_row is not None:
             self.return_dict[self.selected_row.name] = self.selected_row
-            print("Series addded to return dict: ", self.selected_row)
+            print("Series addded to return dict: ", self.selected_row.iloc[0])
     
     # def cleanup(self):
     #     self.deleteLater()
@@ -242,7 +250,8 @@ def run_app():
             'coingecko': cG_allshitsPath, 
             'quandl': None, 
             'glassnode': metricsListPath, 
-            'abs': abs_index_path}
+            'abs': abs_index_path,
+            'bea': bea_data_mate.BEA_API_backend.bea_search_metadata}
     
     app = QtWidgets.QApplication.instance()
     if app is None:
@@ -260,6 +269,6 @@ if __name__ == "__main__":
 
     resultsdict = run_app()
     print("Results dict: \n\n\n", resultsdict)
-    # update_GNmetrics()
 
 
+ 

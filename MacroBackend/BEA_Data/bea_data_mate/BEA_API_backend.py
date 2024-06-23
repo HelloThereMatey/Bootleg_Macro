@@ -3,9 +3,9 @@ wd = os.path.dirname(__file__)
 fdel = os.path.sep
 parent = os.path.dirname(wd); grampa = os.path.dirname(parent); ancestor = os.path.dirname(grampa)
 import sys
-sys.path.append(grampa); sys.path.append(ancestor)
+sys.path.append(wd); sys.path.append(grampa); sys.path.append(ancestor)
 
-from pybea.client import BureauEconomicAnalysisClient
+import beaapi
 import pandas as pd
 import numpy as np
 import requests
@@ -19,7 +19,9 @@ import tkinter.font as tkFont
 from tkinter import filedialog
 from MacroBackend import Utilities
 from pprint import pprint
-import custom_FI
+import pybea.client  #Comment the line above & uncomment these two in order to run this file as a standalone script.
+import custom_FI       
+
 
 Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
@@ -44,7 +46,7 @@ def convert_to_float_with_commas(value):
         return float(val.replace(',', ''))
 
 
-class BEA_Data(BureauEconomicAnalysisClient):
+class BEA_Data(pybea.client.BureauEconomicAnalysisClient):
 
     def __init__(self, api_key: str, BEA_Info_filePath: str = "", Refresh_Info: bool = False) -> None:
         super().__init__(api_key)
@@ -612,6 +614,12 @@ class CustomIndexWindow(ctk.CTkToplevel):
         folder_selected = filedialog.askdirectory(initialdir=self.ExportPath)
         self.ExportPath.set(folder_selected)  
 
+# This uses the beaapi python package that is actually prodcued by the BEA. It is new and in development. 
+def bea_search_metadata(searchstr: str, bea_key: str, metadata_store = parent+fdel+"Datasets"+fdel+"beaapi_data", fuzzy = True):
+    print("WARNING: This function is as slow as a cunt.")
+    search = beaapi.search_metadata(searchstr, userid = bea_key, metadata_store = metadata_store, fuzzy = fuzzy)
+    return search
+
 if __name__ == "__main__":
     keyz = Utilities.api_keys(JSONpath=grampa+fdel+'SystemInfo')
     api_key = keyz.keys['bea']
@@ -620,6 +628,8 @@ if __name__ == "__main__":
    
     filepath = wd+"/Datasets/BEAAPI_Info.xlsx"
 
-    bilp = BureauEconomicAnalysisClient(api_key=api_key)
-    data = bilp.national_income_and_product_accounts(table_name='T20600', year = ["2022", "2023"], frequency= ["M"])
-    
+    search = bea_search_metadata("GDP", api_key)
+    print(search)
+
+    # bilp = pybea(api_key=api_key)
+    # data = bilp.national_income_and_product_accounts(table_name='T20600', year = ["2022", "2023"], frequency= ["M"])
