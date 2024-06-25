@@ -45,11 +45,11 @@ def get_data(userid: str, datasetname: str, do_checks: bool = False,
 
     Examples
     --------
-    >>> import beaapi_cus
-    >>> beaapi_cus.get_dataset('yourAPIkey', 'NIPA', TableName='T20305', Frequency='Q',
+    >>> import beaapi
+    >>> beaapi.get_dataset('yourAPIkey', 'NIPA', TableName='T20305', Frequency='Q',
     >>>                    Year='X')
     """
-    from beaapi_cus import api_request, BEAAPIPkgException
+    from beaapi import api_request, BEAAPIPkgException
 
     bea_spec = {k.lower(): v for k, v in kwargs.items()}
     bea_spec.update({
@@ -243,9 +243,9 @@ def to_wide_vars_in_cols(bea_tbl):
         A table in a wide format.
     Examples
     --------
-    >>> import beaapi_cus
-    >>> tbl = beaapi_cus.get_dataset(...)
-    >>> wide_tbl = beaapi_cus.to_wide_vars_in_cols(tbl)
+    >>> import beaapi
+    >>> tbl = beaapi.get_dataset(...)
+    >>> wide_tbl = beaapi.to_wide_vars_in_cols(tbl)
     """
     if 'wide_format' in bea_tbl.attrs:
         raise Exception("bea_tbl must be in long-format (e.g., from the API).")
@@ -277,9 +277,9 @@ def to_wide_vars_in_rows(bea_tbl):
         A table in a wide format.
     Examples
     --------
-    >>> import beaapi_cus
-    >>> tbl = beaapi_cus.get_dataset(...)
-    >>> wide_tbl = beaapi_cus.to_wide_vars_in_rows(tbl)
+    >>> import beaapi
+    >>> tbl = beaapi.get_dataset(...)
+    >>> wide_tbl = beaapi.to_wide_vars_in_rows(tbl)
     """
     if 'wide_format' in bea_tbl.attrs:
         raise Exception("bea_tbl must be in long-format (e.g., from the API).")

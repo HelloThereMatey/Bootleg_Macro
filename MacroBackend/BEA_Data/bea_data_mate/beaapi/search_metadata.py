@@ -42,13 +42,13 @@ def search_metadata(search_term: str, userid: str = None,
 
     Examples
     --------
-    >>> import beaapi_cus
-    >>> beaapi_cus.search_metadata('Gross Domestic', 'yourAPIkey')
+    >>> import beaapi
+    >>> beaapi.search_metadata('Gross Domestic', 'yourAPIkey')
     """
     import warnings
     import os
     import numpy as np
-    from beaapi_cus import update_metadata, api_request
+    from beaapi import update_metadata, api_request
 
     if userid is None:
         warnings.warn('Searching without specifying userid, e.g., search_metadata('
@@ -152,7 +152,7 @@ def search_metadata(search_term: str, userid: str = None,
             newy_known = list(set(lowerlocalmeta) - set(bea_known_meta_sets))
             if (len(newy_known) > 0):
                 warnings.warn('BEA API contains newly-available metadata for datasets'
-                              'not handled. \nThis version of beaapi_cus is either not the'
+                              'not handled. \nThis version of beaapi is either not the'
                               ' latest, or will soon be replaced.')
                 outdated_local_meta = [localmeta for localmeta in outdated_local_meta
                                        if localmeta.lower() in bea_known_meta_sets]
