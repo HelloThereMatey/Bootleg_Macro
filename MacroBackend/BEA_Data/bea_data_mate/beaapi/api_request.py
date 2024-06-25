@@ -48,12 +48,12 @@ def api_request(beaspec: Dict[str, str], as_string: bool = False, as_dict: bool 
         If ``as_dict=True``, returns slightly transformed dict results of
         ``json.loads()`` of response content.
         If ``as_table``, An object of class ``pd.DataFrame`` containing data from
-        ``beaapi_cus.api_request(...)`` with
+        ``beaapi.api_request(...)`` with
         metadata stored as an attribute in ``pd.DataFrame(...).attrs``.
 
     Examples
     --------
-    >>> import beaapi_cus
+    >>> import beaapi
     >>> beaspecs = {
     >>>     'UserID': beakey ,
     >>>     'Method': 'GetData',
@@ -62,7 +62,7 @@ def api_request(beaspec: Dict[str, str], as_string: bool = False, as_dict: bool 
     >>>     'Frequency': 'Q',
     >>>     'Year': 'X',
     >>> }
-    >>> beaPayload = beaapi_cus.api_request(beaspecs)
+    >>> beaPayload = beaapi.api_request(beaspecs)
     """
 
     encoding_str = 'iso-8859-1'  # 'utf-8' returns decode errors
@@ -132,7 +132,7 @@ def api_request(beaspec: Dict[str, str], as_string: bool = False, as_dict: bool 
 
             try:
                 if (as_dict):
-                    from beaapi_cus.response_to_dict import response_to_dict
+                    from beaapi.response_to_dict import response_to_dict
                     bea_response = response_to_dict(bea_payload, is_meta=is_meta)
                     if throttle:
                         rs = bea_response["response_size"]
@@ -140,7 +140,7 @@ def api_request(beaspec: Dict[str, str], as_string: bool = False, as_dict: bool 
                         throttling_data[userid].log_query(rs)
                     return(bea_response)
                 else:  # as_table
-                    from beaapi_cus.response_to_table import response_to_table
+                    from beaapi.response_to_table import response_to_table
                     bea_results = response_to_table(bea_payload)
                     if throttle:
                         td = throttling_data[userid]

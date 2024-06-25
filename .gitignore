@@ -16,7 +16,6 @@
 /User_Data/GlobalReserves/FXData/*
 /User_Data/BEA/*
 /beaapi_data
-!/User_Data/BEA/beaapi_data
 /User_Data/FRED_Data/*
 /User_Data/Glassnode/*
 /User_Data/TreasuryData/*
@@ -36,7 +35,9 @@
 /MacroBackend/Glassnode/Saved_Data/*
 !/MacroBackend/Glassnode/Saved_Data/GN_MetricsList.csv
 /MacroBackend/BEA_Data/Datasets/*
+!/MacroBackend/BEA_Data/Datasets/beaapi_data
 !/MacroBackend/BEA_Data/Datasets/BEAAPI_Info.xlsx
+!/MacroBackend/BEA_Data/bea_data_mate/beaapi/*
 !/MacroBackend/AllCG.csv
 *.DS_Store
 .DS_Store
