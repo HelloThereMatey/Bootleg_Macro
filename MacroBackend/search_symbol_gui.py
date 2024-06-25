@@ -66,6 +66,7 @@ class Ui_MainWindow(object):
         self.results_count = 0
         self.selected_row = None
         self.return_dict = {}
+        self.series_added_count = 0  # Initialize the counter
 
     def setupUi(self, MainWindow: QtWidgets.QMainWindow):
         # Set the application icon
@@ -226,8 +227,9 @@ class Ui_MainWindow(object):
     
     def add_row_to_return_dict(self):
         if self.selected_row is not None:
-            self.return_dict[self.selected_row.name] = self.selected_row
+            self.return_dict[self.series_added_count] = self.selected_row
             print("Series addded to return dict: ", self.selected_row.iloc[0])
+            self.series_added_count += 1
     
     # def cleanup(self):
     #     self.deleteLater()

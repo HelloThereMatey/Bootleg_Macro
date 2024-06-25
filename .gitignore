@@ -15,6 +15,7 @@
 /User_Data/GlobalReserves/BalSheets/*
 /User_Data/GlobalReserves/FXData/*
 /User_Data/BEA/*
+/beaapi_data
 !/User_Data/BEA/beaapi_data
 /User_Data/FRED_Data/*
 /User_Data/Glassnode/*
