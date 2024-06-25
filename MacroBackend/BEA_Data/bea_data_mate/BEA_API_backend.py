@@ -614,7 +614,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
         folder_selected = filedialog.askdirectory(initialdir=self.ExportPath)
         self.ExportPath.set(folder_selected)  
 
-# This uses the beaapi python package that is actually prodcued by the BEA. It is new and in development. 
+# This uses the beaapi_cus python package that is actually prodcued by the BEA. It is new and in development. 
 def bea_search_metadata(searchstr: str, bea_key: str, metadata_store = parent+fdel+"Datasets"+fdel+"beaapi_data", fuzzy = True):
     print("WARNING: This function is as slow as a cunt.")
     search = beaapi_cus.search_metadata(searchstr, userid = bea_key, metadata_store = metadata_store, fuzzy = fuzzy)

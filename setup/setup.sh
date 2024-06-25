@@ -33,7 +33,7 @@ echo "R package installation completed."
 
 echo "Installing python packages from requirements.txt using pip........"
 pip install -r requirements.txt
-pip install "https://github.com/us-bea/beaapi/releases/download/v0.0.2/beaapi-0.0.2-py3-none-any.whl"
+#pip install "https://github.com/us-bea/beaapi_cus/releases/download/v0.0.2/beaapi_cus-0.0.2-py3-none-any.whl"
 
 echo "Installing node packages using npm........"
 npm install -g @mathieuc/tradingview
