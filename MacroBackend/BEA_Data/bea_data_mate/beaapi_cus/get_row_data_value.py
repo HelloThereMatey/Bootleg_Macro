@@ -19,8 +19,8 @@ def get_row_data_value(row: Dict[str, str]) -> float:
         project that would have made more sense to do this with.
     Examples
     --------
-    >>> import beaapi.get_row_data_value
-    >>> beaapi.get_row_data_value.get_row_data_value({'DataValue': "1,337"})
+    >>> import beaapi_cus.get_row_data_value
+    >>> beaapi_cus.get_row_data_value.get_row_data_value({'DataValue': "1,337"})
     """
 
     str_val = row['DataValue'].replace(',', '')

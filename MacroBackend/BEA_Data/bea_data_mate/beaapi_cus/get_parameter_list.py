@@ -27,11 +27,11 @@ def get_parameter_list(userid: str, datasetname: str,
 
     Examples
     --------
-    >>> import beaapi
-    >>> beaapi.get_parameter_list('yourAPIkey', 'RegionalData')
+    >>> import beaapi_cus
+    >>> beaapi_cus.get_parameter_list('yourAPIkey', 'RegionalData')
     """
 
-    from beaapi import api_request
+    from beaapi_cus import api_request
 
     bea_meta_specs = {
         'UserID': userid ,

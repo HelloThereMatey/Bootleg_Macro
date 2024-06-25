@@ -21,10 +21,10 @@ def get_data_set_list(userid: str, throttle: bool = True) -> pd.DataFrame:
         * **response_size** (*int*) --  The length of the API response.
     Examples
     --------
-    >>> import beaapi
-    >>> beaapi.get_data_set_list('yourAPIkey')
+    >>> import beaapi_cus
+    >>> beaapi_cus.get_data_set_list('yourAPIkey')
     """
-    from beaapi import api_request
+    from beaapi_cus import api_request
 
     # Set up spec for it
     bea_meta_specs = {

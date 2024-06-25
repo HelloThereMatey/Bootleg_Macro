@@ -33,10 +33,10 @@ def get_parameter_values(userid: str, datasetname: str,
 
     Examples
     --------
-    >>> import beaapi
-    >>> beaapi.get_parameter_values('yourAPIkey', 'RegionalData', 'keycode')
+    >>> import beaapi_cus
+    >>> beaapi_cus.get_parameter_values('yourAPIkey', 'RegionalData', 'keycode')
     """
-    from beaapi import api_request
+    from beaapi_cus import api_request
 
     bea_meta_specs = {
         'method': 'GetParameterValues',
