@@ -49,13 +49,12 @@ class dataset(object):
         - api_keys (dict): A dictionary containing API keys.
         - data (None): Placeholder for the pulled data.
         """
-        self.supported_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'yahoo',
-                                    'iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
+        self.supported_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko','glassnode',
+                                    'abs', 'bea', 'yahoo','iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
                                     'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
                                     'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                     'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
-                                    'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'glassnode',
-                                    'abs']
+                                    'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver']
         self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs']
 
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
@@ -229,6 +228,9 @@ class dataset(object):
             self.data = series
             self.SeriesInfo = SeriesInfo
             self.dataName = series.name
+        
+        elif self.source.lower() == 'bea':
+            print("Currently working on BEA data source, not yet implemented.")
 
         else:
             if self.source in self.supported_sources:
