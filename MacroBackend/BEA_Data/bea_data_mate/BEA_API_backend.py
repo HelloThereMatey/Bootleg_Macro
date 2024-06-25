@@ -5,7 +5,7 @@ parent = os.path.dirname(wd); grampa = os.path.dirname(parent); ancestor = os.pa
 import sys
 sys.path.append(wd); sys.path.append(grampa); sys.path.append(ancestor)
 
-import beaapi
+import beaapi_cus
 import pandas as pd
 import numpy as np
 import requests
@@ -617,7 +617,7 @@ class CustomIndexWindow(ctk.CTkToplevel):
 # This uses the beaapi python package that is actually prodcued by the BEA. It is new and in development. 
 def bea_search_metadata(searchstr: str, bea_key: str, metadata_store = parent+fdel+"Datasets"+fdel+"beaapi_data", fuzzy = True):
     print("WARNING: This function is as slow as a cunt.")
-    search = beaapi.search_metadata(searchstr, userid = bea_key, metadata_store = metadata_store, fuzzy = fuzzy)
+    search = beaapi_cus.search_metadata(searchstr, userid = bea_key, metadata_store = metadata_store, fuzzy = fuzzy)
     return search
 
 if __name__ == "__main__":
