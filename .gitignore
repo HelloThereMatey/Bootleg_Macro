@@ -34,7 +34,7 @@
 /MacroBackend/SystemInfo/*
 !/MacroBackend/SystemInfo/API_Keys_demo.json
 /MacroBackend/Glassnode/Saved_Data/*
-!/MacroBackend/Glassnode/Saved_Data/GN_MetricsList.xlsx
+!/MacroBackend/Glassnode/Saved_Data/GN_MetricsList.csv
 /MacroBackend/BEA_Data/Datasets/*
 !/MacroBackend/BEA_Data/Datasets/BEAAPI_Info.xlsx
 !/MacroBackend/AllCG.csv
