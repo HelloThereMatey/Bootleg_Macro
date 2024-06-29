@@ -5,7 +5,7 @@ parent = os.path.dirname(wd); grampa = os.path.dirname(parent); ancestor = os.pa
 import sys
 sys.path.append(wd); sys.path.append(grampa); sys.path.append(ancestor)
 
-import beaapi
+import beaapiloc
 import pandas as pd
 import numpy as np
 import requests
@@ -614,10 +614,10 @@ class CustomIndexWindow(ctk.CTkToplevel):
         folder_selected = filedialog.askdirectory(initialdir=self.ExportPath)
         self.ExportPath.set(folder_selected)  
 
-# This uses the beaapi python package that is actually prodcued by the BEA. It is new and in development. 
+# This uses the beaapiloc python package that is actually prodcued by the BEA. It is new and in development. 
 def bea_search_metadata(searchstr: str, bea_key: str, metadata_store = parent+fdel+"Datasets"+fdel+"beaapi_data", fuzzy = True):
     print("WARNING: This function is as slow as a cunt.")
-    search = beaapi.search_metadata(searchstr, userid = bea_key, metadata_store = metadata_store, fuzzy = fuzzy)
+    search = beaapiloc.search_metadata(searchstr, userid = bea_key, metadata_store = metadata_store, fuzzy = fuzzy)
     return search
 
 if __name__ == "__main__":
@@ -626,13 +626,15 @@ if __name__ == "__main__":
     dataset = "NIPA"
     parameterName = "Tablename"
    
-    filepath = wd+"/Datasets/BEAAPI_Info.xlsx"
+    filepath = parent+fdel+"Datasets"+fdel+"BEAAPI_Info.xlsx"
 
-    search = bea_search_metadata("GDP", api_key)
-    print(search)
+    # search = bea_search_metadata("GDP", api_key)
+    # print(search)
 
-    # bilp = pybea(api_key=api_key)
-    # data = bilp.national_income_and_product_accounts(table_name='T20600', year = ["2022", "2023"], frequency= ["M"])
+    bilp = BEA_Data(api_key=api_key, BEA_Info_filePath=filepath)
+    bilp.Get_BEA_Data()
+    print(bilp.Data)
+    
 
-    #data = beaapi.get_data(api_key, "NIPA", )
+    
     

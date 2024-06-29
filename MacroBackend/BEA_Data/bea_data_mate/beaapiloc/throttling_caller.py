@@ -9,7 +9,7 @@
 import time
 from typing import Callable, Union, Optional, Dict
 import pandas as pd
-import beaapi
+import beaapiloc
 
 
 class ThrottlingCaller(object):
@@ -33,9 +33,9 @@ class ThrottlingCaller(object):
         # wait till not-too-many requests
         n = pd.Timestamp.now()
         mask = self.rel_queries['time'] >= n - pd.Timedelta(1, "minute")
-        if self.rel_queries[mask].shape[0] >= beaapi.MAX_REQUESTS_PER_MINUTE:
+        if self.rel_queries[mask].shape[0] >= beaapiloc.MAX_REQUESTS_PER_MINUTE:
             # allowable in the last minute
-            n_not_allow = self.rel_queries.shape[0] - beaapi.MAX_REQUESTS_PER_MINUTE + 1
+            n_not_allow = self.rel_queries.shape[0] - beaapiloc.MAX_REQUESTS_PER_MINUTE + 1
             allowable_mask = self.rel_queries.index >= n_not_allow
             oldest_allowable_ts = self.rel_queries[allowable_mask]['time'].min()
             time.sleep(60 - (n - oldest_allowable_ts).seconds + 1)
@@ -43,18 +43,18 @@ class ThrottlingCaller(object):
         # wait till not too much volume
         n = pd.Timestamp.now()
         mask = self.rel_queries['time'] >= n - pd.Timedelta(1, "minute")
-        if self.rel_queries['size'][mask].sum() >= beaapi.MAX_DATA_PER_MINUTE:
+        if self.rel_queries['size'][mask].sum() >= beaapiloc.MAX_DATA_PER_MINUTE:
             rev_cumsum = self.rel_queries.iloc[::-1]['size'].cumsum().iloc[::-1]
-            allowable_mask = rev_cumsum < beaapi.MAX_DATA_PER_MINUTE
+            allowable_mask = rev_cumsum < beaapiloc.MAX_DATA_PER_MINUTE
             oldest_allowable_ts = self.rel_queries[allowable_mask]['time'].min()
             time.sleep(60 - (n - oldest_allowable_ts).seconds + 1)
 
         # wait till not-too-many errors
         n = pd.Timestamp.now()
         mask = self.rel_queries['time'] >= n - pd.Timedelta(1, "minute")
-        if self.rel_queries['errors'][mask].sum() >= beaapi.MAX_ERRORS_PER_MINUTE:
+        if self.rel_queries['errors'][mask].sum() >= beaapiloc.MAX_ERRORS_PER_MINUTE:
             rev_cumsum = self.rel_queries.iloc[::-1]['errors'].cumsum().iloc[::-1]
-            allowable_mask = rev_cumsum < beaapi.MAX_ERRORS_PER_MINUTE
+            allowable_mask = rev_cumsum < beaapiloc.MAX_ERRORS_PER_MINUTE
             oldest_allowable_ts = self.rel_queries[allowable_mask]['time'].min()
             time.sleep(60 - (n - oldest_allowable_ts).seconds + 1)
 
@@ -65,10 +65,10 @@ class ThrottlingCaller(object):
         self.wait_until_available()
         try:
             bea_tbl = beacall()
-        except beaapi.BEAAPIFailure as e:
+        except beaapiloc.BEAAPIFailure as e:
             self.wait_prev_failure = True
             raise e
-        except beaapi.BEAAPIResponseError as e:
+        except beaapiloc.BEAAPIResponseError as e:
             self.log_query(e.response_size, True)
             raise e
         self.log_query(bea_tbl.attrs["response_size"])

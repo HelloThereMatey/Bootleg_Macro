@@ -4,8 +4,8 @@ import pandas as pd
 from http.client import HTTPResponse
 from typing import Union
 
-from beaapi.response_to_dict import response_to_dict
-# from beaapi.get_row_data_value import get_row_data_value
+from beaapiloc.response_to_dict import response_to_dict
+# from beaapiloc.get_row_data_value import get_row_data_value
 
 
 def response_to_table(bea_payload: Union[list, pd.DataFrame, HTTPResponse],
@@ -19,22 +19,22 @@ def response_to_table(bea_payload: Union[list, pd.DataFrame, HTTPResponse],
     Parameters
     ----------
     bea_payload :
-        A 'HTTPResponse' returned from beaapi.api_response(...) call to
-        BEA API, an object of class 'list' returned from beaapi.response_to_dict(...),
+        A 'HTTPResponse' returned from beaapiloc.api_response(...) call to
+        BEA API, an object of class 'list' returned from beaapiloc.response_to_dict(...),
         or an object of class 'pd.DataFrame' returned from
-        beaapi.response_to_table(...).
+        beaapiloc.response_to_table(...).
     repull :
         Repull data from API if True, or use existing payload otherwise.
 
     Returns
     -------
     pd.DataFrame
-        An object of class 'pd.DataFrame' containing data from beaapi.api_respons(...)
+        An object of class 'pd.DataFrame' containing data from beaapiloc.api_respons(...)
         with metadata stored as an attribute in pd.DataFrame(...).attrs.
 
     Examples
     --------
-    >>> import beaapi
+    >>> import beaapiloc
     >>> beaspecs = {
     >>>     'UserID': beakey ,
     >>>     'Method': 'GetData',
@@ -44,7 +44,7 @@ def response_to_table(bea_payload: Union[list, pd.DataFrame, HTTPResponse],
     >>>     'Year': 'X',
     >>>     'ResultFormat': 'json'
     >>> }
-    >>> bea_payload = beaapi.api_respons(beaspecs)
+    >>> bea_payload = beaapiloc.api_respons(beaspecs)
     """
 
     if(not isinstance(bea_payload, list)):
@@ -56,7 +56,7 @@ def response_to_table(bea_payload: Union[list, pd.DataFrame, HTTPResponse],
             # Check if we have the right kind of dataframe; we should probably use
             # dataclasses to make a special class, but lazy
             if('params' in list(bea_payload.attrs.keys())):
-                from beaapi import api_request
+                from beaapiloc import api_request
                 bea_list = api_request(bea_payload.attrs['params'], as_dict=True)
             else:
                 print('Must use BEA API response DataFrame, list returned from'

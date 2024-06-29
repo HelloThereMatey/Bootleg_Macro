@@ -25,12 +25,12 @@ def update_metadata(userid: str, dataset_list: Optional[list] = None,
 
     Examples
     --------
-    >>> import beaapi
-    >>> beaapi.update_metadata('yourAPIkey')
+    >>> import beaapiloc
+    >>> beaapiloc.update_metadata('yourAPIkey')
     """
     import os
     import json
-    from beaapi import api_request, BEAAPIPkgException
+    from beaapiloc import api_request, BEAAPIPkgException
     from .beaapi_error import no_meta_err_msg
 
     bea_known_meta_sets = [
