@@ -4,7 +4,7 @@ import urllib.request
 import urllib.parse
 from http.client import HTTPResponse
 from typing import Dict, Union
-from beaapi import BEAAPIResponseError, BEAAPIFailure
+from beaapiloc import BEAAPIResponseError, BEAAPIFailure
 from .beaapi_error import (html_error_msg, empty_err_msg, no_data_node_err_msg,
                            multiple_err_msg)
 
@@ -17,11 +17,11 @@ def response_to_dict(bea_payload: HTTPResponse,
     Parameters
     ----------
     bea_payload :
-        An 'HTTPResponse' returned from beaapi.api_response(...) call to
+        An 'HTTPResponse' returned from beaapiloc.api_response(...) call to
         BEA API.
     isMeta :
-        Is this a metadata request from beaapi.get_data_set_list,
-        beaapi.get_parameter_list, or beaapi.get_parameter_values?
+        Is this a metadata request from beaapiloc.get_data_set_list,
+        beaapiloc.get_parameter_list, or beaapiloc.get_parameter_values?
         If True, data will be returned with only partial transformation (default: False)
 
     Returns
@@ -35,7 +35,7 @@ def response_to_dict(bea_payload: HTTPResponse,
 
     Examples
     --------
-    >>> import beaapi
+    >>> import beaapiloc
     >>> beaspecs = {
     >>>     'UserID': beakey ,
     >>>     'Method': 'GetData',
@@ -45,8 +45,8 @@ def response_to_dict(bea_payload: HTTPResponse,
     >>>     'Year': 'X',
     >>>     'ResultFormat': 'json'
     >>> }
-    >>> bea_payload = beaapi.api_response(beaspecs, as_table=False)
-    >>> beaList = beaapi.response_to_dict(bea_payload)
+    >>> bea_payload = beaapiloc.api_response(beaspecs, as_table=False)
+    >>> beaList = beaapiloc.response_to_dict(bea_payload)
     """
 
     # In the R version, I gave up on parsing it identically and just re-pull data as

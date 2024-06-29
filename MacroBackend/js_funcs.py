@@ -16,6 +16,9 @@ os.environ['NODE_PATH'] = node_path
 
 print(os.environ['NODE_PATH'])
 
+def remove_ansi_escape_sequences(s):
+    ansi_escape_pattern = re.compile(r'\x1b\[[0-9;]*m')
+    return ansi_escape_pattern.sub('', s)
 
 def js_search_tv(searchstr: str) -> dict:
     data_str = json.dumps(searchstr)
@@ -49,7 +52,7 @@ def js_search_tv(searchstr: str) -> dict:
             line = st2.replace("}", "").strip()
             els = line.split(":")
             try:
-                outdict[els[0]] = els[1]
+                outdict[els[0]] = remove_ansi_escape_sequences(str(els[1]).strip())
             except:
                 pass
         full_dict[j] = outdict
@@ -100,19 +103,19 @@ def search_yf_tickers(searchstr: str) -> tuple:
 
 if __name__ == "__main__":
 
-    searchstr = "AMZN"
+    searchstr = "nvda"
     print("Searching trading view data for:", searchstr)
     
     #Con  vert Python dictionary to JSON string
-    #pprint(js_search_tv(searchstr))
+    pprint(js_search_tv(searchstr))
 
-    print("Searching yfinance data for:", searchstr)
-    #Convert Python dictionary to JSON string
-    yf_results = js_search_yf(searchstr)
-    formatted = process_yf_stdout(yf_results)
-    news_res = formatted['News']
-    tickers_dict = formatted['Tickers']
-    tick_df = formatted['tickers_df']
-    print(news_res,"\n\n", tickers_dict, "\n\n", tick_df, "\n\n", type(news_res), type(tickers_dict), type(tick_df))
+    # print("Searching yfinance data for:", searchstr)
+    # #Convert Python dictionary to JSON string
+    # yf_results = js_search_yf(searchstr)
+    # formatted = process_yf_stdout(yf_results)
+    # news_res = formatted['News']
+    # tickers_dict = formatted['Tickers']
+    # tick_df = formatted['tickers_df']
+    # print(news_res,"\n\n", tickers_dict, "\n\n", tick_df, "\n\n", type(news_res), type(tickers_dict), type(tick_df))
 
     

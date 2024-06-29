@@ -35,7 +35,7 @@ echo "Installing python packages from requirements.txt using pip........"
 pip install -r requirements.txt
 ## The package below is in development by the BEA, early version. I made some changes and have included it
 ## in MacroBacked. We'll have to check for updates with that one now and then... Don't install it here using the line below. 
-#pip install "https://github.com/us-bea/beaapi/releases/download/v0.0.2/beaapi-0.0.2-py3-none-any.whl"
+#pip install "https://github.com/us-bea/beaapiloc/releases/download/v0.0.2/beaapiloc-0.0.2-py3-none-any.whl"
 
 echo "Installing node packages using npm........"
 npm install -g @mathieuc/tradingview

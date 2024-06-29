@@ -30,11 +30,11 @@ def get_parameter_values_filtered(userid: str, datasetname: str, targetparameter
 
     Examples
     --------
-    >>> import beaapi
-    >>> beaapi.get_parameter_values_filtered(beakey, 'Regional', 'Year',
+    >>> import beaapiloc
+    >>> beaapiloc.get_parameter_values_filtered(beakey, 'Regional', 'Year',
     >>>                                      TableName='CAINC5N', GeoFips='01001')
     """
-    from beaapi import api_request
+    from beaapiloc import api_request
 
     spec = kwargs.copy()
     spec['method'] = 'GetParameterValuesFiltered'
