@@ -7,7 +7,8 @@ wd = os.path.dirname(__file__)  ## This gets the working directory which is the 
 parent = os.path.dirname(wd)
 print('System information: ',sys.platform,', directory delimiter: ', fdel, ', working directory: ', wd)
 print(wd, parent)
-sys.path.append(parent+'/MacroBackend') #This makes sure script can find tvdatafeedz module. 
+sys.path.append(parent) #This makes sure script can find tvdatafeedz module. 
+sys.path.append(parent+fdel+'MacroBackend')
 
 import pandas as pd
 from matplotlib import colors as mcolors
@@ -26,7 +27,7 @@ Tk().withdraw() # we don't want a full GUI, so keep the root window from appeari
 ################################################### CODE FOR UPDATING EXISTING M2 & FX DATA FOR COUNTRIES SUPPLIED IN A LIST TAKEN FROM EXCEL FILE #############
 def PullData(FullInfo:pd.DataFrame,username=None,password=None,Rank:list=None): #Use the full dataframe with M2 and FX ticker infos to pull the data for them from TV.  
     name="NoobTrade181"; pw="4Frst6^YuiT!" #Use username, password to access some data that may be restricted for free TV tiers. 
-    tv = tvDatafeedz.tvdatafeed()
+    tv = tvDatafeedz.TvDatafeed()
     DataDict = {}
 
     if Rank is not None:
