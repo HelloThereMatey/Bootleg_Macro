@@ -8,7 +8,7 @@ wd = os.path.dirname(__file__); parent = os.path.dirname(wd); grampa = os.path.d
 fdel = os.path.sep
 sys.path.append(parent)
 
-from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode
+from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data
 from MacroBackend.BEA_Data import bea_data_mate
 
 keys = Utilities.api_keys().keys
@@ -58,22 +58,23 @@ class PandasModel(QtCore.QAbstractTableModel):
 import pandas as pd
 
 class Watchlist(dict):
-    def __init__(self, watchlist_data=None, metadata_data=None, watchlist_name: str = "base_watchlist"):
+    def __init__(self, watchlist_data=None, metadata_data=None, watchlist_name: str = "base_watchlist", watchlists_path: str = parent+fdel+"User_Data"+fdel+"Watchlists"):
         super().__init__()
         # Initialize watchlist and metadata as pandas DataFrames
         self.name = watchlist_name
+        self.watchlists_path = watchlists_path
         self['watchlist'] = pd.DataFrame(watchlist_data) if watchlist_data is not None else pd.DataFrame()
         self['metadata'] = pd.DataFrame(metadata_data) if metadata_data is not None else pd.DataFrame()
 
-    def load_watchlist(self, path: str = None):
+    def load_watchlist(self, filepath: str = None):
         # Example method to load watchlist data from an Excel file
-        if path is not None:
-            self['watchlist'] = pd.read_excel(path, index_col=0, sheet_name="watchlist")
-            self['metadata'] = pd.read_excel(path, index_col=0, sheet_name="all_metadata")
-            self.name = path.split(fdel)[-1].split(".")[0]
+        if filepath is not None:
+            self['watchlist'] = pd.read_excel(filepath, index_col=0, sheet_name="watchlist")
+            self['metadata'] = pd.read_excel(filepath, index_col=0, sheet_name="all_metadata")
+            self.name = filepath.split(fdel)[-1].split(".")[0]
 
         else:
-            fileName, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Load Watchlist", self.watchlists_path, "Excel Files (*.xlsx);;All Files (*)", options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+            fileName, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Choose a watchlist excel file.", self.watchlists_path, "Excel Files (*.xlsx);;All Files (*)", options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
             if fileName:
                 try:
                     self['watchlist'] = pd.read_excel(fileName, index_col=0, sheet_name="watchlist")
@@ -95,6 +96,26 @@ class Watchlist(dict):
         with pd.ExcelWriter(path+fdel+self.name.replace(" ", "_")+".xlsx") as writer:
             self['watchlist'].to_excel(writer, sheet_name='watchlist')
             self['metadata'].to_excel(writer, sheet_name='all_metadata')
+
+    def get_watchlist_data(self, start_date: str = "1990-01-02"):
+        """get_watchlist_data method.
+        This function takes a Watchlist object and returns a dictionary of pandas Series and/or dataframe objects.
+        Data will be pulled from the source listed for each asset/ticker/macrodata code in the watchlist.
+
+        Parameters:
+
+        - Watchlist: search_symbol_gui.Watchlist object
+        - start_date: str, default "1990-01-02"
+        """
+
+        watchlist = pd.DataFrame(self["watchlist"]); meta = pd.DataFrame(self["metadata"])
+        data = {}
+        for i in watchlist.index:
+            ds = Pull_Data.dataset()
+            ds.get_data(source = watchlist.loc[i,"source"], data_code=watchlist.loc[i,"id"], start_date = start_date, \
+                        exchange_code = meta.loc["exchange", i])
+            data[i] = ds.data
+        self["watchlist_datasets"] = data
 
 ##### My main window class ####################
 class Ui_MainWindow(QtWidgets.QMainWindow):
@@ -314,7 +335,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         if self.selected_row is not None:
             self.return_dict[self.series_added_count] = self.selected_row
             print("Series addded to return dict: ", self.selected_row.name)
-            ser = pd.Series(self.selected_row[["id", "title", "source"]] , name = self.selected_row["name"]).to_frame().T.set_index("id", drop=True)
+            ser = pd.Series(self.selected_row[["id", "title", "source"]] , name = self.selected_row["name"]).to_frame().T
             self.return_df = pd.concat([self.return_df, ser], axis=0)
             self.series_added_count += 1
     
@@ -342,7 +363,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.current_list_name = selected_watchlist
         print(f"Current watchlist set to: {self.current_list_name}")
         self.current_list = Watchlist(watchlist_name=self.current_list_name)
-        self.current_list.load_watchlist(path=self.watchlists_path+fdel+self.current_list_name+".xlsx")
+        self.current_list.load_watchlist(filepath=self.watchlists_path+fdel+self.current_list_name+".xlsx")
 
     def save_watchlist(self):
 

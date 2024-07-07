@@ -694,68 +694,93 @@ def CheckIndexDifference(series1:Union[pd.DataFrame, pd.Series], series2:Union[p
         else:
             pass
     return differences
-    
-def DetermineSeries_Frequency(series: pd.Series):
-    if isinstance(series, pd.DataFrame):
-        series = series[series.columns[0]]
-    multiplier = 1
 
-    frequency_dict = {
-                    "Weekly": ['W'],
-                    "Monthly": ['WOM', 'LWOM', 'M', 'ME', 'MS', 'BM', 'BMS', 'CBM', 'CBMS', 'SM', 'SMS'],
-                    "Quarterly": ['Q', 'QS', 'BQ', 'BQS', 'REQ'],
-                    "Yearly": ['A', 'AS', 'BYS', 'BA', 'BAS', 'RE', 'YE'],
-                    "Daily": ['D', 'B', 'C'],  
-                    "Hourly": ['BH', 'CBH', 'H'],
-                    "Minutely": ['T', 'min'],
-                    "Secondly": ['S'],
-                    "Millisecondly": ['L', 'ms'],
-                    "Microsecondly": ['U', 'us'],
-                    "Nanosecondly": ['N'] }
-    periods_in_day = {
-                    "Weekly": 1/7,
-                    "Monthly": 1/30.4375,
-                    "Quarterly": 1/91.3125,
-                    "Yearly": 1/365.25,
-                    "Daily": 1,  
-                    "Hourly": 24,
-                    "Minutely": 24*60,
-                    "Secondly": 60*60*24,
-                    "Millisecondly": 1000*60*60*24,
-                    "Microsecondly": 1000000*60*60*24,
-                    "Nanosecondly": 1000000000*60*60*24 }
-    
-    freq = pd.infer_freq(series.index)
-    print('Frequency determination function for series: ', series.name, ' frequency: ', freq)
-    if len(freq.split("-")) > 1:
-        freq = freq.split("-")[0]
-    
-    if freq is None:
-        print("Couldn't discern frequency in the regular manner, trying manual process....")
-        avDelta = manual_frequency(series)
-        print('Looks like average index timedelta is: ', avDelta[1],', resampling series to that frequency.')
-        Frequency, periods_inDay = DetermineSeries_Frequency(avDelta[0])
-        return Frequency, periods_inDay
-    else:
-        match = re.match(r'(\d+)([A-Za-z]+)', freq)
-        if match:
-            matches = match.groups()
-            multiplier = int(matches[0]); freq = matches[1]
-   
-    frequency = None
-    for freqName in frequency_dict.keys():
-        if freq in frequency_dict[freqName]:
-            frequency = freqName
-        elif freq.split('-')[0] == 'W':
-            frequency = 'Weekly'
-    if frequency is None:
-        print('Could not match the frequency for input series, ', series.name,' reported frequency is: ', freq)    
-        frequency = freq
+class freqDetermination(object):
+    def __init__(self, series: pd.Series, p_in_d_mult = 1):
+        self.series = series
+        self.freq = pd.infer_freq(self.series.index)
+        self.periods_in_day = None
+        self.freq_str = None
+        self.multiplier = p_in_d_mult
 
-    return frequency, periods_in_day[frequency]/ multiplier, freq
+        self.frequency_dict = {
+            "Nanosecondly": ['N'],
+            "Microsecondly": ['U', 'us'],
+            "Millisecondly": ['L', 'ms'],
+            "Secondly": ['S'],
+            "Minutely": ['T', 'min'],
+            "Hourly": ['BH', 'CBH', 'H'],
+            "Daily": ['D', 'B', 'C'],
+            "Weekly": ['W'],
+            "Monthly": ['WOM', 'LWOM', 'M', 'ME', 'MS', 'BM', 'BMS', 'CBM', 'CBMS', 'SM', 'SMS'],
+            "Quarterly": ['Q', 'QS', 'BQ', 'BQS', 'REQ'],
+            "Yearly": ['A', 'AS', 'BYS', 'BA', 'BAS', 'RE', 'YE']}
+        self.freq_list = pd.Series(list(self.frequency_dict.keys()))
+
+        self.periods_in_day = {
+            "Nanosecondly": 1000000000*60*60*24,
+            "Microsecondly": 1000000*60*60*24,
+            "Millisecondly": 1000*60*60*24,
+            "Secondly": 60*60*24,
+            "Minutely": 24*60,
+            "Hourly": 24,
+            "Daily": 1,
+            "Weekly": 1/7,
+            "Monthly": 1/30.4375,
+            "Quarterly": 1/91.3125,
+            "Yearly": 1/365.25}
+        
+        self.resample_map = {
+            "Nanosecondly": 'N',
+            "Microsecondly": 'U',
+            "Millisecondly": 'L',
+            "Secondly": 'S',
+            "Minutely": 'T',
+            "Hourly": 'H',
+            "Daily": 'D',
+            "Weekly": 'W',
+            "Monthly": "M",
+            "Quarterly": 'Q',
+            "Yearly": 'A'}
+
+    def DetermineSeries_Frequency(self):
+
+        if isinstance(self.series, pd.DataFrame):
+            self.series = self.series[self.series.columns[0]]
+        
+        print('Frequency determination function for series: ', self.series.name, ' frequency: ', self.freq)
+        if self.freq is not None and len(self.freq.split("-")) > 1:
+            self.freq = self.freq.split("-")[0]
+        
+        if self.freq is None:
+            print("Couldn't discern frequency in the regular manner, trying manual process....")
+            avDelta = manual_frequency(self.series)
+            print('Looks like average index timedelta is: ', avDelta[1],', resampling series to that frequency.')
+            self.freq = avDelta[1]
+            self.series = avDelta[0]
+        else:
+            match = re.match(r'(\d+)([A-Za-z]+)', self.freq)
+            if match:
+                matches = match.groups()
+                self.multiplier = int(matches[0]); self.freq = matches[1]
+    
+        self.frequency = None
+        for freqName in self.frequency_dict.keys():
+            if self.freq in self.frequency_dict[freqName]:
+                self.frequency = freqName
+            elif self.freq.split('-')[0] == 'W':
+                self.frequency = 'Weekly'
+        if self.frequency is None:
+            print('Could not match the frequency for input series, ', self.series.name,' reported frequency is: ', self.freq,\
+                  ", setting self.frequency to that...")    
+            self.frequency = self.freq
+        
+        if self.freq is None:
+            self.freq = self.resample_map[self.frequency]
+        self.per_in_d = self.periods_in_day[self.frequency]/ self.multiplier
 
 def manual_frequency(series: pd.Series, threshold_multiplier=2.25):
-    daysInPeriod = {'1H': 1/24, '4H': 1/6, 'Day': 1, 'Week': 7, 'Month': 30, 'Quarter': 90}
+    daysInPeriod = {'1H': 1/24, '4H': 1/6, "D": 1, 'W': 7, 'M': 30, 'Q': 90}
     
     if not isinstance(series.index, pd.DatetimeIndex):
         print('Series must have a datetime index for frequency determination. Exiting...')
@@ -776,15 +801,102 @@ def manual_frequency(series: pd.Series, threshold_multiplier=2.25):
 
     # Find the period whose number of days is closest to the average timedelta
     closest_period = min(daysInPeriod, key=lambda p: abs(daysInPeriod[p] - average))
-
-    # Map to the appropriate frequency
-    freq_map = {
-        '1H': 'H', '4H': '4H', 'Day': 'D', 'Week': 'W', 'Month': 'M', 'Quarter': 'Q'
-    }
-    freq = freq_map[closest_period]
     
-    resampled_series = series.resample(freq).mean()  # Replace .mean() with an appropriate aggregation function if needed
+    resampled_series = series.resample(closest_period).ffill()  # Replace .mean() with an appropriate aggregation function if needed
     return resampled_series, closest_period
+
+def ensure_series(input_data):
+    if isinstance(input_data, pd.DataFrame):
+        # Convert the first column of the DataFrame to a Series
+        return input_data[input_data.columns[0]]
+    elif isinstance(input_data, pd.Series):
+        # It's already a Series, return as is
+        return input_data
+    else:
+        # Raise an error if the input is neither a DataFrame nor a Series
+        raise ValueError('Input must be a pandas Series or DataFrame.')
+
+def match_series_lengths(series1: pd.Series, series2: pd.Series) -> tuple[pd.Series, pd.Series]:
+    """
+    Ensure two pandas Series are of equal length by trimming the longer series.
+    If series have different frequencies, this might lead to data loss.
+    Returns the modified series.
+    """
+    # Find the common date range
+    start_date = max(series1.index[0], series2.index[0])
+    end_date = min(series1.index[-1], series2.index[-1])
+    
+    # Trim both series to the common date range
+    series1_trimmed = series1.loc[start_date:end_date]
+    series2_trimmed = series2.loc[start_date:end_date]
+
+    return series1_trimmed, series2_trimmed
+
+def pair_corr(series1: pd.Series, series2: pd.Series, windows = [30, 90, 180 ,365]):
+    """"
+    Function to calculate the correlation between two series for a number of different window lengths. 
+    Determines frequency and downsamples a series to match the other if necessary..
+    
+    Parameters:
+    - series1 (pd.Series): The first input series.
+    - series2 (pd.Series): The second input series.
+    - windows (list): A list of window lengths for which to calculate the rolling correlation.
+
+    Returns:
+    - df (pd.DataFrame): A DataFrame containing the original series and their log and pcercent returns, as well as the rolling correlations.
+    - full_corr (float): The full correlation between the two series over the whole length. 
+    """
+
+    #Ensure that both are series first:
+    try:
+        series1 = ensure_series(series1)
+        series2 = ensure_series(series2)
+        print("Input series object types: ", type(series1), type(series2))
+    except ValueError as e:
+        print(e)
+        print("Input series object types: ", type(series1), type(series2))
+
+    ## Ensure that the two series are of the same frequency and length. 
+    freq1 = freqDetermination(series1); freq1.DetermineSeries_Frequency()
+    freq2 = freqDetermination(series2); freq2.DetermineSeries_Frequency()
+    print(freq1.frequency, freq2.frequency)
+    if freq1.frequency != freq2.frequency:
+        print("Frequency of series do not match, downsampling the higher freq series to match...")
+        try:
+            s1_rank = freq1.freq_list[freq1.freq_list == freq1.frequency].index.to_list()[0]
+            s2_rank = freq2.freq_list[freq2.freq_list == freq2.frequency].index.to_list()[0]
+        except Exception as e:
+            print('Error getting frequency rank for resampling, ', e)
+            return None
+        
+        if s1_rank > s2_rank:
+            print('Resampling series 2 to match series 1...')
+            series2 = series2.resample(freq1.freq).last()
+        elif s1_rank < s2_rank:
+            print('Resampling series 1 to match series 2...')
+            series1 = series1.resample(freq2.freq).last()
+        else:
+            print("Are the two series of the same frequency?...")
+            return None
+    print(series1, series2)
+   
+    # # Let's calulate some returns innit...
+    df = pd.concat([series1, series2], axis = 1)
+    print("Fresh df: ", df)
+    
+    df["ret_"+series1.name] = np.log(df[series1.name]/df[series1.name].shift(1))
+    df["ret_"+series2.name] = np.log(df[series2.name]/df[series2.name].shift(1))
+    df["retPct_"+series1.name] = df[series1.name].pct_change()
+    df["retPct_"+series2.name] = df[series2.name].pct_change()
+    df.dropna(inplace=True)
+    print(df)
+    ## Now for correlations...
+    full_corr = series1.corr(series2, method = 'pearson'); print("Whole time correlation: ", full_corr)
+
+    for window in windows:
+        df[series1.name+"_"+series2.name+"_corr_"+str(window)] = df["ret_"+series1.name].rolling(window).corr(df["ret_"+series2.name])
+        
+    return df, full_corr
 
 class api_keys():
 
