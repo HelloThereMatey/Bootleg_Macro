@@ -31,6 +31,7 @@ Multiple tools for obtaining and then charting and comparing economic data with 
    `git clone https://github.com/HelloThereMatey/Bootleg_Macro.git`
  - Setup is done using a bash script "setup.sh" in Bootleg_Macro/setup folder. This will create a conda environmenrt called bm which will contain all the python, r and js packages used by the repo.
  - This also installs basic versions of R base and NodeJS from the miniconda forge. Run the script as such below when the wd is set to Bootleg_Macro/setup. 
+
    `.\setup.sh`
  - If setup script completes successfully then it should be ready to go. Make sure to use "bm" environment when working with the repo. 
 
