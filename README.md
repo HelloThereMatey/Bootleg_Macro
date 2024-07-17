@@ -1,4 +1,4 @@
-# Bootleg_Macro
+# Bootleg Macro
 Toolkit for sourcing financial data, analysis and charting. Our goal is to provide access to data that is usually hidden behinnd paywalls and to help with analysis. 
 Includes web-scraping to get data from sources such as tradingview and yahoo finance without needing accounts at these sources. 
 Provides interfaces that makes downloading macroeconomic data from easy to use sources such as FRED and much harder to deal with API's such as the BEA and ABS a breeze. 
@@ -10,11 +10,13 @@ Multiple tools for obtaining and then charting and comparing economic data with 
 - Watchlist creation GUI. Search for data from the list of standard sources and build watchlists that can act as the basis for a financial study that can self-update over time.
     - The standard data sources currently implemented are:
         - MacroEconomic data: FRED, BEA, ABS (FRED and BEA require free API keys). 
-        - Equity, Index, Commodity etc.: TradingView, Yahoo Finance. These are provided via data scraping. 
+        - Equity, Index, Commodity etc.: TradingView, Yahoo Finance. These are provided via data scraping. Nasdaq data link also included but requires free API key. 
         - Crypto: Coin Gecko, Glassnode (requires Glassnode subscription and API key). If you want data from this source & don't want to buy subscription, contact me and I'll setup an API to provide it to you.
         - More sources to come in the future, particularly via data scraping, this is what Bootleg Macro is all about. 
 ### Generic Charting tool "Macro_Chartist":
 <img src="/examples/chartist.jpg" alt="Example of chartist output." width="1100"/>
+Left: screenshot of the excel file control panel. Right: Example output chart. 
+
 
 - Chart up to 5 traces on the same chart on up to 5 different axes or a dataframe of many traces on the same axis. 
 - Transform data to first order derivatives, year on year % change, 6 month annualized etc.
