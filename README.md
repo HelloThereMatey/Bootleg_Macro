@@ -28,7 +28,7 @@ Multiple tools for obtaining and then charting and comparing economic data with 
 - Aggregated customizable index that shows the sum of the major central bank balance sheets. Included more elaborate index for the Fed (Net liquidity).
 - Option to add other data sources such as the Bank-term funding program (BTFP balance), Fed remittances and governments deficits. 
 - Compare the liquidity index with up to 5 comparison assets.
-- 
+
 ### Aggregated global M2 money supply index.
 - This takes M2 money supply data for the top 50 economies and aggregates. Check it out. 
 
@@ -37,17 +37,15 @@ Multiple tools for obtaining and then charting and comparing economic data with 
 - Example notebooks are provided in User_Data/Research_notebooks. These show how to use GUI to build watchlist and then perform batch analysis routines on that list of time-series. 
 - Combining this with the open BB platform toolkit [link here](https://github.com/OpenBB-finance/OpenBB) is especially powerful for financial/investment/quant studies.
 
- ## Installation: 
+## Installation: 
 ### Using command line in windows, mac or linux. 
 Use Bash terminal in Linux/Mac.
 For windows use Git Bash terminal which will let you execute the setup shell script (.sh file). Info on using git bash in windows terminal:
-- [Setup git bash in windows terminal](https://www.commandlinewizardry.com/post/how-to-add-git-bash-to-windows-terminal)
-- [Alternate](https://www.educative.io/answers/how-to-install-git-bash-in-windows) 
-- You could also run a git bash terminal in VSCode. 
- - Install [git](https://github.com/git-guides/install-git) on your machine if you don't already have it.
- 
- - Install miniconda environment manager, if not already running it:
-     - [miniconda](https://docs.conda.io/projects/miniconda/en/latest/). An example of virtual environment creation that may work well with here could be something like:
+- [Setup git bash in windows terminal](https://www.commandlinewizardry.com/post/how-to-add-git-bash-to-windows-terminal), [Alternate link](https://www.educative.io/answers/how-to-install-git-bash-in-windows), You could also run a git bash terminal in VSCode. 
+
+- Install [git](https://github.com/git-guides/install-git) on your machine if you don't already have it, this will include the git bash terminal for windows.
+- Install miniconda environment manager, if not already running it:
+ - [miniconda](https://docs.conda.io/projects/miniconda/en/latest/). An example of virtual environment creation that may work well with here could be something like:
 
  - Set your working directory where you would like to install the Bootleg_Macro_ repo. You can just type cd and then drag the folder where you want to install and drop on the terminal, to copy the path to that folder:
 
