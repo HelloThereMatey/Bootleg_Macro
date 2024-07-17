@@ -15,7 +15,7 @@ Multiple tools for obtaining and then charting and comparing economic data with 
         - More sources to come in the future, particularly via data scraping, this is what Bootleg Macro is all about. 
 - Generic Charting tool "Macro_Chartist":
 
-  ![Chartist control panel](https://github.com/HelloThereMatey/Bootleg_macro/examples/MonetaryAggs_July-yoy.png)
+  ![Chartist control panel](https://github.com/HelloThereMatey/Bootleg_Macro/tree/main/examples/MonetaryAggs_July-yoy.png)
     - Chart up to 5 traces on the same chart on up to 5 different axes or a dataframe of many traces on the same axis. 
     - Transform data to first order derivatives, year on year % change, 6 month annualized etc.
     - Smooth data with MA's. Add bars for recessions.
