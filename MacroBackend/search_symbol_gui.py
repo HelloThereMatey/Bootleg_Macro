@@ -1,14 +1,14 @@
 import pandas as pd
 import numpy as np
 from PyQt6 import QtCore, QtGui, QtWidgets
-
 import os
 import sys
 wd = os.path.dirname(__file__); parent = os.path.dirname(wd); grampa = os.path.dirname(parent)
 fdel = os.path.sep
 sys.path.append(parent)
+from typing import Union
 
-from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data
+from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data, chart_rip
 from MacroBackend.BEA_Data import bea_data_mate
 
 keys = Utilities.api_keys().keys
@@ -72,11 +72,12 @@ class Watchlist(dict):
             self['watchlist'] = pd.read_excel(filepath, index_col=0, sheet_name="watchlist")
             self['metadata'] = pd.read_excel(filepath, index_col=0, sheet_name="all_metadata")
             self.name = filepath.split(fdel)[-1].split(".")[0]
+            Utilities.basic_load_dialog(initialdir=self.watchlists_path,title="Choose a watchlist excel file.", filetypes="Excel Files (*.xlsx);;All Files (*)")
 
         else:
-            print("Code was reachable...")
-            temp_app = QtWidgets.QApplication.instance()
-            fileName, sick = QtWidgets.QFileDialog.getOpenFileName(temp_app, "Choose a watchlist excel file.", self.watchlists_path, "Excel Files (*.xlsx);;All Files (*)", options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+            # I dunno why vscode thinks this is unreachable, it works..
+            fileName = Utilities.basic_load_dialog(initialdir=self.watchlists_path,title="Choose a watchlist excel file.", 
+                                                   filetypes=('Excel files', '*.xlsx'))
             # Start the application's event loop
             sys.exit(temp_app.exec())    
             if fileName:
@@ -120,6 +121,13 @@ class Watchlist(dict):
                         exchange_code = meta.loc["exchange", i])
             data[i] = ds.data
         self["watchlist_datasets"] = data
+
+    def insert_data(self, data: Union[pd.DataFrame, pd.Series], data_name: str = "new_data", ticker_to_insert: str = None):
+        self["watchlist_datasets"][data_name] = data
+        if ticker_to_insert is not None:
+            ### This not working yet.............
+            self["watchlist"].loc[ticker_to_insert] = data_name
+            self["metadata"][data_name] = data
 
 ##### My main window class ####################
 class Ui_MainWindow(QtWidgets.QMainWindow):
