@@ -56,7 +56,8 @@ For windows use Git Bash terminal which will let you execute the setup shell scr
  - This also installs basic versions of R base and NodeJS from the miniconda forge. Run the script as such below when the wd is set to Bootleg_Macro/setup. 
 
    `.\setup.sh`
-It may be necessary to first make the script executable:
+
+It may be necessary to first make the script executable prior to running it:
 
 `chmod +x setup.sh`
 
