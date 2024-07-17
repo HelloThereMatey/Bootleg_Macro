@@ -74,7 +74,11 @@ class Watchlist(dict):
             self.name = filepath.split(fdel)[-1].split(".")[0]
 
         else:
-            fileName, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Choose a watchlist excel file.", self.watchlists_path, "Excel Files (*.xlsx);;All Files (*)", options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+            print("Code was reachable...")
+            temp_app = QtWidgets.QApplication.instance()
+            fileName, sick = QtWidgets.QFileDialog.getOpenFileName(temp_app, "Choose a watchlist excel file.", self.watchlists_path, "Excel Files (*.xlsx);;All Files (*)", options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+            # Start the application's event loop
+            sys.exit(temp_app.exec())    
             if fileName:
                 try:
                     self['watchlist'] = pd.read_excel(fileName, index_col=0, sheet_name="watchlist")
@@ -454,10 +458,11 @@ def run_app():
 
 if __name__ == "__main__":
 
-    watched = run_app()
-    if isinstance(watched, Watchlist):
-        print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
-    else:
-        print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
-
+    # watched = run_app()
+    # if isinstance(watched, Watchlist):
+    #     print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
+    # else:
+    #     print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
+    wl = Watchlist()
+    wl.load_watchlist()
  
