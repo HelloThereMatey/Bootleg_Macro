@@ -10,7 +10,7 @@ Multiple tools for obtaining and then charting and comparing economic data with 
 - Watchlist creation GUI. Search for data from the list of standard sources and build watchlists that can act as the basis for a financial study that can self-update over time.
     - The standard data sources currently implemented are:
         - MacroEconomic data: FRED, BEA, ABS (FRED and BEA require free API keys). 
-        - Equity, Index, Commodity etc.: TradingView, Yahoo Finance. These are provided via data scraping. 
+        - Equity, Index, Commodity etc.: TradingView, Yahoo Finance. These are provided via data scraping. Nasdaq data link also included but requires free API key. 
         - Crypto: Coin Gecko, Glassnode (requires Glassnode subscription and API key). If you want data from this source & don't want to buy subscription, contact me and I'll setup an API to provide it to you.
         - More sources to come in the future, particularly via data scraping, this is what Bootleg Macro is all about. 
 ### Generic Charting tool "Macro_Chartist":
