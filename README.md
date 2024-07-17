@@ -40,8 +40,10 @@ Multiple tools for obtaining and then charting and comparing economic data with 
  ## Installation: 
 ### Using command line in windows, mac or linux. 
 Use Bash terminal in Linux/Mac.
-For windows use Git Bash terminal [installation info #1](https://www.commandlinewizardry.com/post/how-to-add-git-bash-to-windows-terminal), [installation info alternate](https://www.educative.io/answers/how-to-install-git-bash-in-windows) 
-that will let you execute the setup shell script. 
+For windows use Git Bash terminal which will let you execute the setup shell script (.sh file). Info on using git bash in windows terminal:
+    [Setup git bash in windows terminal](https://www.commandlinewizardry.com/post/how-to-add-git-bash-to-windows-terminal)
+    [Alternate](https://www.educative.io/answers/how-to-install-git-bash-in-windows) 
+    You could also run a git bash terminal in VSCode. 
  - Install [git](https://github.com/git-guides/install-git) on your machine if you don't already have it.
  
  - Install miniconda environment manager, if not already running it:
