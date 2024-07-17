@@ -71,7 +71,7 @@ It may be necessary to first make the script executable prior to running it:
 
    `python chartist.py`
    
- - You could alternatively run everything in an editor such as VS code yet if your're not planning to edit any code I'd recommend to stick with the terminal method. 
+ - You could alternatively run everything in an editor such as VS code, yet if you're not planning to edit any code I'd recommend to stick with the terminal method. 
  - A free excel alternative such as libre office can be used but make sure that the file type is always ".xlsx". 
 
 ### USD NET LIQUIDITY SCRIPT:
@@ -82,9 +82,4 @@ This script pulls daily data for the TGA from the treasury along with series fro
 #### A more detailed usage guide can be found here in my twitter threads about the NLQ script: 
 https://twitter.com/Tech_Pleb/status/1619542486208372737?s=20&t=lwqXKHnHwTkcF2V1RMnzBg
 https://twitter.com/Tech_Pleb/status/1622916354008584192?s=20&t=k0nnXAlNTvv5iiISzwvyAA
-
-#### TROUBLESHOOTING:
- - If you get an error message "UserWarning: Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.", you have a
-  version of python that does not inculde the tkinter package. 
- - Install latest python with tkinter, e.g sudo apt-get install python3-tk 
      
