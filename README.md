@@ -69,7 +69,7 @@ It may be necessary to first make the script executable prior to running it:
 ## USAGE:
  - There are two main ways of using the tools. Users without Python proficiency can utilize the pre-written scripts controlled via excel file or Qt6 GUI as a control panel.
  - **Example:**
-       #### Use the chartist tool to create a chart showing the YoY % changes in U.S M2, GDP, Unemployment and the S&P 500 Equity Index:
+        Use the chartist tool to create a chart showing the YoY % changes in U.S M2, GDP, Unemployment and the S&P 500 Equity Index:
    - Activate the 'bm' environment:
    
    `conda activate bm`
@@ -80,7 +80,7 @@ It may be necessary to first make the script executable prior to running it:
    
    - Fill in the relevant cells in the "Control.xlsx" file. This includes the data codes and sources for each data series e.g "M2SL, fred", "GDP, fred", "^GSPC, yfinance" for the 3 data series                 mentioned above, chart title etc... Detailed instructions are found in the file. Select from dropdown menus values in yellow cells and enter necessary values into grey cells. The majority of              cells can be left blank. Save file. 
    - Run "chartist.py":
-   - 
+     
    `python chartist.py`
    
  - Each of the other 2 script tools (NetLiquidity & Pair_Correlation) are controlled by a different excel file control panel in the same way. 
