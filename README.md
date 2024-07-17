@@ -13,22 +13,29 @@ Multiple tools for obtaining and then charting and comparing economic data with 
         - Equity, Index, Commodity etc.: TradingView, Yahoo Finance. These are provided via data scraping. 
         - Crypto: Coin Gecko, Glassnode (requires Glassnode subscription and API key). If you want data from this source & don't want to buy subscription, contact me and I'll setup an API to provide it to you.
         - More sources to come in the future, particularly via data scraping, this is what Bootleg Macro is all about. 
-- Generic Charting tool "Macro_Chartist":
+### Generic Charting tool "Macro_Chartist":
 <img src="/examples/chartist.jpg" alt="Example of chartist output." width="1100"/>
 
-    - Chart up to 5 traces on the same chart on up to 5 different axes or a dataframe of many traces on the same axis. 
-    - Transform data to first order derivatives, year on year % change, 6 month annualized etc.
-    - Smooth data with MA's. Add bars for recessions.
-    - Save chart templates to plot later with updated data. One can build up a watchlist this way. 
-    - Decent generic charting tool for display of macrioeconomic data. 
-- Correlation tool:
-    - Look at rolling correlations between any two time series. 
-- Central bank global money index "NetLiquiity":
-    - Aggregated customizable index that shows the sum of the major central bank balance sheets. Included more elaborate index for the Fed (Net liquidity).
-    - Option to add other data sources such as the Bank-term funding program (BTFP balance), Fed remittances and governments deficits. 
-    - Compare the liquidity index with up to 5 comparison assets. 
-- Aggregated global M2 money supply index.
-    - This takes M2 money supply data for the top 50 economies and aggregates. Check it out. 
+- Chart up to 5 traces on the same chart on up to 5 different axes or a dataframe of many traces on the same axis. 
+- Transform data to first order derivatives, year on year % change, 6 month annualized etc.
+- Smooth data with MA's. Add bars for recessions.
+- Save chart templates to plot later with updated data. One can build up a watchlist this way. 
+- Decent generic charting tool for display of macrioeconomic data. 
+### Correlation tool:
+- Look at rolling correlations between any two time series.
+  
+### Central bank global money index "NetLiquiity":
+- Aggregated customizable index that shows the sum of the major central bank balance sheets. Included more elaborate index for the Fed (Net liquidity).
+- Option to add other data sources such as the Bank-term funding program (BTFP balance), Fed remittances and governments deficits. 
+- Compare the liquidity index with up to 5 comparison assets.
+- 
+### Aggregated global M2 money supply index.
+- This takes M2 money supply data for the top 50 economies and aggregates. Check it out. 
+
+## Tools to be used in jupyter notebooks for finanical studies.
+- Modules from the backend (MacroBackend) can be used flexibly inside environments such as Jupyter nb. This is the most powerful way to use the toolkit.
+- Example notebooks are provided in User_Data/Research_notebooks. These show how to use GUI to build watchlist and then perform batch analysis routines on that list of time-series. 
+- Combining this with the open BB platform toolkit [link here](https://github.com/OpenBB-finance/OpenBB) is especially powerful for financial/investment/quant studies.
 
  ## Installation: 
 ### Using command line in windows, mac or linux. Bash terminal in Linux/Mac, cmd prompt in windows. 
