@@ -1,5 +1,4 @@
 import numpy as np
-from numpy import NaN, ceil, floor
 import pandas as pd
 import requests
 import io
@@ -54,14 +53,14 @@ def CoinGeckoPriceHistory(CoinID: str, TimeLength: int = 365, api_key: str = Non
     elementA2 = df.iloc[length-1].at["prices"]     #Turns out to be time elapsed in ms since start of price tracking!!
     startTime = elementA1[0]      
     endTime = elementA2[0]       
-    numDays = int(floor((endTime-startTime)/(1000*60*60*24))+1); print('Number of days in data: ',numDays,'Data length ',len(df))
+    numDays = int(np.floor((endTime-startTime)/(1000*60*60*24))+1); print('Number of days in data: ',numDays,'Data length ',len(df))
 
     PricesDict = {'Date':[],'Days ago':[],'Price (USD)':[],'Market Cap (USD)':[],'Volume (USD)':[]}
     for i in range(len(df)):         #This converts the json response array from API into Pandas dataframe..
         PricesDict['Price (USD)'].append(df.loc[i].at["prices"][1])
         PricesDict['Market Cap (USD)'].append(df.loc[i].at["market_caps"][1])
         PricesDict['Volume (USD)'].append(df.loc[i].at["total_volumes"][1])
-        TimeInPast = numDays - floor((df.loc[i].at["prices"][0]-startTime)/(1000*60*60*24))
+        TimeInPast = numDays - np.floor((df.loc[i].at["prices"][0]-startTime)/(1000*60*60*24))
         PricesDict['Days ago'].append(TimeInPast)
         DateTime = DateToday-timedelta(days=TimeInPast)
         Date = DateTime.strftime("%d.%m.%y")
@@ -400,7 +399,7 @@ def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_d
             index = timeFrames.index(BarTimeFrame)
           
         elif barTarget > 7 and BarTimeFrame is None or BarTimeFrame == 'M': 
-            TimeFrame = 'Monthly'; BarTimeFrame = 'M'; numBars = round(ceil(numDays/30))
+            TimeFrame = 'Monthly'; BarTimeFrame = 'M'; numBars = round(np.ceil(numDays/30))
             interval = Interval.in_monthly
             index = timeFrames.index(BarTimeFrame)
           

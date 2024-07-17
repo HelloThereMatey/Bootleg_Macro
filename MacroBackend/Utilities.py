@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import datetime
 import tkinter as tk
+from tkinter import filedialog
 import tkinter.font as tkfont
 import customtkinter as ctk
 import operator
@@ -17,6 +18,15 @@ from openpyxl import load_workbook
 
 wd = os.path.dirname(__file__)
 fdel = os.path.sep
+
+def basic_load_dialog(initialdir=wd, title: str ='Choose your file...', 
+                    filetypes: tuple = (('Image files', '*.png *.bmp *.jpg *.jpeg *.pdf *.svg *.tiff *.tif'),
+                                                  ('All files', '*.*'))):
+    window = tk.Tk()
+    window.withdraw()
+    file_path = filedialog.askopenfilename(filetypes=filetypes,initialdir=wd, parent=window, title=title)
+    window.withdraw()  
+    return file_path
 
 def append_to_column(workbook_path, sheet_name:str = 'Sheet1', column:str = 'A', data_list: list = []):
     """
