@@ -17,28 +17,24 @@ Multiple tools for obtaining and then charting and comparing economic data with 
     - This takes M2 money supply data for the top 50 economies and aggregates. Check it out. 
 
  ## Installation: 
+### Using command line in windows, mac or linux. Bash terminal in Linux/Mac, cmd prompt in windows. 
  - Install [git](https://github.com/git-guides/install-git) on your machine if you don't already have it.
- - _Optional yet recommended:_ Create a virtual environment to run this in. I recommend [miniconda](https://docs.conda.io/projects/miniconda/en/latest/). An example of virtual environment creation that may work well with here could be something like:
+ 
+ - Install miniconda environment manager, if not already running it:
+     - [miniconda](https://docs.conda.io/projects/miniconda/en/latest/). An example of virtual environment creation that may work well with here could be something like:
 
-   `conda create --name financial python=3.9`
- - That will create a conda viirtual environment called _financial_ and will install the latest version of python 3.9 into it. 
-
-   `conda activate financial`
- - This will activate your virtual environment and any packages you install after this will be installed into that environment.  
- - Install [python 3](https://realpython.com/installing-python/) if you don't already have it (skip if already done with conda). This repo has mainly been tested with Python 3.9.6. On-linux you could use:
-
-   `sudo apt-get install python3-tk`
- - Set your working directory where you would like to install the _Bootleg_Macro_ repo:
+ - Set your working directory where you would like to install the Bootleg_Macro_ repo. You can just type cd and then drag the folder where you want to install and drop on the terminal, to copy the path to that folder:
 
    `cd <your directory>`
- - Clone this repo to your desired directory:
+ - Clone the Bootleg_Macro repo to your system:
 
    `git clone https://github.com/HelloThereMatey/Bootleg_Macro.git`
- - Install the required packages if not already present. Must have directory set to Bootleg_Macro directory:
+ - Setup is done using a bash script "setup.sh" in Bootleg_Macro/setup folder. This will create a conda environmenrt called bm which will contain all the python, r and js packages used by the repo.
+ - This also installs basic versions of R base and NodeJS from the miniconda forge. Run the script as such below when the wd is set to Bootleg_Macro/setup. 
 
-   `pip install -r requirements.txt`
- - (pip on windows pip3 on mac/ linux or if python 2 is present on system). That will install all the python modules listed in requirements.txt. 
-     
+   `.\setup.sh`
+ - If setup script completes successfully then it should be ready to go. Make sure to use "bm" environment when working with the repo. 
+
 ## Controlling tools:
  - Each of the tools are controlled by an excel sheet which acts as a control panel (.xlsx file). Open the control file in the folder of the tool you wish to use, e.g _Control.xlsx_ in the 'Macro_Chartist' folder.
  - Usage information is found within the excel file. Choose values in yellow cells and enter necessary values into grey cells. Then save file.
