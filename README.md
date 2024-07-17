@@ -6,7 +6,7 @@ Provides interfaces that makes downloading macroeconomic data from easy to use s
 Multiple tools for obtaining and then charting and comparing economic data with asset price data. Includes aggregated liquidity indexes such as aggregated Central bank balance sheets and global M2 aggregate. 
 
 ## Tools for the layman 
-### Scripts controlled via an excel file or PyQt6 based control panel, as easy as choose settings and press run):
+### These are python scripts controlled via an excel file and/or a PyQt6 based control panel. Usage is as easy as choosing settings and press run.
 - Watchlist creation GUI. Search for data from the list of standard sources and build watchlists that can act as the basis for a financial study that can self-update over time.
     - The standard data sources currently implemented are:
         - MacroEconomic data: FRED, BEA, ABS (FRED and BEA require free API keys). 
