@@ -12,6 +12,7 @@ import json
 from typing import Union, Tuple, List
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from openpyxl import load_workbook
 
 wd = os.path.dirname(__file__)
@@ -805,6 +806,16 @@ def manual_frequency(series: pd.Series, threshold_multiplier=2.25):
     resampled_series = series.resample(closest_period).ffill()  # Replace .mean() with an appropriate aggregation function if needed
     return resampled_series, closest_period
 
+ # Create a custom legend handle for the red dashed lines
+def add_line_to_legend(ax: plt.Axes, label: str, color: str = "r", linestyle: str = "--", lw: float = 1.0,\
+                        fontsize: str = "small", bbox_to_anchor: tuple = (1, 1)):
+    line_handle = Line2D([0], [0], color=color, linestyle=linestyle, lw=1, label=label)
+    handles, labels = ax.get_legend_handles_labels()
+    handles_combined = handles + [line_handle]
+    labels_combined = labels + [label]
+    ax.legend(handles=handles_combined, labels=labels_combined, fontsize = fontsize, bbox_to_anchor=bbox_to_anchor)
+    return ax
+
 def ensure_series(input_data):
     if isinstance(input_data, pd.DataFrame):
         # Convert the first column of the DataFrame to a Series
@@ -832,71 +843,174 @@ def match_series_lengths(series1: pd.Series, series2: pd.Series) -> tuple[pd.Ser
 
     return series1_trimmed, series2_trimmed
 
-def pair_corr(series1: pd.Series, series2: pd.Series, windows = [30, 90, 180 ,365]):
+class Pair_stats(object):
     """"
-    Function to calculate the correlation between two series for a number of different window lengths. 
+    Class to calculate stats between two series for a number of different window lengths. 
+    Stats such as correlation.
     Determines frequency and downsamples a series to match the other if necessary..
     
-    Parameters:
+    Parameters (__init__):
     - series1 (pd.Series): The first input series.
     - series2 (pd.Series): The second input series.
     - windows (list): A list of window lengths for which to calculate the rolling correlation.
 
-    Returns:
-    - df (pd.DataFrame): A DataFrame containing the original series and their log and pcercent returns, as well as the rolling correlations.
-    - full_corr (float): The full correlation between the two series over the whole length. 
+    Key Attributes:
+    - self (pd.DataFrame inherited): A DataFrame containing the original series and their log and pcercent returns, as well as the rolling correlations.
+    - This is just a dataframe but it has a self.name attribute. 
+    - self.full_corr (float): The full correlation between the two series over the whole length. 
     """
 
-    #Ensure that both are series first:
-    try:
-        series1 = ensure_series(series1)
-        series2 = ensure_series(series2)
-        print("Input series object types: ", type(series1), type(series2))
-    except ValueError as e:
-        print(e)
-        print("Input series object types: ", type(series1), type(series2))
-
-    ## Ensure that the two series are of the same frequency and length. 
-    freq1 = freqDetermination(series1); freq1.DetermineSeries_Frequency()
-    freq2 = freqDetermination(series2); freq2.DetermineSeries_Frequency()
-    print(freq1.frequency, freq2.frequency)
-    if freq1.frequency != freq2.frequency:
-        print("Frequency of series do not match, downsampling the higher freq series to match...")
-        try:
-            s1_rank = freq1.freq_list[freq1.freq_list == freq1.frequency].index.to_list()[0]
-            s2_rank = freq2.freq_list[freq2.freq_list == freq2.frequency].index.to_list()[0]
-        except Exception as e:
-            print('Error getting frequency rank for resampling, ', e)
-            return None
+    def __init__(self, series1: pd.Series, series2: pd.Series, windows: list = [30, 90, 180, 365]):
+        super().__init__()
+        if windows is None:
+            windows = [30, 90, 180, 365]
+        self.series1 = series1
+        self.series2 = series2
+        self.frequency = ""
+        self.windows = windows
+        print("Windows: ", self.windows)
+        self.windows.append(min(len(self.series1), len(self.series2))-2)
         
-        if s1_rank > s2_rank:
-            print('Resampling series 2 to match series 1...')
-            series2 = series2.resample(freq1.freq).last()
-        elif s1_rank < s2_rank:
-            print('Resampling series 1 to match series 2...')
-            series1 = series1.resample(freq2.freq).last()
-        else:
-            print("Are the two series of the same frequency?...")
-            return None
-    print(series1, series2)
-   
-    # # Let's calulate some returns innit...
-    df = pd.concat([series1, series2], axis = 1)
-    print("Fresh df: ", df)
+        self.check_input_series()
+        self.name = f'{series1.name} vs. {series2.name}'
+        self.data = self.returns_df()
+        self.rolling_stats()
     
-    df["ret_"+series1.name] = np.log(df[series1.name]/df[series1.name].shift(1))
-    df["ret_"+series2.name] = np.log(df[series2.name]/df[series2.name].shift(1))
-    df["retPct_"+series1.name] = df[series1.name].pct_change()
-    df["retPct_"+series2.name] = df[series2.name].pct_change()
-    df.dropna(inplace=True)
-    print(df)
-    ## Now for correlations...
-    full_corr = series1.corr(series2, method = 'pearson'); print("Whole time correlation: ", full_corr)
-
-    for window in windows:
-        df[series1.name+"_"+series2.name+"_corr_"+str(window)] = df["ret_"+series1.name].rolling(window).corr(df["ret_"+series2.name])
+    def check_input_series(self):
+            #Ensure that both are series first:
+        try:
+            series1 = ensure_series(self.series1)
+            series2 = ensure_series(self.series2)
+            print("Input series object types: ", type(series1), type(series2))
+        except ValueError as e:
+            print(e)
+            print("Input series object types: ", type(series1), type(series2))
         
-    return df, full_corr
+            ## Ensure that the two series are of the same frequency and length. 
+        freq1 = freqDetermination(series1); freq1.DetermineSeries_Frequency()
+        freq2 = freqDetermination(series2); freq2.DetermineSeries_Frequency()
+        print(freq1.frequency, freq2.frequency)
+
+        if freq1.frequency != freq2.frequency:
+            print("Frequency of series do not match, downsampling the higher freq series to match...")
+            try:
+                s1_rank = freq1.freq_list[freq1.freq_list == freq1.frequency].index.to_list()[0]
+                s2_rank = freq2.freq_list[freq2.freq_list == freq2.frequency].index.to_list()[0]
+            except Exception as e:
+                print('Error getting frequency rank for resampling, ', e)
+                return None
+            
+            if s1_rank > s2_rank:
+                print('Resampling series 2 to match series 1...')
+                series2 = series2.resample(freq1.freq).last()
+                self.frequency = freq1.frequency
+            elif s1_rank < s2_rank:
+                print('Resampling series 1 to match series 2...')
+                series1 = series1.resample(freq2.freq).last()
+                self.frequency = freq2.frequency
+            else:
+                print("Are the two series of the same frequency?...")
+                return None
+    
+        self.series1 = series1
+        self.series2 = series2
+    
+    def returns_df(self):
+            # # Let's calulate some returns innit...
+        df = pd.concat([self.series1, self.series2], axis = 1)
+        
+        df["ret_"+self.series1.name] = np.log(df[self.series1.name]/df[self.series1.name].shift(1))
+        df["ret_"+self.series2.name] = np.log(df[self.series2.name]/df[self.series2.name].shift(1))
+        df["retPct_"+self.series1.name] = df[self.series1.name].pct_change()
+        df["retPct_"+self.series2.name] = df[self.series2.name].pct_change()
+        df.dropna(inplace=True)
+        return df
+
+    def rolling_stats(self):
+        ## Now for correlations...
+        self.full_corr = self.data[self.series1.name].corr(self.data[self.series2.name], method = 'pearson')
+        print("Whole time correlation, "+self.series1.name+" vs "+self.series2.name, ":", self.full_corr)
+        self.full_RetCorr = self.data["ret_"+self.series1.name].corr(self.data["ret_"+self.series2.name], method = 'pearson')
+        print("Whole time correlation between log returns, "+self.series1.name+" vs "+self.series2.name+":", self.full_RetCorr)
+        self.full_PctRetCorr = self.data["retPct_"+self.series1.name].corr(self.data["retPct_"+self.series2.name], method = 'pearson')
+        print("Whole time correlation between percentage returns,"+self.series1.name+" vs "+self.series2.name+":",self.full_PctRetCorr)
+        print("Rolling stats Windows: ", self.windows)
+        names = self.series1.name+"_"+self.series2.name
+        for window in self.windows:
+            self.data[names+"_Corr_"+str(window)] = self.data[self.series1.name].rolling(window).corr(self.data[self.series2.name])
+            self.data[names+"_RetCorr_"+str(window)] = self.data["ret_"+self.series1.name].rolling(window).corr(self.data["ret_"+self.series2.name])
+            self.data[names+"_beta_"+str(window)] = self.data[names+"_Corr_"+str(window)] * (self.data["ret_"+self.series1.name].rolling(window=window).std()\
+                        / self.data["ret_"+self.series2.name].rolling(window=window).std())
+            self.data[names+"_alpha_"+str(window)] = self.data[self.series1.name].rolling(window=window).mean() - self.data[names+"_beta_"+str(window)]\
+                  * self.data[self.series2.name].rolling(window=window).mean()
+
+    def plot_corrs(self, trim_windows: int = 0):
+        ## Using plt directly...
+
+        #Step 1: Create subplots
+        fig, axes = plt.subplots(2, 1, figsize=(11, 6), sharex=True)  # Adjust figsize as needed
+
+        # Step 2: Plot data
+        # Assuming self.data is a DataFrame with the necessary columns
+        for i in range(trim_windows, len(self.windows), 1):
+            corr_col = f"{self.series1.name}_{self.series2.name}_Corr_{self.windows[i]}"
+            retcorr_col = f"{self.series1.name}_{self.series2.name}_RetCorr_{self.windows[i]}"
+            
+            if corr_col in self.data.columns:
+                axes[0].plot(self.data.index, self.data[corr_col], label=f"{self.windows[i]} periods")
+            if retcorr_col in self.data.columns:
+                axes[1].plot(self.data.index, self.data[retcorr_col], label=f"{self.windows[i]} periods")
+
+        fig.subplots_adjust(right=0.92, hspace=0.12)  # Adjust the right margin to fit the legend
+        # Step 3: Style (mimicking pandas.plot)
+        axes[0].set_ylabel('Correlation')
+        axes[1].set_ylabel('Return Correlation')
+        axes[0].axhline(self.full_corr, color="r", linestyle="--", lw=1)
+        axes[1].axhline(self.full_RetCorr, color="r", linestyle="--", lw=1)
+
+        # Optional: Titles, labels, etc.
+        axes[0].set_title(f"Correlation between {self.series1.name} and {self.series2.name}")
+        axes[1].set_title(f"Log Returns Correlation between {self.series1.name} and {self.series2.name}")
+
+        axes[0] = add_line_to_legend(axes[0], "Correlation\nfull length", color="r", linestyle="--", lw=1)
+        axes[1] = add_line_to_legend(axes[1], "Correlation\nfull length", color="r", linestyle="--", lw=1)
+        fig.text(0.87, 0.97, 'Data frequency: '+self.frequency, ha='center', va='center')
+
+        # Step 4: Show plot
+        plt.tight_layout()  # Adjust layout to not overlap
+
+        # fig, axes = plt.subplots(2,1)
+        # axes[0].plot(self.series1.name+"_"+self.series2.name+"_Corr_"+str(self.windows[0]))
+        # axes[1].plot(self.series1.name+"_"+self.series2.name+"_RetCorr_"+str(self.windows[0]))
+        
+        # fig = self.data[[self.series1.name+"_"+self.series2.name+"_Corr_"+str(self.windows[0]),
+        #                   self.series1.name+"_"+self.series2.name+"_RetCorr_"+str(self.windows[0])]].plot(subplots=True)
+        # for i in range(1, len(self.windows), 1):
+        #     axes[0].plot(self.data[self.series1.name+"_"+self.series2.name+"_Corr_"+str(self.windows[i])])
+        #     axes[1].plot(self.data[self.series1.name+"_"+self.series2.name+"_RetCorr_"+str(self.windows[i])])
+
+        # axes[0].axhline(self.full_corr, color="r", linestyle="--", lw = 1)
+        # axes[1].axhline(self.full_RetCorr, color="r", linestyle="--", lw = 1)
+        
+        #### Using pandas.plot() method to plot the data.
+        # axes = self.data[[self.series1.name+"_"+self.series2.name+"_Corr_"+str(self.windows[0]),
+        #                   self.series1.name+"_"+self.series2.name+"_RetCorr_"+str(self.windows[0])]].plot(subplots=True)
+        # print(axes, axes.shape)
+
+        # axes[0].axhline(self.full_corr, color="r", linestyle="--", lw = 1)
+        # axes[1].axhline(self.full_RetCorr, color="r", linestyle="--", lw = 1)
+        # for i in range(1, len(self.windows)):
+        #     series_corr_name = f"{self.series1.name}_{self.series2.name}_Corr_{self.windows[i]}"
+        #     series_retcorr_name = f"{self.series1.name}_{self.series2.name}_RetCorr_{self.windows[i]}"
+            
+        #     if series_corr_name in self.data.columns:
+        #         axes[0].plot(self.data[series_corr_name], label=f"Corr {self.windows[i]}")
+        #     else:
+        #         print("Name wrong r summat like dat...")
+            
+        #     if series_retcorr_name in self.data.columns:
+        #         axes[1].plot(self.data[series_retcorr_name], label=f"RetCorr {self.windows[i]}")
+        # plt.show()
 
 class api_keys():
 
