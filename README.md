@@ -1,5 +1,5 @@
 # Bootleg_Macro
-Toolkit for sourcing financial data, analysis and charting. Our goal is to provide access to data that is usually hidden behinnd paywalls and to hhelp with analysis. 
+Toolkit for sourcing financial data, analysis and charting. Our goal is to provide access to data that is usually hidden behinnd paywalls and to help with analysis. 
 Includes web-scraping to get data from sources such as tradingview and yahoo finance without needing accounts at these sources. 
 Provides interfaces that makes downloading macroeconomic data from easy to use sources such as FRED and much harder to deal with API's such as the BEA and ABS a breeze. 
 
