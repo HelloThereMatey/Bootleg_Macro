@@ -68,14 +68,19 @@ It may be necessary to first make the script executable prior to running it:
 
 ## USAGE:
  - There are two main ways of using the tools. Users without Python proficiency can utilize the pre-written scripts controlled via excel file or Qt6 GUI as a control panel.
- - **Example**:
-       * Use the chartist tool to create a chart showing the YoY % changes in U.S M2, GDP, Unemployment and the S&P 500 Equity Index:
-           - Activate the 'bm' environment:
+ - **Example:**
+       #### Use the chartist tool to create a chart showing the YoY % changes in U.S M2, GDP, Unemployment and the S&P 500 Equity Index:
+   - Activate the 'bm' environment:
+   
    `conda activate bm`
-           - Set wd to the relevant folder (for windows use \\ instead of / for directory separator in paths):
+   
+   - Set wd to the relevant folder (for windows use \\ instead of / for directory separator in paths):
+   
    `cd ....Bootleg_Macro/Macro_Chartist`
-           - Fill in the relevant cells in the "Control.xlsx" file. This includes the data codes and sources for each data series e.g "M2SL, fred", "GDP, fred", "^GSPC, yfinance" for the 3 data series                 mentioned above, chart title etc... Detailed instructions are found in the file. Select from dropdown menus values in yellow cells and enter necessary values into grey cells. The majority of              cells can be left blank. Save file. 
-           - Run "chartist.py":
+   
+   - Fill in the relevant cells in the "Control.xlsx" file. This includes the data codes and sources for each data series e.g "M2SL, fred", "GDP, fred", "^GSPC, yfinance" for the 3 data series                 mentioned above, chart title etc... Detailed instructions are found in the file. Select from dropdown menus values in yellow cells and enter necessary values into grey cells. The majority of              cells can be left blank. Save file. 
+   - Run "chartist.py":
+   - 
    `python chartist.py`
    
  - Each of the other 2 script tools (NetLiquidity & Pair_Correlation) are controlled by a different excel file control panel in the same way. 
@@ -95,8 +100,7 @@ It may be necessary to first make the script executable prior to running it:
     from MacroBackend import PriceImporter, Utilities, Charting, Pull_Data, chart_rip, Fitting, search_symbol_gui  #or just import MacroBackend.
     from MacroBackend.BEA_Data import bea_data_mate   #For BEA data, bea_data_mate will be a standalone module for BEA data.
   ```
-  - You'll want to add the Bootleg_Macro directory to your Python > Analysis > Extra_paths in settings in vscode (if using vscode). This will provide autofill access etc to see he module documentation 
-    popups. 
+  - You'll want to add the Bootleg_Macro directory to your Python > Analysis > Extra_paths in settings in vscode (if using vscode). This will provide vscode access to the files for popup documentation and syntax coloring. 
 
 
 ### USD NET LIQUIDITY SCRIPT:
