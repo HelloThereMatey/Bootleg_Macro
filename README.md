@@ -52,6 +52,7 @@ For windows use Git Bash terminal which will let you execute the setup shell scr
  - Clone the Bootleg_Macro repo to your system:An example of virtual environment creation that may work well with here could be something like:
 
    `git clone https://github.com/HelloThereMatey/Bootleg_Macro.git`
+   
  - Setup is done using a bash script "setup.sh" in Bootleg_Macro/setup folder. This will create a conda environment called bm which will contain all the python, r and js packages used by the repo.
  - This also installs basic versions of R base and NodeJS from the miniconda forge. Run the script as such below when the wd is set to Bootleg_Macro/setup. 
 
@@ -59,7 +60,7 @@ For windows use Git Bash terminal which will let you execute the setup shell scr
 
 It may be necessary to first make the script executable prior to running it:
 
-`chmod +x setup.sh`
+   `chmod +x setup.sh`
 
  - If setup script completes successfully then it should be ready to go. Make sure to use "bm" environment when working with the repo. 
 
