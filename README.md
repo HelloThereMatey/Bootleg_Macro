@@ -1,7 +1,18 @@
 # Bootleg_Macro
-Open sourcing and charting financial data that you may've had to pay for before. We don't like paying stuff, no thanks.
+Toolkit for sourcing financial data, analysis and charting. Our goal is to provide access to data that is usually hidden behinnd paywalls and to hhelp with analysis. 
+Includes web-scraping to get data from sources such as tradingview and yahoo finance without needing accounts at these sources. 
+Provides interfaces that makes downloading macroeconomic data from easy to use sources such as FRED and much harder to deal with API's such as the BEA and ABS a breeze. 
 
-Multiple tools for obtaining and then charting and comparing economic data with asset price data. Has two aggregated liquidity indexes that you won't find elsewhere for free. Tools:
+Multiple tools for obtaining and then charting and comparing economic data with asset price data. Includes aggregated liquidity indexes such as aggregated Central bank balance sheets and global M2 aggregate. 
+
+## Tools for the layman 
+### Scripts controlled via an excel file or PyQt6 based control panel, as easy as choose settings and press run):
+- Watchlist creation GUI. Search for data from the list of standard sources and build watchlists that can act as the basis for a financial study that can self-update over time.
+    - The standard data sources currently implemented are:
+        - MacroEconomic data: FRED, BEA, ABS (FRED and BEA require free API keys). 
+        - Equity, Index, Commodity etc.: TradingView, Yahoo Finance. These are provided via data scraping. 
+        - Crypto: Coin Gecko, Glassnode (requires Glassnode subscription and API key). If you want data from this source & don't want to buy subscription, contact me and I'll setup an API to provide it to you.
+        - More sources to come in the future, particularly via data scraping, this is what Bootleg Macro is all about. 
 - Generic Charting tool "Macro_Chartist":
     - Chart up to 5 traces on the same chart on up to 5 different axes or a dataframe of many traces on the same axis. 
     - Transform data to first order derivatives, year on year % change, 6 month annualized etc.
@@ -11,8 +22,9 @@ Multiple tools for obtaining and then charting and comparing economic data with 
 - Correlation tool:
     - Look at rolling correlations between any two time series. 
 - Central bank global money index "NetLiquiity":
-    - Aggregated customizable index that shows the sum of the major central bank balance sheets. Included more elaborate index for the Fed (Net liquidity). Net liquidity metric formulation devised by 42 Macro, see info below. 
-    - Compare this index with up to 5 comparison assets. 
+    - Aggregated customizable index that shows the sum of the major central bank balance sheets. Included more elaborate index for the Fed (Net liquidity).
+    - Option to add other data sources such as the Bank-term funding program (BTFP balance), Fed remittances and governments deficits. 
+    - Compare the liquidity index with up to 5 comparison assets. 
 - Aggregated global M2 money supply index.
     - This takes M2 money supply data for the top 50 economies and aggregates. Check it out. 
 
