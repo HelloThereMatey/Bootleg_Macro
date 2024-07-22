@@ -66,30 +66,23 @@ class Watchlist(dict):
         self['watchlist'] = pd.DataFrame(watchlist_data) if watchlist_data is not None else pd.DataFrame()
         self['metadata'] = pd.DataFrame(metadata_data) if metadata_data is not None else pd.DataFrame()
 
-    def load_watchlist(self, filepath: str = None):
+    def load_watchlist(self, filepath: str = ""):
         # Example method to load watchlist data from an Excel file
-        if filepath is not None:
-            self['watchlist'] = pd.read_excel(filepath, index_col=0, sheet_name="watchlist")
-            self['metadata'] = pd.read_excel(filepath, index_col=0, sheet_name="all_metadata")
-            self.name = filepath.split(fdel)[-1].split(".")[0]
-            Utilities.basic_load_dialog(initialdir=self.watchlists_path,title="Choose a watchlist excel file.", filetypes="Excel Files (*.xlsx);;All Files (*)")
-
-        else:
+        if len(filepath) == 0:
             # I dunno why vscode thinks this is unreachable, it works..
-            fileName = Utilities.basic_load_dialog(initialdir=self.watchlists_path,title="Choose a watchlist excel file.", 
-                                                   filetypes=('Excel files', '*.xlsx'))
-            # Start the application's event loop
-            sys.exit(temp_app.exec())    
-            if fileName:
-                try:
-                    self['watchlist'] = pd.read_excel(fileName, index_col=0, sheet_name="watchlist")
-                    self['metadata'] = pd.read_excel(fileName, index_col=0, sheet_name="all_metadata")
-                    self.name = fileName.split(fdel)[-1].split(".")[0]
-                except Exception as e:
-                    print("Error loading watchlist data from file, '.xlsx file may have had the wrong format for a watchlist,\
-                          you want two sheets named 'watchlist' and 'all_metadata' with tables that can form dataframes in each. Exception:", e)
-                    return None
-        # Implement similar for metadata if needed
+           filepath = qt_load_file_dialog(dialog_title="Choose a watchlist excel file.", initial_dir = self.watchlists_path, 
+                                                   file_types = "Excel Files (*.xlsx)")
+         
+        if len(filepath) > 0:
+            try:
+                self['watchlist'] = pd.read_excel(filepath, index_col=0, sheet_name="watchlist")
+                self['metadata'] = pd.read_excel(filepath, index_col=0, sheet_name="all_metadata")
+                self.name = filepath.split(fdel)[-1].split(".")[0]
+            except Exception as e:
+                print("Error loading watchlist data from file, '.xlsx file may have had the wrong format for a watchlist,\
+                        you want two sheets named 'watchlist' and 'all_metadata' with tables that can form dataframes in each. Exception:", e)
+                return None
+    # Implement similar for metadata if needed
     
     def append_current_watchlist(self, watchlist_data: pd.DataFrame, metadata_data: pd.DataFrame):
         # Append new data to the current watchlist
@@ -128,6 +121,18 @@ class Watchlist(dict):
             ### This not working yet.............
             self["watchlist"].loc[ticker_to_insert] = data_name
             self["metadata"][data_name] = data
+
+## Standalone functions ####################
+
+def qt_load_file_dialog(dialog_title: str = "Choose a file", initial_dir: str = wd, 
+                        file_types: str = "All Files (*);;Text Files (*.txt);;Excel Files (*.xlsx)"):
+    app = QtWidgets.QApplication.instance()  # Check if an instance already exists
+    if not app:  # If not, create a new instance
+        app = QtWidgets.QApplication(sys.argv)
+
+    file_path, _ = QtWidgets.QFileDialog.getOpenFileName(None, dialog_title, initial_dir, file_types, options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+
+    return file_path
 
 ##### My main window class ####################
 class Ui_MainWindow(QtWidgets.QMainWindow):
@@ -197,8 +202,8 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.results.setGeometry(QtCore.QRect(10, 50, 1601, 481))
         self.results.setObjectName("results")
 
-        self.numres = QtWidgets.QLabel("Number of results", parent=self.centralwidget)
-        self.numres.setGeometry(QtCore.QRect(730, 10, 100, 30))
+        self.numres = QtWidgets.QLabel("Number of results: ", parent=self.centralwidget)
+        self.numres.setGeometry(QtCore.QRect(730, 10, 110, 30))
 
         self.clear_button = QtWidgets.QPushButton("Clear results", parent=self.centralwidget)
         self.clear_button.setGeometry(QtCore.QRect(960, 8, 100, 40))
@@ -208,12 +213,17 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.watchlists.setGeometry(QtCore.QRect(275, 540, 211, 31))
         self.watchlists.setFont(font)
         self.watchlists.setObjectName("watchlists")
-        self.watchlabel = QtWidgets.QLabel("Choose a watchlist to add to", parent=self.centralwidget)
+        self.watchlabel = QtWidgets.QLabel("Select a watchlist to load it.", parent=self.centralwidget)
         self.watchlabel.setGeometry(QtCore.QRect(90, 535, 200, 40))
+
+        self.watchlists_label = QtWidgets.QLabel("You can then add to the list or leave it as is.\nClose this window to return the watchlist.", parent=self.centralwidget)
+        self.watchlists_label.setFont(font); self.watchlists_label.setGeometry(QtCore.QRect(500, 517, 300, 70))
+        self.watchlists_label2 = QtWidgets.QLabel("You can then add to the list or leave it as is.\nClose this window to return the watchlist.", parent=self.centralwidget)
+        self.watchlists_label2.setFont(font); self.watchlists_label2.setGeometry(QtCore.QRect(500, 517, 300, 70))
 
         # Save watchlist button
         self.save_watchlist_button = QtWidgets.QPushButton("Save Watchlist", parent=self.centralwidget)
-        self.save_watchlist_button.setGeometry(QtCore.QRect(750, 535, 200, 40))  # Adjust the position as needed
+        self.save_watchlist_button.setGeometry(QtCore.QRect(1400, 535, 200, 40))  # Adjust the position as needed
         self.save_watchlist_button.setFont(font)
         self.save_watchlist_button.setObjectName("save_watchlist_button")
 
@@ -361,7 +371,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         xlsx_files = [f for f in os.listdir(self.watchlists_path) if f.endswith('.xlsx')]
         # Extract filenames without the extension
         watchlist_names = [os.path.splitext(f)[0] for f in xlsx_files]
-        
+        watchlist_names.insert(0, "Choose a watchlist...")
         # Clear current items
         self.watchlists.clear()
         # Add filenames to the QComboBox
@@ -471,6 +481,9 @@ if __name__ == "__main__":
     #     print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
     # else:
     #     print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
+
     wl = Watchlist()
     wl.load_watchlist()
+    # path = qt_load_file_dialog()
+    # print("Path: ", path)
  

@@ -386,9 +386,11 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
             ax1.tick_params(axis='y',which='both',length=0,labelsize=0,left=False,labelleft=False)
             ax1.set_yticks(LeftTicks[0]); ax1.set_yticklabels(LeftTicks[1])
             ax1.tick_params(axis='y',which='major',length=3,labelsize=9,left=True,labelleft=True)
+            #ax1.set_ylim(LeftTicks[0][0]-0.02*LeftTicks[0][0],LeftTicks[0][len(LeftTicks[0])-1]+0.02*LeftTicks[0][len(LeftTicks[0])-1])
+            ax1.set_ylim(LeftTicks[0][0],LeftTicks[0][len(LeftTicks[0])-1])
     if RightTraces is not None:
         ax1b = ax1.twinx()
-        ax1b.margins(0.02,0.03)
+        #ax1b.margins(0.02,0.03)
         for axis in ['top','bottom','left','right']:
             ax1b.spines[axis].set_linewidth(1.5) 
         for trace in RightTraces.keys():
@@ -402,6 +404,8 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
             ax1b.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
             ax1b.set_yticks(RightTicks[0]); ax1b.set_yticklabels(RightTicks[1])
             ax1b.tick_params(axis='y',which='major',width=1,length=3,labelsize=9,right=True,labelright=True)
+            #ax1b.set_ylim(RightTicks[0][0]-0.02*RightTicks[0][0],RightTicks[0][len(RightTicks[0])-1]+0.02*RightTicks[0][len(RightTicks[0])-1])
+            ax1b.set_ylim(RightTicks[0][0],RightTicks[0][len(RightTicks[0])-1])
             if RightMinTicks is not None:
                 ax1b.set_yticks(RightMinTicks[0],minor=True); 
                 ax1b.set_yticklabels(RightMinTicks[1],minor=True)
@@ -409,7 +413,7 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
 
     if XTicks is not None:
         ax1.xaxis.set_ticks(XTicks) 
-        ax1.tick_params(axis='x',length=3,labelsize='small',labelrotation=45)
+        ax1.tick_params(axis='x',length=2,labelsize='small',labelrotation=30)
         ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b'))
         ax1.set_xlim(XTicks[0],XTicks[len(XTicks)-1])
         ax1.set_xlabel('Date (year-month)',fontweight='bold',fontsize=11)
