@@ -46,10 +46,14 @@ class plot_rippa(object):
         self.trace_colors = {}
         self.data_series = None
 
-    def active_chart(self):
+    def active_chart(self, provide_trace_colors: dict = {}):
+        """ **Parameter**: provide_trace_colors must in format {"trace_name": {"RGB": [R, G, B, A]}}, 
+        where R,G,B,A are the red, blue, green & alpha values that define the color for that trace (float between 0 and 1). 
+        Double-click on a pixel that is within a trace to select that color as the trace color. Hold shift and dbl-click to
+        specify that the trace is plotted vs right axis rather than left.."""
 
-        def onclick( event):
-            if event.dblclick:  # Check if the event is a double-click
+        def onclick(event):
+            if event.dblclick:  
                 if event.xdata is not None and event.ydata is not None:
                     x, y = int(event.xdata), int(event.ydata)
                     rgb_values = self.image[y, x]
@@ -62,12 +66,28 @@ class plot_rippa(object):
                     # Generate the next trace key
                     trace_key = f"Trace{len(self.trace_colors) + 1}"
                     # Store the RGB values and pixel locations in the dictionary
-                    self.trace_colors[trace_key] = {'RGB': rgb_values, 'Locations': pixel_locations}
+                    if event.key == 'shift':  # Check if Shift key is pressed
+                        # Perform the alternative action for Shift+Double-Click
+                        print("Shift+Double-Click detected at position:", event.xdata, event.ydata)
+                        self.trace_colors[trace_key] = {'RGB': rgb_values, "axis": "right", 'Locations': pixel_locations}
+                    else:
+                        self.trace_colors[trace_key] = {'RGB': rgb_values, "axis": "left", 'Locations': pixel_locations}
                     print(f"{trace_key}: RGB values at ({x}, {y}): {rgb_values}, Number of matching pixels: {len(pixel_locations)}")
+                    print(trace_key, self.trace_colors[trace_key]['RGB'], type(self.trace_colors[trace_key]['RGB']))
 
-        self.fig.canvas.mpl_connect('button_press_event', onclick)
-
-        plt.show()
+        if provide_trace_colors:
+            self.trace_colors = provide_trace_colors
+            for trace_name in self.trace_colors.keys():
+                rgb_values = self.trace_colors[trace_name]["RGB"]
+                matching_pixels = np.where((self.image[:, :, 0] == rgb_values[0]) & 
+                                                (self.image[:, :, 1] == rgb_values[1]) & 
+                                                (self.image[:, :, 2] == rgb_values[2]))
+                        # Convert indices to pixel locations
+                pixel_locations = list(zip(matching_pixels[0], matching_pixels[1]))
+                self.trace_colors[trace_name]["Locations"] = pixel_locations
+        else:
+            self.fig.canvas.mpl_connect('button_press_event', onclick)
+            plt.show()
         
     def display_trace_locations(self):
         blank_image = np.zeros_like(self.image[:,:,0])  # For grayscale
@@ -85,13 +105,17 @@ class plot_rippa(object):
         plt.title('Marked Positions from Traces')
         plt.show()
     
-    def trace_locs_to_values(self):
-        self.max_x = self.image.shape[1]
+    def trace_locs_to_values(self, yr0: float = None, yr1: float = None, start_date: str = None, end_date: str = None):
+        """Parameters:
+        * yr0, yr1: if a right axis is present on the chart as well as left axis, min and max values of the right axis. 
+        * start_date, end_date: start and end dates for the x - axis ('YYYY-MM-DD'), will make a datetime index. """
+
+        self.max_x = self.image.shape[1]  #These are the max number of pixels in each direction for the chart. 
         self.max_y = self.image.shape[0]
         print("Max x, y: ", self.max_x, self.max_y)
         self.trace_dataframes = {}
         for trace_name, locs in self.trace_colors.items():
-            print(f"Trace: {trace_name}, Locations: {locs}")  # Debugging print
+            #print(f"Trace: {trace_name}, Locations: {locs}")  # Debugging print
             if locs:  # Check if locs is not empty
                 # Create a DataFrame from locations with two columns: 'Y' and 'X'
                 df = pd.DataFrame(locs["Locations"], columns=[trace_name+'_y', trace_name+'_x'])
@@ -117,22 +141,43 @@ class plot_rippa(object):
     
             # Normalize 'x' and 'y' values as fraction of the number of pixels in that direction
             # Then multiply by the range of the plot in that direction and add min axis value. 
-            index = (series.index / self.max_x)*(self.x1 - self.x0) + self.x0
-            series = (series / self.max_y)*(self.y1 - self.y0) + self.y0
+            norm_index = series.index / self.max_x
+            #These save the position of the max of the data series on the chart as fraction of max no. pixels.
+            self.trace_colors[trace_name]['idx_max_px'] = norm_index.max()  #Normalised index, proportion of max number of pixels.
+            self.trace_colors[trace_name]['idx_min_px'] = norm_index.min() 
+            norm_series = series / self.max_y; 
+            self.trace_colors[trace_name]['max_px'] = norm_series.max()
+            self.trace_colors[trace_name]['min_px'] = norm_series.min()
+            index = norm_index*(self.x1 - self.x0) + self.x0
+            series = norm_series*(self.y1 - self.y0) + self.y0
             series = pd.Series(series.to_list(), index = index, name = trace_name)
+
+            #Lets make the x index, datetime. 
+            if start_date is not None and end_date is not None:
+                dtindex = pd.date_range(start = start_date, end = end_date, periods = len(series))
+                series = pd.Series(series.to_list(), index = dtindex, name = trace_name)
+
             self.data_series[trace_name] = series
             self.median_trace_dataframes[trace_name] = median_df
+
+        if yr0 is not None and yr1 is not None:
+            for trace in self.data_series.keys():
+                if self.trace_colors[trace]["axis"] == 'right':
+                    self.rescale_trace(trace, yr0, yr1)
+
 
     def rescale_trace(self, trace_name, y0, y1):
         if self.data_series is None:
             print("Run trace_locs_to_values method first to set the data series dict.")
             return
         else:
-            series = self.data_series[trace_name]
-            series /= series.max()
+            series = pd.Series(self.data_series[trace_name])
+            series = (series - series.min())/(series.max() - series.min()) # back to a normalised series yet fraction of max value of series here, not pixel value.
+            #Next line makes it normed to a fraction of the pixel range of the chart. 
+            series = self.trace_colors[trace_name]["min_px"] + series * (self.trace_colors[trace_name]["max_px"] - self.trace_colors[trace_name]["min_px"])
             series = series*(y1 - y0) + y0
             self.data_series[trace_name] = series
-        
+
     def plot_first_two(self, label_left: str, label_right: str, ylabel_left: str, ylabel_right: str):
 
         self.fig, ax = plt.subplots() 
@@ -144,10 +189,21 @@ class plot_rippa(object):
         ax.legend(fontsize = "small", loc = 2); axb.legend(fontsize = "small", loc = 1)
 
 if __name__ == "__main__":
-    x0, x1, y0, y1 = 0, 0, 0, 0
+    image_path = '/Users/jamesbishop/Pictures/CHartPics_ToDIgitize/CapWars_GLvsXAU-cc.png'
+    trace_colors_given = {"Trace1": {"RGB": np.array([0, 0, 0, 1]), "axis": "left"},
+                          "Trace2": {"RGB": np.array([0.92941177, 0.49019608, 0.19215687, 1.0]), "axis": "right"}}
+    ##Will want to modify the above to add te axis for the trace and change the modification that the trace_colors flag does...
+    x0, x1, y0, y1 = 0, 1, 1000, 2600
+    yr0, yr1 = 80, 220
     xscale, yscale = 1, 1
     title = "Plot Rippa"
-    plot = plot_rippa(x0=x0, x1=x1, y0=y0, y1=y1, xscale=xscale, yscale=yscale, title=title)
-    plot.active_chart()
+    plot = plot_rippa(imagePath=image_path, x0=x0, x1=x1, y0=y0, y1=y1, xscale=xscale, yscale=yscale, title=title)
+    plot.active_chart(provide_trace_colors=trace_colors_given)
     plot.display_trace_locations()
-    plot.trace_locs_to_values()
+    plot.trace_locs_to_values(yr0=yr0, yr1=yr1, start_date = "2010-01-01", end_date = "2024-07-07")
+    ax = pd.Series(plot.data_series["Trace1"]).plot()
+    pd.Series(plot.data_series["Trace2"]).plot(ax = ax, secondary_y=True)
+    plt.show()
+    print(plot.data_series, pd.Series(plot.data_series["Trace1"]).index.has_duplicates,
+           pd.Series(plot.data_series["Trace2"]).index.has_duplicates)
+    print(plot.trace_colors["Trace1"]["axis"], plot.trace_colors["Trace2"]["axis"])

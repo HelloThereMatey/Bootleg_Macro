@@ -65,6 +65,7 @@ class Watchlist(dict):
         self.watchlists_path = watchlists_path
         self['watchlist'] = pd.DataFrame(watchlist_data) if watchlist_data is not None else pd.DataFrame()
         self['metadata'] = pd.DataFrame(metadata_data) if metadata_data is not None else pd.DataFrame()
+        self['watchlist_datasets'] = {}
 
     def load_watchlist(self, filepath: str = ""):
         # Example method to load watchlist data from an Excel file
@@ -82,6 +83,7 @@ class Watchlist(dict):
                 print("Error loading watchlist data from file, '.xlsx file may have had the wrong format for a watchlist,\
                         you want two sheets named 'watchlist' and 'all_metadata' with tables that can form dataframes in each. Exception:", e)
                 return None
+        self.drop_data(drop_duplicates=True)
     # Implement similar for metadata if needed
     
     def append_current_watchlist(self, watchlist_data: pd.DataFrame, metadata_data: pd.DataFrame):
@@ -107,11 +109,13 @@ class Watchlist(dict):
         """
 
         watchlist = pd.DataFrame(self["watchlist"]); meta = pd.DataFrame(self["metadata"])
+        #print("Watchlist: \n", watchlist, "\n\nMetadata: \n", meta)
+
         data = {}
         for i in watchlist.index:
+            #print(watchlist.loc[i,"source"])
             ds = Pull_Data.dataset()
-            ds.get_data(source = watchlist.loc[i,"source"], data_code=watchlist.loc[i,"id"], start_date = start_date, \
-                        exchange_code = meta.loc["exchange", i])
+            ds.get_data(watchlist.loc[i,"source"], watchlist.loc[i,"id"], start_date, exchange_code = meta.loc["exchange", i])
             data[i] = ds.data
         self["watchlist_datasets"] = data
 
@@ -121,6 +125,20 @@ class Watchlist(dict):
             ### This not working yet.............
             self["watchlist"].loc[ticker_to_insert] = data_name
             self["metadata"][data_name] = data
+
+    def drop_data(self, data_name: str = None, drop_duplicates: bool = False):
+        if data_name is not None:
+            if data_name in self["watchlist_datasets"].keys():
+                self["watchlist_datasets"].pop(data_name)
+            self["metadata"].drop(data_name, axis=1, inplace=True)
+            self["watchlist"].drop(data_name, axis=1, inplace=True)
+        
+        if drop_duplicates:
+            self["watchlist"].drop_duplicates(inplace=True)
+            self["metadata"].drop_duplicates(inplace=True)
+            for ticker in self["watchlist_datasets"].keys():
+                if ticker not in self["watchlist"]["id"].to_list():
+                    self["watchlist_datasets"].pop(ticker)
 
 ## Standalone functions ####################
 
