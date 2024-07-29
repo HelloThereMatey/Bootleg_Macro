@@ -304,11 +304,11 @@ if __name__ == "__main__":
     # datas = tvd.tv.exp_ws("NQ", exchange = 'CME', interval=PriceImporter.TimeInterval("4H"),n_bars=5000)
     # print(datas)
      
-    # gn = glassnode_data()
-    # gn.chosen_met("price_usd_ohlc")
-    # print(gn.met_assets, gn.met_resolutions, gn.met_formats, gn.met_currs, gn.met_domain)
-    # gn.get_data("price_usd_ohlc", asset = "BTC", resolution = '24h', format = 'json', paramsDomain = "a")
-    # print(gn.data)
+    gn = glassnode_data()
+    gn.chosen_met("price_usd_ohlc")
+    print(gn.met_assets, gn.met_resolutions, gn.met_formats, gn.met_currs, gn.met_domain)
+    gn.get_data(asset = "BTC", resolution = '24h', format = 'json', paramsDomain = "a")
+    print(gn.data)
 
     # me_data = dataset()
     # me_data.get_data(source = 'glassnode', data_code = 'price_usd_ohlc,BTC,24h',start_date="2011-01-01", dtype="OHLCV")

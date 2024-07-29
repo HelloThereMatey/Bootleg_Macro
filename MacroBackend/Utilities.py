@@ -944,8 +944,9 @@ class Pair_stats(object):
         else:
             self.watchlist_meta = watchlist_meta
 
+        print("Series names: ",self.series2.name, self.series1.name)
         self.frequency = ""
-        self.windows = windows
+        self.windows = windows 
         print("Windows: ", self.windows)
         self.windows.append(min(len(self.series1), len(self.series2))-2)
         
@@ -1007,33 +1008,33 @@ class Pair_stats(object):
             # # Let's calulate some returns innit...
         df = pd.concat([self.series1, self.series2], axis = 1)
         
-        df["ret_"+self.series1.name] = np.log(df[self.series1.name]/df[self.series1.name].shift(1))
-        df["ret_"+self.series2.name] = np.log(df[self.series2.name]/df[self.series2.name].shift(1))
-        df["retPct_"+self.series1.name] = df[self.series1.name].pct_change(fill_method=None)
-        df["retPct_"+self.series2.name] = df[self.series2.name].pct_change(fill_method=None)
+        df["ret_"+self.ser1_title] = np.log(df[self.series1.name]/df[self.series1.name].shift(1))
+        df["ret_"+self.ser2_title] = np.log(df[self.series2.name]/df[self.series2.name].shift(1))
+        df["retPct_"+self.ser1_title] = df[self.series1.name].pct_change(fill_method=None)
+        df["retPct_"+self.ser2_title] = df[self.series2.name].pct_change(fill_method=None)
         df.dropna(inplace=True)
         return df
 
     def rolling_stats(self):
         ## Now for correlations...
         self.full_corr = self.data[self.series1.name].corr(self.data[self.series2.name], method = 'pearson')
-        print("Whole time correlation, "+self.series1.name+" vs "+self.series2.name, ":", self.full_corr)
-        self.full_RetCorr = self.data["ret_"+self.series1.name].corr(self.data["ret_"+self.series2.name], method = 'pearson')
-        print("Whole time correlation between log returns, "+self.series1.name+" vs "+self.series2.name+":", self.full_RetCorr)
-        self.full_PctRetCorr = self.data["retPct_"+self.series1.name].corr(self.data["retPct_"+self.series2.name], method = 'pearson')
-        print("Whole time correlation between percentage returns,"+self.series1.name+" vs "+self.series2.name+":",self.full_PctRetCorr)
-        self.full_qdCorr = qd_corr(self.data["ret_"+self.series1.name], self.data["ret_"+self.series2.name])
-        print("Whole time qd correlation between log returns,"+self.series1.name+" vs "+self.series2.name+":",self.full_qdCorr)
+        print("Whole time correlation, "+self.ser1_title+" vs "+self.ser2_title, ":", self.full_corr)
+        self.full_RetCorr = self.data["ret_"+self.ser1_title].corr(self.data["ret_"+self.ser2_title], method = 'pearson')
+        print("Whole time correlation between log returns, "+self.ser1_title+" vs "+self.ser2_title+":", self.full_RetCorr)
+        self.full_PctRetCorr = self.data["retPct_"+self.ser1_title].corr(self.data["retPct_"+self.ser2_title], method = 'pearson')
+        print("Whole time correlation between percentage returns,"+self.ser1_title+" vs "+self.ser2_title+":",self.full_PctRetCorr)
+        self.full_qdCorr = qd_corr(self.data["ret_"+self.ser1_title], self.data["ret_"+self.ser2_title])
+        print("Whole time qd correlation between log returns,"+self.ser1_title+" vs "+self.ser2_title+":",self.full_qdCorr)
         print("Rolling stats Windows: ", self.windows)
-        names = self.series1.name+"_"+self.series2.name
+        names = self.ser1_title+"_"+self.ser2_title
 
         for window in self.windows:
             self.data[names+"_Corr_"+str(window)] = self.data[self.series1.name].rolling(window).corr(self.data[self.series2.name])
-            self.data[names+"_RetCorr_"+str(window)] = self.data["ret_"+self.series1.name].rolling(window).corr(self.data["ret_"+self.series2.name])
-            self.data[names+"_PctRetCorr_"+str(window)] = self.data["retPct_"+self.series1.name].rolling(window).corr(self.data["retPct_"+self.series2.name])
-            self.data[names+"_qdCorr_"+str(window)] = rolling_qd(self.data["ret_"+self.series1.name], self.data["ret_"+self.series2.name], window)
-            self.data[names+"_beta_"+str(window)] = self.data[names+"_Corr_"+str(window)] * (self.data["ret_"+self.series1.name].rolling(window=window).std()\
-                        / self.data["ret_"+self.series2.name].rolling(window=window).std())
+            self.data[names+"_RetCorr_"+str(window)] = self.data["ret_"+self.ser1_title].rolling(window).corr(self.data["ret_"+self.ser2_title])
+            self.data[names+"_PctRetCorr_"+str(window)] = self.data["retPct_"+self.ser1_title].rolling(window).corr(self.data["retPct_"+self.ser2_title])
+            self.data[names+"_qdCorr_"+str(window)] = rolling_qd(self.data["ret_"+self.ser1_title], self.data["ret_"+self.ser2_title], window)
+            self.data[names+"_beta_"+str(window)] = self.data[names+"_Corr_"+str(window)] * (self.data["ret_"+self.ser1_title].rolling(window=window).std()\
+                        / self.data["ret_"+self.ser2_title].rolling(window=window).std())
             self.data[names+"_alpha_"+str(window)] = self.data[self.series1.name].rolling(window=window).mean() - self.data[names+"_beta_"+str(window)]\
                   * self.data[self.series2.name].rolling(window=window).mean()
 
@@ -1046,10 +1047,10 @@ class Pair_stats(object):
         # Step 2: Plot data
         # Assuming self.data is a DataFrame with the necessary columns
         for i in range(trim_windows, len(self.windows), 1):
-            corr_col = f"{self.series1.name}_{self.series2.name}_Corr_{self.windows[i]}"
-            retcorr_col = f"{self.series1.name}_{self.series2.name}_RetCorr_{self.windows[i]}"
-            pctRetcorr_col = f"{self.series1.name}_{self.series2.name}_PctRetCorr_{self.windows[i]}"
-            qdcorr_col = f"{self.series1.name}_{self.series2.name}_qdCorr_{self.windows[i]}"
+            corr_col = f"{self.ser1_title}_{self.ser2_title}_Corr_{self.windows[i]}"
+            retcorr_col = f"{self.ser1_title}_{self.ser2_title}_RetCorr_{self.windows[i]}"
+            pctRetcorr_col = f"{self.ser1_title}_{self.ser2_title}_PctRetCorr_{self.windows[i]}"
+            qdcorr_col = f"{self.ser1_title}_{self.ser2_title}_qdCorr_{self.windows[i]}"
             
             if corr_col in self.data.columns:
                 axes[0].plot(self.data.index, self.data[corr_col], label=f"{self.windows[i]} periods")
@@ -1091,15 +1092,62 @@ class Pair_stats(object):
         leftTraces = {self.ser1_title: (self.series1, "black", 1.5)}
         rightTraces = {self.ser2_title: (self.series2, "blue", 1.5)}
         
-        print(self.watchlist_meta.loc["units", self.series1.name])
-        lylabel = self.watchlist_meta.loc["units", self.series1.name] if not pd.isna(self.watchlist_meta.loc["units", self.series1.name]) else "USD"
-        rylabel = self.watchlist_meta.loc["units", self.series2.name] if not pd.isna(self.watchlist_meta.loc["units", self.series2.name]) else "USD"
+        #print(self.watchlist_meta.loc["units", self.series1.name])
+        try:
+            lylabel = self.watchlist_meta.loc["units", self.series1.name] if not pd.isna(self.watchlist_meta.loc["units", self.series1.name]) else "USD"
+        except:
+            lylabel = "USD"
+        try:
+            rylabel = self.watchlist_meta.loc["units", self.series2.name] if not pd.isna(self.watchlist_meta.loc["units", self.series2.name]) else "USD"
+        except:
+            rylabel = "USD"
 
         ytr = EqualSpacedTicks(10, self.series1, "log"); print("Left ticks: ", ytr) 
         ytr2 = EqualSpacedTicks(10, self.series2, "log")
 
         self.fig1 = Charting.TwoAxisFig(leftTraces, "log", lylabel, title=self.name,
             RightTraces=rightTraces, RightScale="log", RYLabel=rylabel, LeftTicks=ytr, RightTicks=ytr2)
+        
+    def find_optimal_lag(self, n):
+        correlations = []; backcorrs = []
+        for i in range(n+1):
+            shifted_series2 = self.series2.shift(i)
+            correlation = self.series1.corr(shifted_series2)
+            correlations.append(correlation)
+        for i in range(n+1):
+            shifted_series1 = self.series1.shift(i)
+            backcorr = self.series2.corr(shifted_series1)
+            backcorrs.append(backcorr)
+
+        print("Correlations for shifted series2: ", correlations)
+        optimal_lag = correlations.index(max(correlations))
+        highest_correlation = max(correlations)
+        backcorr_ser = pd.Series(backcorrs[::-1], index=range(-(n+1), 0))
+        self.lag_test = pd.concat([backcorr_ser, pd.Series(correlations, index=range(n+1))], axis=0)
+        
+        return optimal_lag, highest_correlation
+    
+    def find_optimal_ret_lag(self, n):
+        correlations = []; backcorrs = []
+        ser1 = self.data["ret_"+self.ser1_title]
+        ser2 = self.data["ret_"+self.ser2_title]
+
+        for i in range(n+1):
+            shifted_series2 = ser2.shift(i)
+            correlation = ser1.corr(shifted_series2)
+            correlations.append(correlation)
+        for i in range(n+1):
+            shifted_series1 = ser2.shift(i)
+            backcorr = ser1.corr(shifted_series1)
+            backcorrs.append(backcorr)
+
+        print("Correlations for shifted series2: ", correlations)
+        optimal_lag = correlations.index(max(correlations))
+        highest_correlation = max(correlations)
+        backcorr_ser = pd.Series(backcorrs[::-1], index=range(-(n+1), 0))
+        self.ret_lag_test = pd.concat([backcorr_ser, pd.Series(correlations, index=range(n+1))], axis=0)
+        
+        return optimal_lag, highest_correlation
 
 class api_keys():
 
