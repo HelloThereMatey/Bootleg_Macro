@@ -3,12 +3,13 @@ import numpy as np
 from PyQt6 import QtCore, QtGui, QtWidgets
 import os
 import sys
+import re
 wd = os.path.dirname(__file__); parent = os.path.dirname(wd); grampa = os.path.dirname(parent)
 fdel = os.path.sep
 sys.path.append(parent)
 from typing import Union
 
-from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data, chart_rip
+from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data
 from MacroBackend.BEA_Data import bea_data_mate
 
 keys = Utilities.api_keys().keys
@@ -17,6 +18,18 @@ cG_allshitsPath = wd+fdel+"AllCG.csv"
 metricsListPath = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv"
 bea_path = wd+fdel+"BEA_Data"+fdel+"Datasets"+fdel+"BEA_First3_Datasets.csv"
 watchlists_path_def = parent+fdel+"User_Data"+fdel+"Watchlists"
+
+###### Standalone functions ##################
+
+def drop_duplicate_columns(df):
+    # Identify columns with a dot followed by a numeric character
+    regex = re.compile(r'\.\d+')
+    columns_to_drop = [col for col in df.columns if regex.search(col)]
+    
+    # Drop the identified columns
+    df = df.drop(columns=columns_to_drop)
+    
+    return df, columns_to_drop
 
 ######## Custom classess ##################
 
@@ -131,14 +144,23 @@ class Watchlist(dict):
             if data_name in self["watchlist_datasets"].keys():
                 self["watchlist_datasets"].pop(data_name)
             self["metadata"].drop(data_name, axis=1, inplace=True)
-            self["watchlist"].drop(data_name, axis=1, inplace=True)
+            self["watchlist"].drop(data_name, axis=0, inplace=True)
         
         if drop_duplicates:
+            watch = pd.DataFrame(self["watchlist"])
+            print("Checking for duplicates in watchlist... Original index/columns watchlist/metadata: ", watch.index, self["metadata"].columns)
+            offenders = list(watch[watch.index.duplicated()].index)
+            print("Duplicate indexes found in watchlist: ", offenders)
+            meta , dropped = drop_duplicate_columns(self["metadata"]); self["metadata"] = meta
+            print("Duplicate columns found in metadata: ", dropped)
+            # Drop duplicate columns
+            self["metadata"] = self["metadata"].loc[:, ~self["metadata"].columns.duplicated(keep='first')]
+          
             self["watchlist"].drop_duplicates(inplace=True)
-            self["metadata"].drop_duplicates(inplace=True)
             for ticker in self["watchlist_datasets"].keys():
                 if ticker not in self["watchlist"]["id"].to_list():
                     self["watchlist_datasets"].pop(ticker)
+            print("Final index/columns watchlist/metadata: ", self["watchlist"].index, self["metadata"].columns)
 
 ## Standalone functions ####################
 
