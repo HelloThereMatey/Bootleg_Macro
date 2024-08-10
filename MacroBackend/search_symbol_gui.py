@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from PyQt6 import QtCore, QtGui, QtWidgets
+import openpyxl
 import os
 import sys
 import re
@@ -42,6 +43,8 @@ class MyTableView(QtWidgets.QTableView):
             self.returnPressed.emit()
 
 class PandasModel(QtCore.QAbstractTableModel):
+    dataChanged = QtCore.pyqtSignal()
+
     def __init__(self, data):
         super(PandasModel, self).__init__()
         self._data = data
@@ -68,7 +71,50 @@ class PandasModel(QtCore.QAbstractTableModel):
             return str(self._data.index[section])
         return None
 
-import pandas as pd
+    def update_data(self, new_data):
+        self.beginResetModel()
+        self._data = new_data
+        self.endResetModel()
+        self.dataChanged.emit()
+
+class DataFrameViewer(QtWidgets.QMainWindow):
+    def __init__(self, dataframe, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("DataFrame Viewer")
+        
+        self.table_view = QtWidgets.QTableView(self)
+        self.setCentralWidget(self.table_view)
+        
+        self.model = PandasModel(dataframe)
+        self.table_view.setModel(self.model)
+        
+        # Connect the dataChanged signal to the refresh_view slot
+        self.model.dataChanged.connect(self.refresh_view)
+        
+        # Initial setup for column widths
+        self.adjust_column_widths()
+
+    def adjust_column_widths(self):
+        font_metrics = self.table_view.fontMetrics()
+        
+        for col in range(self.model.columnCount()):
+            max_width = 0
+            for row in range(self.model.rowCount()):
+                index = self.model.index(row, col)
+                text = str(self.model.data(index, QtCore.Qt.ItemDataRole.DisplayRole))
+                text_width = font_metrics.horizontalAdvance(text)
+                if text_width > max_width:
+                    max_width = text_width
+            self.table_view.setColumnWidth(col, max_width + 10)
+
+        total_width = sum(self.table_view.columnWidth(i) for i in range(self.model.columnCount()))
+        self.resize(total_width + 300, 600)
+
+        header = self.table_view.horizontalHeader()
+        header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+
+    def refresh_view(self):
+        self.adjust_column_widths()
 
 class Watchlist(dict):
     def __init__(self, watchlist_data=None, metadata_data=None, watchlist_name: str = "base_watchlist", watchlists_path: str = parent+fdel+"User_Data"+fdel+"Watchlists"):
@@ -191,8 +237,10 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.watchlists_path = watchlists_path
         self.fill_watchlist_box()
         self.current_list = None
+        self.current_list_name = ""
         self.previous_selections_wl = []
         self.previous_selections_meta = []  
+        self.dataframe_viewer = None  # Initialize the viewer window
 
     def setupUi(self, MainWindow: QtWidgets.QMainWindow):
         # Set the application icon
@@ -263,9 +311,15 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         # Save watchlist button
         self.save_watchlist_button = QtWidgets.QPushButton("Save Watchlist", parent=self.centralwidget)
-        self.save_watchlist_button.setGeometry(QtCore.QRect(1400, 535, 200, 40))  # Adjust the position as needed
+        self.save_watchlist_button.setGeometry(QtCore.QRect(1400, 532, 200, 40))  # Adjust the position as needed
         self.save_watchlist_button.setFont(font)
         self.save_watchlist_button.setObjectName("save_watchlist_button")
+
+        # Export to .xlsm to chart with macro_chartist button
+        self.export_to_chartist = QtWidgets.QPushButton("Export to chartist", parent=self.centralwidget)
+        self.export_to_chartist.setGeometry(QtCore.QRect(900, 532, 200, 40))  # Adjust the position as needed
+        self.export_to_chartist.setFont(font)
+        self.export_to_chartist.setObjectName("Export list to chartist")
 
     def add_sources(self, sources: dict):
         self.sources = sources
@@ -279,10 +333,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.results.doubleClicked.connect(self.select_row)
         self.save_watchlist_button.clicked.connect(self.save_watchlist)
         self.watchlists.currentIndexChanged.connect(self.choose_watchlist)
+        self.export_to_chartist.clicked.connect(self.list_to_chartist)
     
     def update_searchstr(self):
         self.searchstr = self.searchstr_entry.toPlainText()
-    
+
     def dropdown_changed(self):
         self.selected_source = self.source_dropdown.currentText()
         value = self.sources[self.selected_source]
@@ -396,11 +451,29 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
     def add_row_to_return_dict(self):
         if self.selected_row is not None:
             self.return_dict[self.series_added_count] = self.selected_row
-            print("Series addded to return dict: ", self.selected_row.name)
-            ser = pd.Series(self.selected_row[["id", "title", "source"]] , name = self.selected_row["name"]).to_frame().T
+            print("Series added to return dict: ", self.selected_row.name)
+            
+            ser = pd.Series(
+                self.selected_row[["id", "title", "source"]],
+                name=self.selected_row["name"]
+            ).to_frame().T
+            
             self.return_df = pd.concat([self.return_df, ser], axis=0)
             self.series_added_count += 1
-    
+
+            watchlist_data = self.return_df
+            metadata = org_metadata(self.return_dict)
+            
+            # Update the model with the new data
+        if self.dataframe_viewer is not None and self.dataframe_viewer.isVisible():
+            # The dataframe_viewer exists and its window is open
+            self.dataframe_viewer.model.update_data(self.return_df)
+        else:
+            # The dataframe_viewer does not exist or its window is not open
+            self.display_current_selections()
+
+            # print(self.current_list["watchlist"], "\n\n")
+
     def fill_watchlist_box(self):
         # Ensure the directory exists
         if not os.path.exists(self.watchlists_path):
@@ -420,12 +493,17 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
     def choose_watchlist(self):
         # Get the currently selected watchlist from the dropdown
         selected_watchlist = self.watchlists.currentText()
+        if selected_watchlist == "Choose a watchlist...":
+            return
         
         # Set the current watchlist to the selected one
         self.current_list_name = selected_watchlist
         print(f"Current watchlist set to: {self.current_list_name}")
         self.current_list = Watchlist(watchlist_name=self.current_list_name)
         self.current_list.load_watchlist(filepath=self.watchlists_path+fdel+self.current_list_name+".xlsx")
+        self.return_df = self.current_list["watchlist"]
+
+        self.display_current_selections()
 
     def save_watchlist(self):
 
@@ -442,6 +520,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             fileName = self.watchlists_path+fdel+self.current_list_name+".xlsx"
             self.current_list.append_current_watchlist(watchlist_data, metadata)
 
+        self.current_list.drop_data(drop_duplicates=True)
         if fileName:
             if not fileName.endswith('.xlsx'):
                 fileName += '.xlsx'  # Ensure the file has a .xlsx extension
@@ -459,6 +538,58 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                 self.return_df = pd.DataFrame() # Reset the return dataframe
         else:
             print("Save operation cancelled.")
+
+    def display_current_selections(self):
+        if self.dataframe_viewer is None:
+            self.dataframe_viewer = DataFrameViewer(self.return_df)
+        else:
+            self.dataframe_viewer.model = PandasModel(self.return_df)
+            self.dataframe_viewer.table_view.setModel(self.dataframe_viewer.model)
+        self.dataframe_viewer.show()
+
+    def list_to_chartist(self):
+        template_file = parent+fdel+'Macro_Chartist'+fdel+'Control.xlsm'
+        name, ext = os.path.splitext(template_file)
+        out_name = parent+fdel+"User_Data"+fdel+"Chartist"+fdel+self.current_list_name + ".xlsm"
+        template = openpyxl.load_workbook(template_file, keep_vba=True, keep_links=True, rich_text=True)
+        df_version  = pd.read_excel(template_file, sheet_name='Parameter_Input', usecols="A:J", nrows=58)
+        # np_version = df_version.values
+        # print(np.where(np_version == 'Source'))
+
+        # Create the workbook and worksheet we'll be working with
+        sheet = template["Parameter_Input"]
+
+        watchlist_df = self.current_list["watchlist"]
+        # Get the list of tickers from the watchlist
+        #self.current_list["watchlist"]
+        ticker_col = df_version.columns.get_loc('Series_Ticker')   + 1
+        source_col = df_version.columns.get_loc('Source')   + 1
+        legend_col = df_version.columns.get_loc('Legend_Name') + 1
+        print(ticker_col, source_col, legend_col)
+        print(watchlist_df)
+
+        for col in sheet.iter_cols(min_col = ticker_col, max_col = legend_col, min_row = 2, max_row = len(watchlist_df)+1):
+            colum = col[0].column
+            print(col)
+            #colum = col.column[0]; print(colum)
+            print(colum, df_version.iloc[0, colum])
+            if colum == ticker_col:
+                colname = "id"
+            elif colum == source_col:
+                colname = "source"
+            elif colum == legend_col:
+                colname = "title"
+            else:
+                continue
+            i = 0
+            for cell in col:
+                    cell.value = watchlist_df[colname].iloc[i]
+                    i += 1
+        
+        template.save(out_name)
+        print("Exported watchlist data into macro_chartist .xlsm chart control file, filepath: ", out_name)
+        
+        # self.current_list
 
 ##### STANDALONE FUNCTIONS ####################
 
@@ -516,14 +647,14 @@ def run_app():
 
 if __name__ == "__main__":
 
-    # watched = run_app()
-    # if isinstance(watched, Watchlist):
-    #     print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
-    # else:
-    #     print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
+    watched = run_app()
+    if isinstance(watched, Watchlist):
+        print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
+    else:
+        print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
 
-    wl = Watchlist()
-    wl.load_watchlist()
+    # wl = Watchlist()
+    # wl.load_watchlist()
     # path = qt_load_file_dialog()
     # print("Path: ", path)
  
