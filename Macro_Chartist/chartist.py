@@ -1,8 +1,8 @@
 ###### Required modules/packages #####################################
 import os
-wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
-dire = os.path.dirname(wd)
-import sys; sys.path.append(dire)
+wd = os.path.dirname(__file__)  ## This gets the working parentctory which is the folder where you have placed this .py file. 
+parent = os.path.dirname(wd)
+import sys; sys.path.append(parent)
 
 ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
 from MacroBackend import PriceImporter, Charting, Utilities, Fitting, Pull_Data
@@ -83,7 +83,7 @@ print("Operating system: ",sys.platform, "Path separator character: ", fdel)
 
 ######### Set default font and fontsize ##################### Make this automatic and hide in utility files later on. 
 try:
-    ScreenSetFile = open(dire+fdel+'MacroBackend'+fdel+'SystemInfo'+fdel+'ScreenData.json')
+    ScreenSetFile = open(parent+fdel+'MacroBackend'+fdel+'SystemInfo'+fdel+'ScreenData.json')
     ScreenSettings = dict(json.load(ScreenSetFile))
 except:
     SingleDisplay = messagebox.askyesno(title='GUI sizing steup',message='Script has detected that this is the first time this script has been run on this system.\
@@ -93,7 +93,7 @@ except:
     if SingleDisplay is True:
         tkVars = Utilities.TkinterSizingVars()
         tkVars.SetScreenInfoFile()
-        tkVars.ExportVars(dire+fdel+'MacroBackend'+fdel+'SystemInfo')
+        tkVars.ExportVars(parent+fdel+'MacroBackend'+fdel+'SystemInfo')
         ScreenSettings = tkVars.ScreenData
         print("Very good. Screen measured. Now run script again. You shouldn't have to do this screen measure again.")
         quit()
@@ -105,13 +105,16 @@ figsize_px = (round(fwid/pixel),round(fhght/pixel))
 print('figsize (cm):',figsize,'figsize (pixels):',figsize_px)
 
 ########## Script specific business #############################################################################
-try:
-    Inputs = pd.read_excel(wd+fdel+'Control.xlsx', index_col=0)     ##Pull input parameters from the input parameters excel file. 
-except Exception as e: 
-    print(e) 
-    print("Check InputParams excel file. If name has been changed from  'Control.xlsx', or has been moved, that is the problem.\
-            Issue could also be a non-standard OS. If using an OS other than windows, mac or linux you'll just need to set the folder delimeter for all path references below.")    
-    quit()
+InputsPath = ""
+#InputsPath = parent+fdel+'User_Data'+fdel+'Chartist'+fdel+'EquityIndexes.xlsm'
+if InputsPath:
+    Inputs = pd.read_excel(InputsPath, sheet_name="Parameter_Input", index_col=0, usecols="A:J", nrows=58)
+else:
+    try:
+        Inputs = pd.read_excel(wd+fdel+'Control.xlsx', sheet_name="Parameter_Input", index_col=0, usecols="A:J", nrows=58)     ##Pull input parameters from the input parameters excel file. 
+    except Exception as e: 
+        print(e) 
+        quit()
 
 NoString = 'no'
 myFredAPI_key = Inputs.loc['FRED_Key'].at['Series_Ticker']
@@ -174,9 +177,9 @@ G_YMin = Inputs.loc['Global_Ymin'].at['Series_Ticker']
 G_YMax = Inputs.loc['Global_Ymax'].at['Series_Ticker']
 
 ######## Paths for saving and loading data. ###########################################################################################
-defPath = dire+fdel+"User_Data"+fdel+'SavedData'; GNPath = dire+fdel+"User_Data"+fdel+'Glassnode'
-BEAPath = dire+fdel+"User_Data"+fdel+'BEA'
-ABSPath = dire+fdel+"User_Data"+fdel+"ABS"+fdel+"Series"
+defPath = parent+fdel+"User_Data"+fdel+'SavedData'; GNPath = parent+fdel+"User_Data"+fdel+'Glassnode'
+BEAPath = parent+fdel+"User_Data"+fdel+'BEA'
+ABSPath = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"Series"
 pathDict = {"abs": ABSPath, "gnload": GNPath, "load": defPath, "load_bea": BEAPath}
 
 ########## PULL OR LOAD THE DATA ###########################################################################################
@@ -227,7 +230,7 @@ for i in range(len(axes_tickers)):
         print("waddafuk")    
 numAxii = len(list(axtraceDict.keys()))
 
-print("Number of different axis specification types:\naxDirectSpecs: ",numAxSpecs, ", auto/nan: ", numAuto, \
+print("Number of different axis specification types:\naxparentctSpecs: ",numAxSpecs, ", auto/nan: ", numAuto, \
       ", unique axspecs: ", num_dif_axSpecs, "\nNumber of series to not plot: ",num_dp,  "\nTotal: ", numAxii)
 print("Number of axes to use for chart: ", numAxii)
 print('Number of data series: ',numSeries)
