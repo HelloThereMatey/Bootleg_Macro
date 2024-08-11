@@ -80,7 +80,8 @@ def process_yf_stdout(input: str) -> dict:
     json_form = json.loads(input)
     news = json_form['news']
     tickers = json_form['quotes']
-
+    
+    df = pd.DataFrame() 
     i = 0
     for res in tickers:
         ser = pd.Series(res)
