@@ -190,10 +190,12 @@ class PandasModel(QtCore.QAbstractTableModel):
         self.dataChanged.emit()  
 
 class WatchListView(QtWidgets.QMainWindow):
-    def __init__(self, dataframe, parent=None):
+    def __init__(self, dataframe, parent=None, watchlist_name: str = "Watchlist"):
         super().__init__(parent)
         self.watchlist_data = dataframe
-        self.setWindowTitle("DataFrame Viewer")
+        self.watchlist_name = watchlist_name
+        self.setWindowTitle("Watchlist: "+watchlist_name)
+        self.height_mult = 1.5 # Multiplier for the height of QTableView tables within the WatlistViewer window
         
         # Create a central widget and set a vertical layout
         central_widget = QtWidgets.QWidget(self)
@@ -203,12 +205,6 @@ class WatchListView(QtWidgets.QMainWindow):
         self.table_view = QtWidgets.QTableView(self)
         layout.addWidget(self.table_view)
         
-        # Create the export button and add it to the layout
-        self.export_to_chartist = QtWidgets.QPushButton("Export to chartist", parent=parent)
-        self.export_to_chartist.setFont(font)
-        self.export_to_chartist.setObjectName("Export list to chartist")
-        layout.addWidget(self.export_to_chartist)
-        
         # Set the central widget
         self.setCentralWidget(central_widget)
 
@@ -217,13 +213,25 @@ class WatchListView(QtWidgets.QMainWindow):
         # Set the model for the table view
         self.model = PandasModel(dataframe)
         self.table_view.setModel(self.model)
-        
+        # Initial setup for column widths
+        self.adjust_column_widths()
         # Connect the dataChanged signal to the refresh_view slot
         self.model.dataChanged.connect(self.refresh_view)
         # Connect the double-click event to the handler
         self.table_view.doubleClicked.connect(self.handle_double_click)
-        # Initial setup for column widths
-        self.adjust_column_widths()
+        
+        self.chosen_series_view = QtWidgets.QTableView(self)
+        layout.addWidget(self.chosen_series_view)
+        self.adjust_chosen_series_view_height()
+
+         # Create the export button and add it to the layout
+        self.export_to_chartist = QtWidgets.QPushButton("Export to chartist", parent=parent)
+        self.export_to_chartist.setFont(font)
+        self.export_to_chartist.setObjectName("Export list to chartist")
+        layout.addWidget(self.export_to_chartist)   
+        
+        # Connect signals
+        self.connectSignals()
 
     def connectSignals(self):
         self.export_to_chartist.clicked.connect(self.list_to_chartist)
@@ -242,25 +250,54 @@ class WatchListView(QtWidgets.QMainWindow):
             self.table_view.setColumnWidth(col, max_width + 10)
 
         total_width = sum(self.table_view.columnWidth(i) for i in range(self.model.columnCount()))
-        self.resize(total_width + 300, 400)
+        total_height = sum(self.table_view.rowHeight(i) for i in range(self.model.rowCount()))
+        
+        #self.height_mult = 1.5
+        if total_height*self.height_mult > 1000:
+            total_height = 1000
+        else:
+            total_height *= self.height_mult
+        self.resize(round(total_width) + 150, round(total_height))
 
         header = self.table_view.horizontalHeader()
         header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
 
+    def adjust_chosen_series_view_height(self):
+        row_height = self.chosen_series_view.rowHeight(0)
+        try:
+            row_count = self.chosen_series_view.model().rowCount()
+        except:
+            self.chosen_series_view.setFixedHeight(30)
+            return
+        total_height = (row_height * row_count)*self.height_mult
+        max_height = 500  # Set your desired max height here
+
+        if total_height > max_height:
+            total_height = max_height
+
+        self.chosen_series_view.setFixedHeight(round(total_height))
+
     def refresh_view(self):
         self.adjust_column_widths()
-    
+        self.adjust_chosen_series_view_height()
+
     def list_to_chartist(self):
+        print("Running export to chartist function...")
         template_file = parent+fdel+'Macro_Chartist'+fdel+'Control.xlsm'
         name, ext = os.path.splitext(template_file)
-        out_name = parent+fdel+"User_Data"+fdel+"Chartist"+fdel+self.current_list_name + ".xlsm"
+        out_name = parent+fdel+"User_Data"+fdel+"Chartist"+fdel+self.watchlist_name + ".xlsm"
         template = openpyxl.load_workbook(template_file, keep_vba=True, keep_links=True, rich_text=True)
         df_version  = pd.read_excel(template_file, sheet_name='Parameter_Input', usecols="A:J", nrows=58)
 
         # Create the workbook and worksheet we'll be working with
         sheet = template["Parameter_Input"]
 
-        watchlist_df = self.watchlist_data
+        # Need to have selected data first
+        if not hasattr(self, 'selected_rows_df'):
+            print("No data selected to export to chartist. Select data in upper table first.")
+            return
+
+        watchlist_df = self.selected_rows_df
         # Get the list of tickers from the watchlist
         ticker_col = df_version.columns.get_loc('Series_Ticker')   + 1
         source_col = df_version.columns.get_loc('Source')   + 1
@@ -289,25 +326,22 @@ class WatchListView(QtWidgets.QMainWindow):
     
     def handle_double_click(self, index):
         # Get the selected row
-        selected_row = self.watchlist_data.iloc[index.row()]
+        selected_row = self.watchlist_data.iloc[[index.row()]]
         
         # Add the selected row to a new DataFrame
         if not hasattr(self, 'selected_rows_df'):
             self.selected_rows_df = pd.DataFrame(columns=self.watchlist_data.columns)
         
-        self.selected_rows_df = pd.concat([self.selected_rows_df, selected_row], axis = 1)
+        # Transpose the selected row before concatenating
+        selected_row = selected_row
+
+        # Concatenate along the rows (axis=0)
+        self.selected_rows_df = pd.concat([self.selected_rows_df, selected_row], axis=0)
         
-        # Check if the new window already exists and is visible
-        if self.new_window is None or not self.new_window.isVisible():
-            # Display the new DataFrame in a new WatchListView window
-            self.new_window = WatchListView(parent=self, dataframe=self.selected_rows_df)
-            self.new_window.show()
-        else:
-            # Update the existing window with the new DataFrame
-            self.new_window.watchlist_data = self.selected_rows_df
-            self.new_window.model = PandasModel(self.selected_rows_df)
-            self.new_window.table_view.setModel(self.new_window.model)
-            self.new_window.adjust_column_widths()
+        self.chosen_series_view.setModel(PandasModel(self.selected_rows_df))  # Set the model to the QTableView
+        # Connect the dataChanged signal to the refresh_view slot
+        self.model.dataChanged.connect(self.refresh_view)
+        self.adjust_chosen_series_view_height()  # Adjust the height of the chosen_series_view
 
 ##### My main window class ####################
 class Ui_MainWindow(QtWidgets.QMainWindow):
@@ -623,7 +657,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
     def display_current_selections(self):
         if self.dataframe_viewer is None:
-            self.dataframe_viewer = WatchListView(self.return_df, parent=self)
+            self.dataframe_viewer = WatchListView(self.return_df, parent=self, watchlist_name=self.current_list_name)
         else:
             self.dataframe_viewer.model = PandasModel(self.return_df)
             self.dataframe_viewer.table_view.setModel(self.dataframe_viewer.model)
