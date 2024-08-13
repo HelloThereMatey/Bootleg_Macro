@@ -104,9 +104,11 @@ pixel = float(ScreenSettings['Pixel size (mm)'])
 figsize_px = (round(fwid/pixel),round(fhght/pixel))
 print('figsize (cm):',figsize,'figsize (pixels):',figsize_px)
 
-########## Script specific business #############################################################################
+########## Script specific business ############################################################################
 InputsPath = ""
-#InputsPath = parent+fdel+'User_Data'+fdel+'Chartist'+fdel+'EquityIndexes.xlsm'
+InputsPath = Utilities.basic_load_dialog(initialdir = parent+fdel+"User_Data"+fdel+"Chartist", title="Select chartist control Excel file", 
+                                         filetypes=(("Excel files", "*.xlsx *.xlsm")))
+
 if InputsPath:
     Inputs = pd.read_excel(InputsPath, sheet_name="Parameter_Input", index_col=0, usecols="A:J", nrows=58)
 else:
