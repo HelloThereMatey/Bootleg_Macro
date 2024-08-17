@@ -12,6 +12,7 @@ from typing import Union
 
 from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data
 from MacroBackend.BEA_Data import bea_data_mate
+import Macro_Chartist.chartist as mbchart
 
 keys = Utilities.api_keys().keys
 abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
@@ -207,8 +208,6 @@ class WatchListView(QtWidgets.QMainWindow):
         
         # Set the central widget
         self.setCentralWidget(central_widget)
-
-        self.new_window = None
         
         # Set the model for the table view
         self.model = PandasModel(dataframe)
@@ -216,16 +215,21 @@ class WatchListView(QtWidgets.QMainWindow):
         # Initial setup for column widths
         self.adjust_column_widths()
         # Connect the dataChanged signal to the refresh_view slot
-        self.model.dataChanged.connect(self.refresh_view)
-        # Connect the double-click event to the handler
-        self.table_view.doubleClicked.connect(self.handle_double_click)
         
         self.chosen_series_view = QtWidgets.QTableView(self)
         layout.addWidget(self.chosen_series_view)
         self.adjust_chosen_series_view_height()
 
-         # Create the export button and add it to the layout
-        self.export_to_chartist = QtWidgets.QPushButton("Export to chartist", parent=parent)
+        # Create the export button and add it to the layout
+        self.sublist_title = QtWidgets.QTextEdit("Name your sublist...", parent=parent)
+        self.sublist_title.setFont(font); self.sublist_title.setFontPointSize(16)
+        self.sublist_title.setObjectName("sublist name")
+        self.sublist_title.setFixedSize(200, 30)
+        layout.addWidget(self.sublist_title, alignment = QtCore.Qt.AlignmentFlag.AlignHCenter)  
+        self.sublist_name = "Sublist"
+
+        # Create the export button and add it to the layout
+        self.export_to_chartist = QtWidgets.QPushButton("Export your sublist to a worksheet in the Chartist workbook (.xlsm) for this WatchList", parent=parent)
         self.export_to_chartist.setFont(font)
         self.export_to_chartist.setObjectName("Export list to chartist")
         layout.addWidget(self.export_to_chartist)   
@@ -234,7 +238,14 @@ class WatchListView(QtWidgets.QMainWindow):
         self.connectSignals()
 
     def connectSignals(self):
+        self.model.dataChanged.connect(self.refresh_view)
+        # Connect the double-click event to the handler
+        self.table_view.doubleClicked.connect(self.handle_double_click)
         self.export_to_chartist.clicked.connect(self.list_to_chartist)
+        self.sublist_title.textChanged.connect(self.update_sblist_name)
+
+    def update_sblist_name(self):
+        self.sublist_name = self.sublist_title.toPlainText()
 
     def adjust_column_widths(self):
         font_metrics = self.table_view.fontMetrics()
@@ -283,14 +294,18 @@ class WatchListView(QtWidgets.QMainWindow):
 
     def list_to_chartist(self):
         print("Running export to chartist function...")
-        template_file = parent+fdel+'Macro_Chartist'+fdel+'Control.xlsm'
+        template_file = parent+fdel+'Macro_Chartist'+fdel+'Control_t.xlsm'
         name, ext = os.path.splitext(template_file)
-        out_name = parent+fdel+"User_Data"+fdel+"Chartist"+fdel+self.watchlist_name + ".xlsm"
+        self.out_name = parent+fdel+"User_Data"+fdel+"Chartist"+fdel+self.watchlist_name + ".xlsm"
         template = openpyxl.load_workbook(template_file, keep_vba=True, keep_links=True, rich_text=True)
-        df_version  = pd.read_excel(template_file, sheet_name='Parameter_Input', usecols="A:J", nrows=58)
+        df_version  = pd.read_excel(template_file, sheet_name='Input_Template', usecols="A:J", nrows=58)
 
         # Create the workbook and worksheet we'll be working with
-        sheet = template["Parameter_Input"]
+        sheet = template["Input_Template"]
+        # Create a new sheet that is a copy of Input_Template and rename it
+        new_sheet = template.copy_worksheet(sheet)
+        new_sheet.title = self.sublist_name
+        new_sheet.data_validations = sheet.data_validations
 
         # Need to have selected data first
         if not hasattr(self, 'selected_rows_df'):
@@ -303,11 +318,9 @@ class WatchListView(QtWidgets.QMainWindow):
         source_col = df_version.columns.get_loc('Source')   + 1
         legend_col = df_version.columns.get_loc('Legend_Name') + 1
 
-        for col in sheet.iter_cols(min_col = ticker_col, max_col = legend_col, min_row = 2, max_row = len(watchlist_df)+1):
+        for col in new_sheet.iter_cols(min_col = ticker_col, max_col = legend_col, min_row = 2, max_row = len(watchlist_df)+1):
             colum = col[0].column
-            print(col)
-            #colum = col.column[0]; print(colum)
-            print(colum, df_version.iloc[0, colum])
+
             if colum == ticker_col:
                 colname = "id"
             elif colum == source_col:
@@ -321,8 +334,9 @@ class WatchListView(QtWidgets.QMainWindow):
                     cell.value = watchlist_df[colname].iloc[i]
                     i += 1
         
-        template.save(out_name)
-        print("Exported watchlist data into macro_chartist .xlsm chart control file, filepath: ", out_name)
+        new_sheet.cell(row=39,column=2).value = self.sublist_name
+        template.save(self.out_name)
+        print("Exported watchlist data into macro_chartist .xlsm chart control file, filepath: ", self.out_name, "into new sheet: ", self.sublist_name)
     
     def handle_double_click(self, index):
         # Get the selected row
@@ -364,6 +378,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.previous_selections_wl = []
         self.previous_selections_meta = []  
         self.dataframe_viewer = None  # Initialize the viewer window
+        self.watchlist_sublists = []
 
     def setupUi(self, MainWindow: QtWidgets.QMainWindow):
         # Set the application icon
@@ -433,10 +448,23 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.watchlists_label2.setFont(font); self.watchlists_label2.setGeometry(QtCore.QRect(550, 515, 400, 80))
 
         # Save watchlist button
+        self.plot_data_button = QtWidgets.QPushButton("Plot data window", parent=self.centralwidget)
+        self.plot_data_button.setGeometry(QtCore.QRect(1050, 532, 200, 40))  # Adjust the position as needed
+        self.plot_data_button.setFont(font)
+        self.plot_data_button.setObjectName("plot_button")
+
+        # Save watchlist button
         self.save_watchlist_button = QtWidgets.QPushButton("Save Watchlist", parent=self.centralwidget)
         self.save_watchlist_button.setGeometry(QtCore.QRect(1400, 532, 200, 40))  # Adjust the position as needed
         self.save_watchlist_button.setFont(font)
         self.save_watchlist_button.setObjectName("save_watchlist_button")
+
+        # New dropdown for sublists (initially hidden)
+        self.sublists_dropdown = QtWidgets.QComboBox(self.centralwidget)
+        self.sublists_dropdown.setGeometry(QtCore.QRect(275, 580, 211, 31))
+        self.sublists_dropdown.setFont(font)
+        self.sublists_dropdown.setObjectName("sublists")
+        self.sublists_dropdown.hide()
 
     def add_sources(self, sources: dict):
         self.sources = sources
@@ -450,6 +478,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.results.doubleClicked.connect(self.select_row)
         self.save_watchlist_button.clicked.connect(self.save_watchlist)
         self.watchlists.currentIndexChanged.connect(self.choose_watchlist)
+        self.plot_data_button.clicked.connect(self.run_macro_chartist)
     
     def update_searchstr(self):
         self.searchstr = self.searchstr_entry.toPlainText()
@@ -662,6 +691,24 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             self.dataframe_viewer.model = PandasModel(self.return_df)
             self.dataframe_viewer.table_view.setModel(self.dataframe_viewer.model)
         self.dataframe_viewer.show()
+
+    def run_macro_chartist(self):
+        if self.dataframe_viewer:
+            if self.dataframe_viewer.sublist_name:
+                print("Let's run chartist innit, watchlist name: ", self.current_list_name, "sublist name: ", self.dataframe_viewer.sublist_name,
+                      "\nPath to watchlist .xlsm file: ", self.dataframe_viewer.out_name, "running chartist, hold on........")
+                mbchart.run_chartist(self.dataframe_viewer.out_name, self.dataframe_viewer.sublist_name)
+            else:
+                print("No sublist has been created yet, need a sublist to chart..")
+                return
+        else:
+            print("Watchlist has not been viewed, select a watchlist to view it first, or build and save watchlst first.")
+            return
+        
+    def choose_sublist(self):
+        if self.dataframe_viewer.out_name:
+            self.watchlist_book = openpyxl.load_workbook(self.dataframe_viewer.out_name, keep_vba=True, keep_links=True, rich_text=True)
+            self.watchlist_sublists = self.watchlist_book.sheetnames
 
 ##### STANDALONE FUNCTIONS ####################
 

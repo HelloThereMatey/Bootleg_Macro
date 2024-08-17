@@ -197,7 +197,11 @@ class FitTrend():
         self.original_data = data.copy()
         self.original_data_BU = data.copy()
         self.data_max = self.original_data.max()
-        self.freq = Utilities.DetermineSeries_Frequency(self.original_data_BU)
+        
+        freq = Utilities.freqDetermination(self.original_data_BU)
+        freq.DetermineSeries_Frequency()
+        self.Series_freq  = freq.frequency
+        self.freq = freq.frequency
         print(self.original_data_BU.name, "series frequency: ", self.freq)
 
     def fitExpTrend(self, x, y):

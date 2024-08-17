@@ -743,7 +743,9 @@ class PCE_Fig(Figure):
         else:
             self.manI_pct = self.manualIndex.copy().pct_change()*100
 
-        frequen, perId, freq = Utilities.DetermineSeries_Frequency(self.manualIndex)
+        freq = Utilities.freqDetermination(self.manualIndex)
+        freq.DetermineSeries_Frequency()
+        frequen = freq.frequency; perId = freq.per_in_d; freq = freq.freq
         freqs = {'D': "daily",'M': "monthly", 'Q': "quarterly", 'A': "annual"}
         print("Your freq ser....: ", frequen, perId, freq)
        
