@@ -758,10 +758,12 @@ class TracesTop_RoC_bottom(Figure):
         else:
             print('Period to freq. function: ', self.data_freq)
             
-            freq = Utilities.DetermineSeries_Frequency(self.data_series)
+            freq = Utilities.freqDetermination(self.data_series)
+            freq.DetermineSeries_Frequency()
+            frequency = freq.frequency
 
-            periodsInMonth = freq[1]*30.4375
-            print('Data frequency from Utilities function: ', freq[0], 'periods in 1 month: ', periodsInMonth)
+            periodsInMonth = freq.per_in_d*30.4375
+            print('Data frequency from Utilities function: ', frequency, 'periods in 1 month: ', periodsInMonth)
             numPeriods = period_months * periodsInMonth
             return int(numPeriods)
 
