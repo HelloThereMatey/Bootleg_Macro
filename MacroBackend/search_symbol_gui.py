@@ -83,6 +83,7 @@ class Watchlist(dict):
         with pd.ExcelWriter(path+fdel+self.name.replace(" ", "_")+".xlsx") as writer:
             self['watchlist'].to_excel(writer, sheet_name='watchlist')
             self['metadata'].to_excel(writer, sheet_name='all_metadata')
+        return self.name 
 
     def get_watchlist_data(self, start_date: str = "1990-01-02"):
         """get_watchlist_data method.
@@ -191,7 +192,8 @@ class PandasModel(QtCore.QAbstractTableModel):
         self.dataChanged.emit()  
 
 class WatchListView(QtWidgets.QMainWindow):
-    def __init__(self, dataframe, parent=None, watchlist_name: str = "Watchlist"):
+    def __init__(self, dataframe, parent=None, watchlist_name: str = "Watchlist", template_file: str = parent+fdel+'Macro_Chartist'+fdel+'Control_t.xlsm',
+                 out_folder: str = parent+fdel+"User_Data"+fdel+"Chartist"):
         super().__init__(parent)
         self.watchlist_data = dataframe
         self.watchlist_name = watchlist_name
@@ -233,6 +235,17 @@ class WatchListView(QtWidgets.QMainWindow):
         self.export_to_chartist.setFont(font)
         self.export_to_chartist.setObjectName("Export list to chartist")
         layout.addWidget(self.export_to_chartist)   
+
+        self.template_file = template_file
+        self.name, self.ext = os.path.splitext(template_file)
+        if self.watchlist_name:
+            self.wb_path = out_folder + fdel+self.watchlist_name + ".xlsm"
+        else:
+            self.wb_path = out_folder
+        if os.path.isfile(self.wb_path):
+            self.watchlist_wb = openpyxl.load_workbook(self.wb_path, keep_vba=True, keep_links=True, rich_text=True)
+        else:
+            self.watchlist_wb = openpyxl.load_workbook(self.template_file, keep_vba=True, keep_links=True, rich_text=True)
         
         # Connect signals
         self.connectSignals()
@@ -294,16 +307,15 @@ class WatchListView(QtWidgets.QMainWindow):
 
     def list_to_chartist(self):
         print("Running export to chartist function...")
-        template_file = parent+fdel+'Macro_Chartist'+fdel+'Control_t.xlsm'
-        name, ext = os.path.splitext(template_file)
-        self.out_name = parent+fdel+"User_Data"+fdel+"Chartist"+fdel+self.watchlist_name + ".xlsm"
-        template = openpyxl.load_workbook(template_file, keep_vba=True, keep_links=True, rich_text=True)
-        df_version  = pd.read_excel(template_file, sheet_name='Input_Template', usecols="A:J", nrows=58)
+        if os.path.isfile(self.wb_path):
+            df_version  = pd.read_excel(self.wb_path, sheet_name='Input_Template', usecols="A:J", nrows=58)
+        else:
+            df_version = pd.read_excel(self.template_file, sheet_name='Input_Template', usecols="A:J", nrows=58)
 
         # Create the workbook and worksheet we'll be working with
-        sheet = template["Input_Template"]
+        sheet = self.watchlist_wb["Input_Template"]
         # Create a new sheet that is a copy of Input_Template and rename it
-        new_sheet = template.copy_worksheet(sheet)
+        new_sheet = self.watchlist_wb.copy_worksheet(sheet)
         new_sheet.title = self.sublist_name
         new_sheet.data_validations = sheet.data_validations
 
@@ -335,8 +347,8 @@ class WatchListView(QtWidgets.QMainWindow):
                     i += 1
         
         new_sheet.cell(row=39,column=2).value = self.sublist_name
-        template.save(self.out_name)
-        print("Exported watchlist data into macro_chartist .xlsm chart control file, filepath: ", self.out_name, "into new sheet: ", self.sublist_name)
+        self.watchlist_wb.save(self.wb_path)
+        print("Exported watchlist data into macro_chartist .xlsm chart control file, filepath: ", self.wb_path, "into new sheet: ", self.sublist_name)
     
     def handle_double_click(self, index):
         # Get the selected row
@@ -378,7 +390,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.previous_selections_wl = []
         self.previous_selections_meta = []  
         self.dataframe_viewer = None  # Initialize the viewer window
-        self.watchlist_sublists = []
+        self.watchlist_sublist = []
 
     def setupUi(self, MainWindow: QtWidgets.QMainWindow):
         # Set the application icon
@@ -443,28 +455,28 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.watchlabel.setGeometry(QtCore.QRect(90, 535, 200, 40))
 
         self.watchlists_label = QtWidgets.QLabel("You can then add to the list or leave it as is.\nClose this window to return the watchlist.", parent=self.centralwidget)
-        self.watchlists_label.setFont(font); self.watchlists_label.setGeometry(QtCore.QRect(550, 515, 400, 80))
+        self.watchlists_label.setFont(font); self.watchlists_label.setGeometry(QtCore.QRect(500, 515, 400, 80))
         self.watchlists_label2 = QtWidgets.QLabel("You can then add to the list or leave it as is.\nClose this window to return the watchlist.", parent=self.centralwidget)
-        self.watchlists_label2.setFont(font); self.watchlists_label2.setGeometry(QtCore.QRect(550, 515, 400, 80))
-
-        # Save watchlist button
-        self.plot_data_button = QtWidgets.QPushButton("Plot data window", parent=self.centralwidget)
-        self.plot_data_button.setGeometry(QtCore.QRect(1050, 532, 200, 40))  # Adjust the position as needed
-        self.plot_data_button.setFont(font)
-        self.plot_data_button.setObjectName("plot_button")
-
-        # Save watchlist button
-        self.save_watchlist_button = QtWidgets.QPushButton("Save Watchlist", parent=self.centralwidget)
-        self.save_watchlist_button.setGeometry(QtCore.QRect(1400, 532, 200, 40))  # Adjust the position as needed
-        self.save_watchlist_button.setFont(font)
-        self.save_watchlist_button.setObjectName("save_watchlist_button")
+        self.watchlists_label2.setFont(font); self.watchlists_label2.setGeometry(QtCore.QRect(500, 515, 400, 80))
 
         # New dropdown for sublists (initially hidden)
         self.sublists_dropdown = QtWidgets.QComboBox(self.centralwidget)
-        self.sublists_dropdown.setGeometry(QtCore.QRect(275, 580, 211, 31))
+        self.sublists_dropdown.setGeometry(QtCore.QRect(775, 532, 250, 40))
         self.sublists_dropdown.setFont(font)
         self.sublists_dropdown.setObjectName("sublists")
         self.sublists_dropdown.hide()
+
+        # Save watchlist button
+        self.save_watchlist_button = QtWidgets.QPushButton("Save Watchlist", parent=self.centralwidget)
+        self.save_watchlist_button.setGeometry(QtCore.QRect(1150, 532, 200, 40))  # Adjust the position as needed
+        self.save_watchlist_button.setFont(font)
+        self.save_watchlist_button.setObjectName("save_watchlist_button")
+
+        # plot watchdata list button
+        self.plot_data_button = QtWidgets.QPushButton("Plot data window", parent=self.centralwidget)
+        self.plot_data_button.setGeometry(QtCore.QRect(1400, 532, 200, 40))  # Adjust the position as needed
+        self.plot_data_button.setFont(font)
+        self.plot_data_button.setObjectName("plot_button")
 
     def add_sources(self, sources: dict):
         self.sources = sources
@@ -479,6 +491,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.save_watchlist_button.clicked.connect(self.save_watchlist)
         self.watchlists.currentIndexChanged.connect(self.choose_watchlist)
         self.plot_data_button.clicked.connect(self.run_macro_chartist)
+        self.sublists_dropdown.currentIndexChanged.connect(self.choose_sublist)
     
     def update_searchstr(self):
         self.searchstr = self.searchstr_entry.toPlainText()
@@ -605,9 +618,6 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             
             self.return_df = pd.concat([self.return_df, ser], axis=0)
             self.series_added_count += 1
-
-            watchlist_data = self.return_df
-            metadata = org_metadata(self.return_dict)
             
             # Update the model with the new data
         if self.dataframe_viewer is not None and self.dataframe_viewer.isVisible():
@@ -649,6 +659,19 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.return_df = self.current_list["watchlist"]
 
         self.display_current_selections()
+        if hasattr(self, 'dataframe_viewer'):
+            # Show and populate the sublists dropdown
+            self.sublists_dropdown.show()
+            self.populate_sublists_dropdown()
+        else:
+            print("Dataframe viewer not yet created, select a watchlist to view it first, before dropdown available.")
+
+    def populate_sublists_dropdown(self):
+        # Logic to populate the sublists dropdown with sheet names from the .xlsm file
+        # This is just a placeholder, you need to implement the actual logic
+        self.sublists_dropdown.clear()
+        sheet_names = self.dataframe_viewer.watchlist_wb.sheetnames 
+        self.sublists_dropdown.addItems(sheet_names)
 
     def save_watchlist(self):
 
@@ -671,7 +694,15 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                 fileName += '.xlsx'  # Ensure the file has a .xlsx extension
             # Assuming self is an instance of a class that has access to the watchlist and metadata DataFrames
             try:
-                self.current_list.save_watchlist(path=self.watchlists_path)
+                saved_name = self.current_list.save_watchlist(path=self.watchlists_path)
+                if self.dataframe_viewer.wb_path:
+                    # Create the directory if it doesn't exist
+                    directory = os.path.dirname(self.dataframe_viewer.wb_path+fdel+saved_name+fdel+saved_name+".xlsm")
+                    if not os.path.exists(directory):
+                        os.makedirs(directory)
+                    print("Creating new .xlsm workbook for the watchlist, ", self.current_list_name, "at: ", directory+fdel+saved_name+".xlsm")
+                    
+                    self.dataframe_viewer.watchlist_wb.save(directory+fdel+saved_name+".xlsm")
                 # Save the watchlist and metadata to the selected file
             except Exception as e:
                 print(f"Failed to save watchlist: {e}")
@@ -696,8 +727,8 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         if self.dataframe_viewer:
             if self.dataframe_viewer.sublist_name:
                 print("Let's run chartist innit, watchlist name: ", self.current_list_name, "sublist name: ", self.dataframe_viewer.sublist_name,
-                      "\nPath to watchlist .xlsm file: ", self.dataframe_viewer.out_name, "running chartist, hold on........")
-                mbchart.run_chartist(self.dataframe_viewer.out_name, self.dataframe_viewer.sublist_name)
+                      "\nPath to watchlist .xlsm file: ", self.dataframe_viewer.wb_path, "running chartist, hold on........")
+                mbchart.run_chartist(self.dataframe_viewer.wb_path, self.dataframe_viewer.sublist_name)
             else:
                 print("No sublist has been created yet, need a sublist to chart..")
                 return
@@ -706,9 +737,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             return
         
     def choose_sublist(self):
-        if self.dataframe_viewer.out_name:
-            self.watchlist_book = openpyxl.load_workbook(self.dataframe_viewer.out_name, keep_vba=True, keep_links=True, rich_text=True)
-            self.watchlist_sublists = self.watchlist_book.sheetnames
+        if self.dataframe_viewer.wb_path:
+            print("Loading watchlist workbook: ", self.dataframe_viewer.wb_path)
+            self.watchlist_book = openpyxl.load_workbook(self.dataframe_viewer.wb_path, keep_vba=True, keep_links=True, rich_text=True)
+            self.watchlist_sublist = self.watchlist_book.sheetnames
+            self.dataframe_viewer.sublist_name = self.sublists_dropdown.currentText()
 
 ##### STANDALONE FUNCTIONS ####################
 
