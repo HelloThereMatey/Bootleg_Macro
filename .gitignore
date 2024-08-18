@@ -26,6 +26,8 @@
 /User_Data/SavedData/*
 /User_Data/Watchlists/*
 /User_Data/Research_notebooks/*
+/User_Data/Chartist/*
+!/User_Data/Chartist/EquityIndexes/EquityIndexes.xlsm
 !/User_Data/Watchlists/M3_Monetary_Aggregates.xlsx
 !/User_Data/Research_notebooks/research_template.ipynb
 !/User_Data/NLQ_Data/NLQ_Data.xlsx
