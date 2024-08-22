@@ -135,7 +135,7 @@ class Watchlist(dict):
             for ticker in self["watchlist_datasets"].keys():
                 if ticker not in self["watchlist"]["id"].to_list():
                     self["watchlist_datasets"].pop(ticker)
-            print("Final index/columns watchlist/metadata: ", self["watchlist"].index, self["metadata"].columns)
+            #print("Final index/columns watchlist/metadata: ", self["watchlist"].index, self["metadata"].columns)
 
 ## Standalone functions ####################
 
@@ -192,11 +192,14 @@ class PandasModel(QtCore.QAbstractTableModel):
         self.dataChanged.emit()  
 
 class WatchListView(QtWidgets.QMainWindow):
-    def __init__(self, dataframe, parent=None, watchlist_name: str = "Watchlist", template_file: str = parent+fdel+'Macro_Chartist'+fdel+'Control_t.xlsm',
+    def __init__(self, watchlist_df: pd.DataFrame, metadata_df: pd.DataFrame, parent=None, 
+                 watchlist_name: str = "", template_file: str = parent+fdel+'Macro_Chartist'+fdel+'Control_t.xlsm',
                  out_folder: str = parent+fdel+"User_Data"+fdel+"Chartist"):
         super().__init__(parent)
-        self.watchlist_data = dataframe
+        self.watchlist_data = watchlist_df
+        self.watchlist_metadata = metadata_df
         self.watchlist_name = watchlist_name
+
         self.setWindowTitle("Watchlist: "+watchlist_name)
         self.height_mult = 1.5 # Multiplier for the height of QTableView tables within the WatlistViewer window
         
@@ -212,7 +215,7 @@ class WatchListView(QtWidgets.QMainWindow):
         self.setCentralWidget(central_widget)
         
         # Set the model for the table view
-        self.model = PandasModel(dataframe)
+        self.model = PandasModel(self.watchlist_data)
         self.table_view.setModel(self.model)
         # Initial setup for column widths
         self.adjust_column_widths()
@@ -239,7 +242,7 @@ class WatchListView(QtWidgets.QMainWindow):
         self.template_file = template_file
         self.name, self.ext = os.path.splitext(template_file)
         if self.watchlist_name:
-            self.wb_path = out_folder + fdel+self.watchlist_name + ".xlsm"
+            self.wb_path = out_folder + fdel+self.watchlist_name +fdel + self.watchlist_name +".xlsm"
         else:
             self.wb_path = out_folder
         if os.path.isfile(self.wb_path):
@@ -318,33 +321,57 @@ class WatchListView(QtWidgets.QMainWindow):
         new_sheet = self.watchlist_wb.copy_worksheet(sheet)
         new_sheet.title = self.sublist_name
         new_sheet.data_validations = sheet.data_validations
-
+        
         # Need to have selected data first
         if not hasattr(self, 'selected_rows_df'):
             print("No data selected to export to chartist. Select data in upper table first.")
             return
 
         watchlist_df = self.selected_rows_df
+        tickers = watchlist_df["id"].to_list()
+
+        # Check if the tickers exist in the columns of watchlist_metadata
+        existing_tickers = [ticker for ticker in tickers if ticker in self.watchlist_metadata.columns]
+        missing_tickers = [ticker for ticker in tickers if ticker not in self.watchlist_metadata.columns]
+
+        if missing_tickers:
+            print(f"Warning: The following tickers are missing in the metadata: {missing_tickers}")
+
+        # Select only the existing tickers
+        watchlist_metadata = self.watchlist_metadata.loc[:, existing_tickers]
+    
         # Get the list of tickers from the watchlist
         ticker_col = df_version.columns.get_loc('Series_Ticker')   + 1
         source_col = df_version.columns.get_loc('Source')   + 1
         legend_col = df_version.columns.get_loc('Legend_Name') + 1
+        y_axis_col = df_version.columns.get_loc("Axis_Label") + 1
+        print("Columns in df_version of xlsm control sheet: ticker_col", df_version.columns[ticker_col], ticker_col, "source_col: ", df_version.columns[source_col], source_col, 
+              "legend_col: ", df_version.columns[legend_col], legend_col, "y_axis_col", df_version.columns[y_axis_col], y_axis_col)
 
-        for col in new_sheet.iter_cols(min_col = ticker_col, max_col = legend_col, min_row = 2, max_row = len(watchlist_df)+1):
+
+        for col in new_sheet.iter_cols(min_col = 1, max_col = 11, min_row = 2, max_row = len(watchlist_df)+1):
             colum = col[0].column
 
+            i = 0
             if colum == ticker_col:
                 colname = "id"
             elif colum == source_col:
                 colname = "source"
             elif colum == legend_col:
                 colname = "title"
+            elif colum == y_axis_col:
+                metadata_index_pos = watchlist_metadata.index.get_loc("units")
+                print("Y-axis label column....", watchlist_metadata.iloc[metadata_index_pos])
+                for cell in col:
+                    print("Set cell, ", cell, "value to: ", watchlist_metadata.iloc[metadata_index_pos, i])
+                    cell.value = watchlist_metadata.iloc[metadata_index_pos, i]
+                    i += 1
+                continue
             else:
                 continue
-            i = 0
             for cell in col:
-                    cell.value = watchlist_df[colname].iloc[i]
-                    i += 1
+                cell.value = watchlist_df[colname].iloc[i]
+                i += 1
         
         new_sheet.cell(row=39,column=2).value = self.sublist_name
         self.watchlist_wb.save(self.wb_path)
@@ -635,8 +662,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             print(f"Directory {self.watchlists_path} does not exist.")
             return
 
-        # Get all .xlsx files in the directory
-        xlsx_files = [f for f in os.listdir(self.watchlists_path) if f.endswith('.xlsx')]
+        # List all .xls, .xlsx, and .xlsm files
+        xlsx_files = [
+            f for f in os.listdir(self.watchlists_path)
+            if f.endswith(('.xls', '.xlsx', '.xlsm')) and re.match(r'^[A-Za-z]', f)]
+
         # Extract filenames without the extension
         watchlist_names = [os.path.splitext(f)[0] for f in xlsx_files]
         watchlist_names.insert(0, "Choose a watchlist...")
@@ -677,7 +707,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         watchlist_data = self.return_df
         metadata = org_metadata(self.return_dict)
-        print("Watchlist data: \n", watchlist_data, "\n\nMetadata: \n", metadata)
+        #print("Watchlist data: \n", watchlist_data, "\n\nMetadata: \n", metadata)
 
         # Open a save file dialog with .xlsx as the fixed file type
         if self.current_list is None:
@@ -717,7 +747,8 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
     def display_current_selections(self):
         if self.dataframe_viewer is None:
-            self.dataframe_viewer = WatchListView(self.return_df, parent=self, watchlist_name=self.current_list_name)
+            print("Return dict at this point: ", self.return_dict)
+            self.dataframe_viewer = WatchListView(self.return_df, metadata_df = org_metadata(self.current_list["metadata"]), parent=self, watchlist_name=self.current_list_name)
         else:
             self.dataframe_viewer.model = PandasModel(self.return_df)
             self.dataframe_viewer.table_view.setModel(self.dataframe_viewer.model)

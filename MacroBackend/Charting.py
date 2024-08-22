@@ -560,24 +560,12 @@ class BMP_Fig(Figure):
                         TheAx.plot(fit.ext_fit, color=traceData['TraceColor'], ls = "dashed", lw = 1)
                     except Exception as e:
                         print("Fitting trend failed.... Error message: ", e, "\nWill plot trace without trendline...")    
-
-                # if not pd.isna(primary_trace["FitTrend"]) and primary_trace['UnitsType'] in ['Unaltered','Rolling sum']:
-                #     TheAx.set_ylim(ticks[0]-0.03*ticks[0], ticks[-1]+0.03*ticks[-1]) 
-
-                # if Ymax is not None and Ymin is not None:
-                #     TheAx.set_ylim(Ymin,Ymax)
-                # elif Ymax is not None and Ymin is None:  
-                #     TheAx.set_ylim(primary_trace['Data'].min(),Ymax)    
-                # elif Ymax is None and Ymin is not None:  
-                #     TheAx.set_ylim(Ymin,primary_trace['Data'].max())   
                   
                 if i > 1:
                     TheAx.spines.right.set_position(("axes", 1+((i-1)*0.055))); 
                 TheAx.margins(0.02,0.02)
                 TheAx.spines['right'].set_linewidth(1.5)
                 TheAx.spines['right'].set_color(primary_trace['TraceColor'])
-                # if isinstance(data, pd.Series):
-                #     TheAx.legend(fontsize=9,loc=locList[i]) 
             i += 1      
 
         self.ax1.minorticks_on()
@@ -606,7 +594,7 @@ class BMP_Fig(Figure):
         newMinTicks2 = [np.nan for i in range(len(newMinTicks)-len(newMinTicks))]
         newMinTicks3 = [*newMinTicks2,*newMinTicks]
         self.ax1.set_xticks(newMinTicks3,minor=True); self.ax1.set_xticks(majList)
-        self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b-%Y'))
         self.ax1.margins(0.01,0.05)
     
     def set_Title(self,title:str):
@@ -683,16 +671,21 @@ class BMP_Fig(Figure):
         # y0 = ax.get_position().y0; y1 = ax.get_position().y1 # Get the bottom position of the axes
         self.text_box_row = row_1 - leg_heights - 0.015
         print("Text box row should be at: ", self.text_box_row)
-        ax.text(-0.05, self.text_box_row , 'Charts by The Macro Bootlegger (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
-        ax.text(1.05, self.text_box_row , self.DataSourceStr, fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
         
         print("Heights of legends: ", heights)
         print("Bottom: ", bottom)
         self.bottom = bottom
         self.subplots_adjust(bottom = bottom)    
 
-
-        
+        # Check if the legend width exceeds the figure width
+        legend_width = leg.get_window_extent().width / fig.dpi
+        fig_width = fig.get_figwidth()
+        if legend_width > fig_width and legtype == "single":
+            print("Legend width exceeds figure width. Re-running with legtype='one_per_axes'.")
+            leg = None    #Reset the legend from before.
+            self.make_legend(legtype="one_per_axes")
+        ax.text(-0.05, self.text_box_row , 'Charts by The Macro Bootlegger (twitter: @Tech_Pleb)',fontsize=9,fontweight='bold',color='blue',horizontalalignment='left', transform=self.ax1.transAxes)
+        ax.text(1.05, self.text_box_row , self.DataSourceStr, fontsize=9,color='blue',horizontalalignment='right', transform=self.ax1.transAxes)
 
 def DF_DefPlot(data: pd.DataFrame, yLabel: str = "a.u", YScale:str='linear', title: str = "DataFrame contents"):
     plt.rcParams['font.family'] = 'serif'
