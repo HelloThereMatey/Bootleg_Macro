@@ -13,6 +13,7 @@ import json
 from typing import Union, Tuple, List
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from matplotlib.lines import Line2D
 from openpyxl import load_workbook
 import sys
@@ -1038,11 +1039,44 @@ class Pair_stats(object):
             self.data[names+"_alpha_"+str(window)] = self.data[self.series1.name].rolling(window=window).mean() - self.data[names+"_beta_"+str(window)]\
                   * self.data[self.series2.name].rolling(window=window).mean()
 
-    def plot_corrs(self, trim_windows: int = 0):
+    def plot_log_returns(self, downsample_to: str = ""):
+        # Extract the relevant data
+        two_series_only = self.data[["ret_" + self.ser1_title, "ret_" + self.ser2_title]]
+        if downsample_to:
+            two_series_only = two_series_only.resample(downsample_to).last()
+
+        # Plot using matplotlib directly
+        fig, ax = plt.subplots(figsize=(14, 6)) 
+        
+        # Create bar plots for each series
+        #width = 0.4  # Width of the bars
+        plot_width = ax.get_window_extent().width # Convert from pixels to inches
+        width =  plot_width/ len(two_series_only) # Width of each bar
+        print("Plot width: ", plot_width, "bar width: ", width) 
+
+        # Calculate the time delta for offsetting the bars
+        tDelta = (two_series_only.index[1] - two_series_only.index[0]) / 2
+        print("Time delta: ", tDelta, tDelta /2)
+        ax.bar(two_series_only.index + tDelta/2 + pd.DateOffset(), two_series_only["ret_" + self.ser1_title], width = width*1.5, label=self.ser1_title)
+        ax.bar(two_series_only.index - tDelta/2, two_series_only["ret_" + self.ser2_title], width = width*1.5, label=self.ser2_title, alpha=0.7)
+
+        # Set the title and labels
+        ax.set_title('Log Returns: ' + self.ser1_title + ' vs ' + self.ser2_title)
+        #ax.set_xlabel('Date')
+        ax.set_ylabel('Log Returns')
+
+        ax.legend()
+        #ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+        # Show the plot
+        plt.show()
+        return fig, ax
+
+    def plot_corrs(self, trim_windows: int = 0, percentage_ret_corr: bool = False, qd_corr: bool = False):
         ## Using plt directly...
 
+        num_plots = 2 + percentage_ret_corr + qd_corr
         #Step 1: Create subplots
-        fig, axes = plt.subplots(4, 1, figsize=(11, 7), sharex=True)  # Adjust figsize as needed
+        fig, axes = plt.subplots(num_plots, 1, figsize=(11, 7), sharex=True)  # Adjust figsize as needed
 
         # Step 2: Plot data
         # Assuming self.data is a DataFrame with the necessary columns
@@ -1056,41 +1090,47 @@ class Pair_stats(object):
                 axes[0].plot(self.data.index, self.data[corr_col], label=f"{self.windows[i]} periods")
             if retcorr_col in self.data.columns:
                 axes[1].plot(self.data.index, self.data[retcorr_col], label=f"{self.windows[i]} periods")
-            if pctRetcorr_col in self.data.columns:
+            if pctRetcorr_col in self.data.columns and percentage_ret_corr:
                 axes[2].plot(self.data.index, self.data[pctRetcorr_col], label=f"{self.windows[i]} periods")
-            if qdcorr_col in self.data.columns:
+            if qdcorr_col in self.data.columns and qd_corr:
                 axes[3].plot(self.data.index, self.data[qdcorr_col], label=f"{self.windows[i]} periods")
 
         fig.subplots_adjust(left=0.08, bottom=0.06, right = 0.97, top = 0.95, hspace=0.11)  # Adjust the right margin to fit the legend
         # Step 3: Style (mimicking pandas.plot)
         for ax in axes:
             ax.set_ylabel('Correlation', fontweight = 'bold', fontsize = 10)
-       
-        axes[0].axhline(self.full_corr, color="r", linestyle="--", lw=1)
-        axes[1].axhline(self.full_RetCorr, color="r", linestyle="--", lw=1)
-        axes[2].axhline(self.full_PctRetCorr, color="r", linestyle="--", lw=1)
-        axes[3].axhline(self.full_qdCorr, color="r", linestyle="--", lw=1)
-
+        
+        fullCorrs = [self.full_corr, self.full_RetCorr, self.full_PctRetCorr, self.full_qdCorr]
+        i = 0
+        for ax in axes:
+            ax.axhline(fullCorrs[i], color="r", linestyle="--", lw=1)
+            i += 1
+        
+        print("Frequency of the pair: ", self.frequency)
         # Optional: Titles, labels, etc.
         axes[0].set_title(f"Correlation: {self.ser1_title} vs {self.ser2_title}", fontsize = 11, pad = 2.5)
         axes[1].set_title(f"Log returns correlation.", fontsize = 10, pad = 2.5)
-        axes[2].set_title(f"Percentage returns correlation.", fontsize = 10, pad = 2.5)
-        axes[3].set_title(f"QuantDare returns correlation.", fontsize = 10, pad = 2.5)
+        if percentage_ret_corr:
+            axes[2].set_title(f"Percentage returns correlation.", fontsize = 10, pad = 2.5)
+        if qd_corr:
+            axes[3].set_title(f"QuantDare returns correlation.", fontsize = 10, pad = 2.5)
 
-        print("Frequency of the pair: ", self.frequency)
         line_handle = Line2D([0], [0], color="r", linestyle="--", lw=1, label="Correlation\nfull length")
-        handles, labels = axes[2].get_legend_handles_labels()
+        handles, labels = axes[0].get_legend_handles_labels()
         handles_combined = handles + [line_handle]
         labels_combined = labels + ["Correlation\nfull length"]
-        axes[3].legend(handles=handles_combined, labels=labels_combined, fontsize = 10, bbox_to_anchor=(0.95, -0.1), ncol = 6)
+        axes[num_plots-1].legend(handles=handles_combined, labels=labels_combined, fontsize = 10, bbox_to_anchor=(0.95, -0.1), ncol = 6)
         # axes[1] = add_line_to_legend(axes[1], "Correlation\nfull length", color="r", linestyle="--", lw=1)
         # axes[2] = add_line_to_legend(axes[1], "Correlation\nfull length", color="r", linestyle="--", lw=1)
         fig.text(0.865, 0.96, 'Data frequency: '+self.frequency, ha='center', va='center')
     
     def plot_series(self):
-        
-        leftTraces = {self.ser1_title: (self.series1, "black", 1.5)}
-        rightTraces = {self.ser2_title: (self.series2, "blue", 1.5)}
+        plt.rcParams["font.family"] = "serif"
+        plt.rcParams["figure.figsize"] = (14, 7)
+        plt.style.use("dark_background") 
+    
+        leftTraces = {self.ser1_title: (self.series1, "white", 1.5)}
+        rightTraces = {self.ser2_title: (self.series2, "dodgerblue", 1.5)}
         
         #print(self.watchlist_meta.loc["units", self.series1.name])
         try:
@@ -1107,6 +1147,8 @@ class Pair_stats(object):
 
         self.fig1 = Charting.TwoAxisFig(leftTraces, "log", lylabel, title=self.name,
             RightTraces=rightTraces, RightScale="log", RYLabel=rylabel, LeftTicks=ytr, RightTicks=ytr2)
+        self.fig1.axes[0].grid(True, which='both', axis='both', color='white', linestyle='--', linewidth=1)
+        return self.fig1, self.fig1.axes[0]
         
     def find_optimal_lag(self, n):
         correlations = []; backcorrs = []
