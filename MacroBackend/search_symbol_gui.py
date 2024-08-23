@@ -80,12 +80,13 @@ class Watchlist(dict):
 
     def save_watchlist(self, path: str = parent+fdel+"User_Data"+fdel+"Watchlists"):
         # Example method to save watchlist data to an Excel file
-        with pd.ExcelWriter(path+fdel+self.name.replace(" ", "_")+".xlsx") as writer:
+        saveName = self.name.replace(" ", "_")
+        with pd.ExcelWriter(path+fdel+saveName+fdel+saveName+".xlsx") as writer:
             self['watchlist'].to_excel(writer, sheet_name='watchlist')
             self['metadata'].to_excel(writer, sheet_name='all_metadata')
         return self.name 
 
-    def get_watchlist_data(self, start_date: str = "1990-01-02"):
+    def get_watchlist_data(self, start_date: str = "1900-01-01"):
         """get_watchlist_data method.
         This function takes a Watchlist object and returns a dictionary of pandas Series and/or dataframe objects.
         Data will be pulled from the source listed for each asset/ticker/macrodata code in the watchlist.
@@ -93,7 +94,7 @@ class Watchlist(dict):
         Parameters:
 
         - Watchlist: search_symbol_gui.Watchlist object
-        - start_date: str, default "1990-01-02"
+        - start_date: str, default "1900-01-01"
         """
 
         watchlist = pd.DataFrame(self["watchlist"]); meta = pd.DataFrame(self["metadata"])
@@ -101,10 +102,15 @@ class Watchlist(dict):
 
         data = {}
         for i in watchlist.index:
-            #print(watchlist.loc[i,"source"])
-            ds = Pull_Data.dataset()
-            ds.get_data(watchlist.loc[i,"source"], watchlist.loc[i,"id"], start_date, exchange_code = meta.loc["exchange", i])
-            data[i] = ds.data
+            print("Attempting data pull for series id: ", watchlist.loc[i,"id"], ", from source: ",watchlist.loc[i,"source"])
+            try:
+                ds = Pull_Data.dataset()
+                ds.get_data(watchlist.loc[i,"source"], watchlist.loc[i,"id"], start_date, exchange_code = meta.loc["exchange", i])
+                data[watchlist.loc[i,"id"]] = ds.data
+            except Exception as e:
+                print(f"Error pulling data for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Exception: {e}")
+                data[watchlist.loc[i,"id"]] = pd.Series(["Data pull failed for this series.", "Devo bro....",
+                                                         "Error messsage: "+e], name=["Error"], index = [0, 1, 2])
         self["watchlist_datasets"] = data
 
     def insert_data(self, data: Union[pd.DataFrame, pd.Series], data_name: str = "new_data", ticker_to_insert: str = None):
@@ -715,7 +721,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             self.current_list_name = fileName.split(fdel)[-1].split(".")[0]
             self.current_list = Watchlist(watchlist_data=watchlist_data, metadata_data=metadata, watchlist_name=self.current_list_name)
         else:
-            fileName = self.watchlists_path+fdel+self.current_list_name+".xlsx"
+            fileName = self.watchlists_path+fdel+self.current_list_name+fdel+self.current_list_name+".xlsx"
             self.current_list.append_current_watchlist(watchlist_data, metadata)
 
         self.current_list.drop_data(drop_duplicates=True)
