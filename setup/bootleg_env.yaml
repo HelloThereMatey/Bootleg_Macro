@@ -8,3 +8,4 @@ dependencies:
   - r-essentials
   - nodejs
   - pip
+  - pytables
