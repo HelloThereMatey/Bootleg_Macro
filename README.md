@@ -14,7 +14,7 @@ Multiple tools for obtaining and then charting and comparing economic data with 
         - Crypto: Coin Gecko, Glassnode (requires Glassnode subscription and API key). If you want data from this source & don't want to buy subscription, contact me and I'll setup an API to provide it to you.
         - More sources to come in the future, particularly via data scraping, this is what Bootleg Macro is all about. 
 ### Generic Charting tool "Macro_Chartist":
-<img src="/examples/chartist.jpg" alt="Example of chartist output." width="1100"/>
+<img src="/examples/chartist.png" alt="Example of chartist output." width="1100"/>
 Left: screenshot of the excel file control panel. Right: Example output chart. 
 
 
