@@ -929,6 +929,7 @@ class Pair_stats(object):
   
         self.series1 = series1
         self.series2 = series2
+
         self.downsample_to = downsample_to  #Use pandas frequency strings to resample both series and decrease the frequency. e.g "W", "M", "MS"
 
         if len(ser1_title) == 0:
@@ -939,6 +940,10 @@ class Pair_stats(object):
             self.ser2_title = ser2_title = self.series2.name
         else:
             self.ser2_title = ser2_title
+
+        if self.series1.name != self.ser1_title or self.series2.name != self.ser2_title:
+            print("Renaming series to match titles....")
+            series1.rename(self.ser1_title, inplace=True)
 
         if watchlist_meta.empty:
             self.watchlist_meta = None
@@ -1008,7 +1013,8 @@ class Pair_stats(object):
     def returns_df(self):
             # # Let's calulate some returns innit...
         df = pd.concat([self.series1, self.series2], axis = 1)
-        
+        print("Calculating returns for series: ", self.series1.name, self.series2.name)
+
         df["ret_"+self.ser1_title] = np.log(df[self.series1.name]/df[self.series1.name].shift(1))
         df["ret_"+self.ser2_title] = np.log(df[self.series2.name]/df[self.series2.name].shift(1))
         df["retPct_"+self.ser1_title] = df[self.series1.name].pct_change(fill_method=None)
@@ -1051,25 +1057,43 @@ class Pair_stats(object):
         # Create bar plots for each series
         #width = 0.4  # Width of the bars
         plot_width = ax.get_window_extent().width # Convert from pixels to inches
-        width =  plot_width/ len(two_series_only) # Width of each bar
+        width =  (plot_width/ len(two_series_only)) / 2 # Width of each bar
         print("Plot width: ", plot_width, "bar width: ", width) 
 
         # Calculate the time delta for offsetting the bars
-        tDelta = (two_series_only.index[1] - two_series_only.index[0]) / 2
+        tDelta = (two_series_only.index[1] - two_series_only.index[0])
         print("Time delta: ", tDelta, tDelta /2)
-        ax.bar(two_series_only.index + tDelta/2 + pd.DateOffset(), two_series_only["ret_" + self.ser1_title], width = width*1.5, label=self.ser1_title)
-        ax.bar(two_series_only.index - tDelta/2, two_series_only["ret_" + self.ser2_title], width = width*1.5, label=self.ser2_title, alpha=0.7)
+        ax.bar(two_series_only.index - tDelta/4, two_series_only["ret_" + self.ser1_title], width = width, label=self.ser1_title)
+        ax.bar(two_series_only.index + tDelta/4, two_series_only["ret_" + self.ser2_title], width = width, label=self.ser2_title)
 
         # Set the title and labels
         ax.set_title('Log Returns: ' + self.ser1_title + ' vs ' + self.ser2_title)
         #ax.set_xlabel('Date')
         ax.set_ylabel('Log Returns')
-
         ax.legend()
-        #ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
-        # Show the plot
-        plt.show()
         return fig, ax
+
+    def plot_log_returns_alt(self, downsample_to: str = "", color1: str = "b", color2: str = "r"):
+        two_series_only = self.data[["ret_" + self.ser1_title, "ret_" + self.ser2_title]]
+        if downsample_to:
+            two_series_only = two_series_only.resample(downsample_to).last()
+
+        fig, axes = plt.subplots(2, 1, figsize=(14, 6))
+        plot_width = axes[0].get_window_extent().width # Convert from pixels to inches
+        width =  (plot_width/ len(two_series_only)) # Width of each bar
+        print("Plot width: ", plot_width, "bar width: ", width) 
+        # Plot the log returns
+        axes[0].bar(two_series_only.index, two_series_only["ret_" + self.ser1_title], width = width, label=self.ser1_title, color = color1)
+        axes[1].bar(two_series_only.index, two_series_only["ret_" + self.ser2_title], width = width, label=self.ser2_title, color = color2)
+        axes[1].legend()
+        # Set the title and labels
+        axes[0].set_title('Log Returns: ' + self.ser1_title + ' vs ' + self.ser2_title)
+        for ax in axes:
+            ax.set_axisbelow(True)
+            ax.legend(fontsize = 11, frameon = True)
+            ax.set_ylabel('Log Returns')
+            ax.grid(visible=True, lw = 1, ls = '--')
+        return fig, axes
 
     def plot_corrs(self, trim_windows: int = 0, percentage_ret_corr: bool = False, qd_corr: bool = False):
         ## Using plt directly...
