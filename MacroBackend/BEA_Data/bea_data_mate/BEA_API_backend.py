@@ -5,7 +5,7 @@ parent = os.path.dirname(wd); grampa = os.path.dirname(parent); ancestor = os.pa
 import sys
 sys.path.append(wd); sys.path.append(grampa); sys.path.append(ancestor)
 
-import beaapiloc
+from beaapiloc import search_metadata
 import pandas as pd
 import numpy as np
 import requests
@@ -20,7 +20,8 @@ from tkinter import filedialog
 from MacroBackend import Utilities
 from pprint import pprint
 import pybea.client  #Comment the line above & uncomment these two in order to run this file as a standalone script.
-import custom_FI       
+import custom_FI      
+import time 
 
 
 Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
@@ -615,25 +616,29 @@ class CustomIndexWindow(ctk.CTkToplevel):
         self.ExportPath.set(folder_selected)  
 
 # This uses the beaapiloc python package that is actually prodcued by the BEA. It is new and in development. 
-def bea_search_metadata(searchstr: str, bea_key: str, metadata_store = parent+fdel+"Datasets"+fdel+"beaapi_data", fuzzy = True):
+def bea_search_metadata(searchstr: str, bea_key: str, metadata_store = parent+fdel+"Datasets"+fdel+"beaapi_data"):
     print("WARNING: This function is as slow as a cunt.")
-    search = beaapiloc.search_metadata(searchstr, userid = bea_key, metadata_store = metadata_store, fuzzy = fuzzy)
+    start_time = time.time()
+    search = search_metadata(searchstr, userid = bea_key, metadata_store = metadata_store)
+    end_time = time.time()  # Record the end time
+    elapsed_time = end_time - start_time  # Calculate the elapsed time
+    print(f"Script execution time: {elapsed_time:.2f} seconds")
     return search
 
 if __name__ == "__main__":
     keyz = Utilities.api_keys(JSONpath=grampa+fdel+'SystemInfo')
     api_key = keyz.keys['bea']
-    dataset = "NIPA"
-    parameterName = "Tablename"
+    # dataset = "NIPA"
+    # parameterName = "Tablename"
    
-    filepath = parent+fdel+"Datasets"+fdel+"BEAAPI_Info.xlsx"
+    # filepath = parent+fdel+"Datasets"+fdel+"BEAAPI_Info.xlsx"
 
-    # search = bea_search_metadata("GDP", api_key)
-    # print(search)
+    # # search = bea_search_metadata("GDP", api_key)
+    # # print(search)
 
-    bilp = BEA_Data(api_key=api_key, BEA_Info_filePath=filepath)
-    bilp.Get_BEA_Data()
-    print(bilp.Data)
+    # bilp = BEA_Data(api_key=api_key, BEA_Info_filePath=filepath)
+    # bilp.Get_BEA_Data()
+    # print(bilp.Data)
     
 
     

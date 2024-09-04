@@ -10,13 +10,14 @@ fdel = os.path.sep
 sys.path.append(parent)
 from typing import Union
 import json
+import time
 
 from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data
 from MacroBackend.BEA_Data import bea_data_mate
 import Macro_Chartist.chartist as mbchart
 
 keys = Utilities.api_keys().keys
-abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_MasterIndex.csv"
+abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_index.h5s"
 cG_allshitsPath = wd+fdel+"AllCG.csv"
 metricsListPath = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv"
 bea_path = wd+fdel+"BEA_Data"+fdel+"Datasets"+fdel+"BEA_First3_Datasets.csv"
@@ -54,6 +55,7 @@ class Watchlist(dict):
         self['watchlist'] = pd.DataFrame(watchlist_data) if watchlist_data is not None else pd.DataFrame()
         self['metadata'] = pd.DataFrame(metadata_data) if metadata_data is not None else pd.DataFrame()
         self['watchlist_datasets'] = {}
+        self.storepath = None
 
     def load_watchlist(self, filepath: str = ""):
         """load_watchlist method. Loads a watchlist from an Excel file, with two sheets: 'watchlist' and 'all_metadata'."""
@@ -73,6 +75,8 @@ class Watchlist(dict):
                         you want two sheets named 'watchlist' and 'all_metadata' with tables that can form dataframes in each. Exception:", e)
                 return None
         self.drop_data(drop_duplicates=True)
+        self.storepath = os.path.splitext(filepath)[0] + ".h5s"
+        self.storepath  = self.watchlists_path + fdel + self.name + fdel + self.name + ".h5s"
     
     def append_current_watchlist(self, watchlist_data: pd.DataFrame, metadata_data: pd.DataFrame):
         # Append new data to the current watchlist
@@ -94,9 +98,16 @@ class Watchlist(dict):
             with pd.ExcelWriter(path+fdel+saveName+fdel+saveName+".xlsx") as writer:
                 self['watchlist'].to_excel(writer, sheet_name='watchlist')
                 self['metadata'].to_excel(writer, sheet_name='all_metadata')
+            if self['watchlist_datasets']:
+                self.storepath = save_directory+fdel+saveName+".h5s"
+                watchstore = pd.HDFStore(self.storepath, mode='w')
+                for key in self["watchlist_datasets"].keys():
+                    watchstore[key] = self["watchlist_datasets"][key]
+                watchstore.close()
+                print("Saved watchlist datasets to .h5s database... save name: ", saveName)
         except Exception as e:
             print("Error saving watchlist data to file. Exception: ", e)
-        return saveName
+        return saveName, save_path
 
     def get_watchlist_data(self, start_date: str = "1900-01-01"):
         """get_watchlist_data method.
@@ -124,6 +135,19 @@ class Watchlist(dict):
                 data[watchlist.loc[i,"id"]] = pd.Series(["Data pull failed for this series.", "Devo bro....",
                                                          "Error messsage: "+e], name=["Error"], index = [0, 1, 2])
         self["watchlist_datasets"] = data
+    
+    def load_watchlist_data(self):
+        print("Database filepath: ", self.storepath)
+        if self.storepath is not None and os.path.isfile(self.storepath):
+            with pd.HDFStore(self.storepath, mode='r') as data:
+                print("Databse keys: ", data.keys())
+                self['watchlist_datasets'] = {key.lstrip('/'): data[key] for key in data.keys()}
+                data.close()
+        else:
+            print("No .h5s database found for this watchlist. Get and save data first....")
+            return
+        
+        print("Loaded database from .h5s file, keys: ", self["watchlist_datasets"].keys())
 
     def insert_data(self, data: Union[pd.DataFrame, pd.Series], data_name: str = "new_data", ticker_to_insert: str = None):
         self["watchlist_datasets"][data_name] = data
@@ -220,15 +244,17 @@ class WatchListView(QtWidgets.QMainWindow):
         print("New watchlist viewer created: ", watchlist_name, ", wtachlist data:", watchlist_df, "\n\nmetadata: ",metadata_df, "\n\n")
 
         self.setWindowTitle("Watchlist: "+watchlist_name)
+        self.width_max = 1450
         self.height_offs = 50 # Multiplier for the height of QTableView tables within the WatlistViewer window
+        self.table2height = None
         
         # Create a central widget and set a vertical layout
         central_widget = QtWidgets.QWidget(self)
-        layout = QtWidgets.QVBoxLayout(central_widget)
+        self.layut = QtWidgets.QVBoxLayout(central_widget)
         
         # Create the table view and add it to the layout
         self.table_view = QtWidgets.QTableView(self)
-        layout.addWidget(self.table_view)
+        self.layut.addWidget(self.table_view)
         
         # Set the central widget
         self.setCentralWidget(central_widget)
@@ -238,7 +264,7 @@ class WatchListView(QtWidgets.QMainWindow):
         self.table_view.setModel(self.model)
 
         self.chosen_series_view = QtWidgets.QTableView(self)
-        layout.addWidget(self.chosen_series_view)
+        self.layut.addWidget(self.chosen_series_view)
         self.adjust_chosen_series_view_height()
 
         # Create the export button and add it to the layout
@@ -246,14 +272,14 @@ class WatchListView(QtWidgets.QMainWindow):
         self.sublist_title.setFont(font); self.sublist_title.setFontPointSize(16)
         self.sublist_title.setObjectName("sublist name")
         self.sublist_title.setFixedSize(200, 30)
-        layout.addWidget(self.sublist_title, alignment = QtCore.Qt.AlignmentFlag.AlignHCenter)  
+        self.layut.addWidget(self.sublist_title, alignment = QtCore.Qt.AlignmentFlag.AlignHCenter)  
         self.sublist_name = "Sublist"
 
         # Create the export button and add it to the layout
         self.export_to_chartist = QtWidgets.QPushButton("Export your sublist to a worksheet in the Chartist workbook (.xlsm) for this WatchList", parent=parent)
         self.export_to_chartist.setFont(font)
         self.export_to_chartist.setObjectName("Export list to chartist")
-        layout.addWidget(self.export_to_chartist)   
+        self.layut.addWidget(self.export_to_chartist)   
 
         self.template_file = template_file
         self.name, self.ext = os.path.splitext(template_file)
@@ -271,6 +297,7 @@ class WatchListView(QtWidgets.QMainWindow):
         # Initial setup for column widths
         self.adjustSize()
         self.adjust_column_tablesize()
+        self.move(300, 0) 
 
     def connectSignals(self):
         self.model.dataChanged.connect(self.refresh_view)
@@ -284,7 +311,7 @@ class WatchListView(QtWidgets.QMainWindow):
 
     def adjust_column_tablesize(self):
         font_metrics = self.table_view.fontMetrics()
-        
+    
         for col in range(self.model.columnCount()):
             max_width = 0
             for row in range(self.model.rowCount()):
@@ -299,42 +326,48 @@ class WatchListView(QtWidgets.QMainWindow):
         if self.window().height() > 910:   # Do not exceed a certain height
             return
         self.total_height = sum(self.table_view.rowHeight(i) for i in range(self.model.rowCount()))
+        if self.total_height > 500:
+            self.total_height = 500
         self.table_view.setFixedHeight(self.total_height)
         
-        print("Making adjustment to window, total height, width: ", self.total_height, self.total_width)
-        if self.total_width > self.window().width():
-            self.table_view.setFixedWidth(self.total_width)
+        if self.total_width > self.width_max:
+            self.resize(self.width_max, self.height())
         else:
-            self.table_view.setFixedWidth(self.window().width() - 10)
-        self.table_view.setFixedHeight(self.total_height + self.height_offs)
-        self.table_view.setFixedWidth(self.total_width + 50)
+            self.resize(self.total_width + 250, self.height())  # Add some padding to the width
+        print("Window resized to: ", self.width(), self.height())
 
         header = self.table_view.horizontalHeader()
         header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        self.layut.setStretch(0, 1)  # Make the table view stretch to fill the available space
 
     def adjust_chosen_series_view_height(self):
+        if self.window().height() > 910:   # Do not exceed a certain height
+            return
         row_height = self.chosen_series_view.rowHeight(0)
         try:
             row_count = self.chosen_series_view.model().rowCount()
         except:
-            self.chosen_series_view.setFixedHeight(30)
-            return
-        t2_offs = round(self.height_offs/3)
-        table2height = (row_height * row_count) + t2_offs
+            row_count = 1
+        if self.table2height is None:
+            self.table2height = row_height*row_count
+            windowheight = self.window().height()
+        else:
+            self.table2height += row_height
+            windowheight = self.window().height() + row_height
         max_height = 500  # Set your desired max height here
 
-        if table2height > max_height:
-            table2height = max_height
+        if self.table2height > max_height:
+            self.table2height = max_height
 
-        if self.window().height() > 910:   # Do not exceed a certain height
-            return
-        self.chosen_series_view.setFixedHeight(round(table2height))
-        
-        if self.total_height+self.height_offs > 1000:
-            self.total_height = 1000
-        else:
-            self.total_height += table2height
-        self.resize(round(self.total_width) + 150, round(self.total_height))
+        # Set the width of the second table view to match the upper table view
+        upper_table_width = self.table_view.width()
+        self.chosen_series_view.resize(upper_table_width, self.table2height)
+
+        # Ensure columns expand to fit contents
+        header = self.chosen_series_view.horizontalHeader()
+        header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+
+        self.resize(self.window().width(), windowheight)
 
     def refresh_view(self):
         self.adjust_column_tablesize()
@@ -383,7 +416,6 @@ class WatchListView(QtWidgets.QMainWindow):
         y_axis_col = df_version.columns.get_loc("Axis_Label") + 1
         print("Columns in df_version of xlsm control sheet: ticker_col", df_version.columns[ticker_col], ticker_col, "source_col: ", df_version.columns[source_col], source_col, 
               "legend_col: ", df_version.columns[legend_col], legend_col, "y_axis_col", df_version.columns[y_axis_col], y_axis_col)
-
 
         for col in new_sheet.iter_cols(min_col = 1, max_col = 11, min_row = 2, max_row = len(watchlist_df)+1):
             colum = col[0].column
@@ -602,12 +634,21 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
 
         for term in terms:
             if self.search_results is not None:
-                results = Utilities.Search_DF(self.search_results, term)
+                results = Utilities.Search_DF_np(self.search_results, term)
             else:
                 if self.source_table_path is not None:
                     print("Loading index of time-series data for source: ", self.selected_source, " to dataframe from: ", self.source_table_path)
-                    df = pd.read_csv(self.source_table_path, index_col=0)
-                    results = Utilities.Search_DF(df, term)
+                    ext = self.source_table_path.split(".")[-1]
+                    if ext == "csv":
+                        df = pd.read_csv(self.source_table_path, index_col=0)
+                    elif ext == "xlsx":
+                        df = pd.read_excel(self.source_table_path, index_col=0)
+                    elif ext == "h5s":
+                        df = pd.read_hdf(self.source_table_path, key='data')
+                    else:
+                        print("File extension not recognized, please use .csv, .xlsx or .h5s")
+                        return
+                    results = Utilities.Search_DF_np(df, term)
                     
                     if results.empty:
                         print("No results found, check search terms.")
@@ -773,11 +814,12 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
          # This saves the wtachlist to a .xlsx file with two sheets, one for the watchlist and one for the metadata.
         self.current_list.drop_data(drop_duplicates=True)
         if fileName:
+            print("FilenameExists, filename: ", fileName)
             if not fileName.endswith('.xlsx'):
                 fileName += '.xlsx'  # Ensure the file has a .xlsx extension
             # Assuming self is an instance of a class that has access to the watchlist and metadata DataFrames
             try:
-                saved_name = self.current_list.save_watchlist(path=self.watchlists_path)
+                saved_name, fileName = self.current_list.save_watchlist(path=self.watchlists_path)
                 if self.dataframe_viewer.wb_path:
                     # Create the directory if it doesn't exist
                     print("Details of the watchlist viewer: ", self.dataframe_viewer.wb_path, "watchlist name: ", self.current_list_name, "saved name: ", saved_name)   
@@ -799,6 +841,21 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                 self.previous_selections_wl.append(metadata)
                 self.return_dict = {}        # Reset the return dictionary, rest selected series
                 self.return_df = pd.DataFrame() # Reset the return dataframe
+                
+                ## Re-load watchlst to current_list, needs to wait for the save to .xlsx to complete before loading the watchlist
+                print("Waiting up to 5s for all save processes to complete.........")
+                self.current_list  = None
+                time.sleep(1)
+                for i in range(5):
+                    if os.path.isfile(fileName):
+                        self.current_list = Watchlist(watchlist_name=self.current_list_name)
+                        self.current_list.load_watchlist(filepath=fileName)
+                    else:
+                        time.sleep(1)
+                if self.current_list is None:
+                    print("Failed to load watchlist after saving, check file path: ", fileName)
+                self.dataframe_viewer.close() 
+                self.dataframe_viewer = WatchListView(self.current_list["watchlist"], metadata_df = self.current_list["metadata"], parent=self, watchlist_name=self.current_list_name)
         else:
             print("Save operation cancelled.")
 
@@ -815,16 +872,19 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.dataframe_viewer.show()
 
     def run_macro_chartist(self):
-        if self.dataframe_viewer:
+        if hasattr(self, 'dataframe_viewer'):
             if self.dataframe_viewer.sublist_name:
                 print("Let's run chartist innit, watchlist name: ", self.current_list_name, "sublist name: ", self.dataframe_viewer.sublist_name,
                       "\nPath to watchlist .xlsm file: ", self.dataframe_viewer.wb_path, "running chartist, hold on........")
-                mbchart.run_chartist(self.dataframe_viewer.wb_path, self.dataframe_viewer.sublist_name)
+                try:
+                    mbchart.run_chartist(self.dataframe_viewer.wb_path, self.dataframe_viewer.sublist_name)
+                except Exception as e:
+                    print("Failed to run chartist: ", e)
             else:
                 print("No sublist has been created yet, need a sublist to chart..")
                 return
         else:
-            print("Watchlist has not been viewed, select a watchlist to view it first, or build and save watchlst first.")
+            print("Watchlist has not been viewed, select a watchlist to view it first, or build and save watchlist first.")
             return
         
     def choose_sublist(self):

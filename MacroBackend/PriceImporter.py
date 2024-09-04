@@ -527,11 +527,13 @@ def PullFredSeries(series:str,apikey:str,start="1776-07-04",filetype="&file_type
     if r.status_code != 200:
         print('Attempt to get series: ',series,' data from FRED has failed. Check internet connection perhaps. Pulling out')
         quit()
+    #print(r.json())
     df = pd.json_normalize(r.json())
+    #print("Pull data FRED, received a df, columns: ", df.columns)
     df2 = pd.DataFrame.from_dict(df['observations'][0])
+    #print("Pull data FRED, conversion from dict pd.DataFrame.from_dict(df['observations'][0]), resultant df columns: ", df2.columns)
     dateIndex = pd.DatetimeIndex(df2['date'])
     df2.set_index(dateIndex,inplace=True)
-    dfraw = df2
     remove = {'.':np.nan, '/':np.nan, ']':np.nan} 
     df2['value'] = df2['value'].replace(remove)
     df2.dropna(inplace=True)
