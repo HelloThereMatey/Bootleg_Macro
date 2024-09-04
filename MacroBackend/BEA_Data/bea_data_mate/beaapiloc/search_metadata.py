@@ -1,4 +1,13 @@
 import pandas as pd
+import warnings
+import os
+import sys
+import numpy as np
+wd = os.path.dirname(__file__); parent = os.path.dirname(wd); 
+grampa = os.path.dirname(parent); ancestor = os.path.dirname(grampa)
+fdel = os.path.sep
+sys.path.append(parent)
+from beaapiloc import update_metadata, api_request
 
 
 def search_metadata(search_term: str, userid: str = None,
@@ -45,10 +54,6 @@ def search_metadata(search_term: str, userid: str = None,
     >>> import beaapiloc
     >>> beaapiloc.search_metadata('Gross Domestic', 'yourAPIkey')
     """
-    import warnings
-    import os
-    import numpy as np
-    from beaapiloc import update_metadata, api_request
 
     if userid is None:
         warnings.warn('Searching without specifying userid, e.g., search_metadata('
@@ -198,3 +203,18 @@ def search_metadata(search_term: str, userid: str = None,
 
     searched_df.attrs['response_size'] = response_size
     return searched_df
+
+if __name__ == "__main__":
+    import time
+
+    start_time = time.time()  # Record the start time
+
+    mikey = "779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC"
+
+    results = search_metadata('Gross Domestic', metadata_store=wd+fdel+"beaapi_data", userid=mikey)
+
+    end_time = time.time()  # Record the end time
+    elapsed_time = end_time - start_time  # Calculate the elapsed time
+    print(f"Script execution time: {elapsed_time:.2f} seconds")
+
+    print(results)
