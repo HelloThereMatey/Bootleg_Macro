@@ -7,6 +7,8 @@ import shutil
 import re
 import pandas as pd
 import subprocess
+import json
+from pprint import pprint
 
 # Path to the Rscript executable
 # You might need to specify the full path if Rscript is not in the PATH
@@ -69,6 +71,39 @@ def get_abs_series_r(series_id: str = "A2302476C", abs_path: str = abs_path) -> 
 
     return the_series, SeriesInfo
 
+def browse_rba_tables_r(searchterm: str = "rate") -> pd.DataFrame:
+    input_dict = {
+        "function": "browse_tables",
+        "searchterm": searchterm
+    }
+    input_string = json.dumps(input_dict)
+
+    rba_script_path = wd + fdel + "read_rba.r"
+    process = subprocess.run([r_executable_path, rba_script_path, input_string],
+                             capture_output=True, text=True)
+
+    output = str(process.stdout).strip()
+    json_data = json.loads(output)
+    df = pd.DataFrame(json_data)
+    return df
+
+def browse_rba_series_r(searchterm: str = "rate") -> pd.DataFrame:
+    input_dict = {
+        "function": "browse_series",
+        "searchterm": searchterm
+    }
+    input_string = json.dumps(input_dict)
+
+    rba_script_path = wd + fdel + "read_rba.r"
+    process = subprocess.run([r_executable_path, rba_script_path, input_string],
+                             capture_output=True, text=True)
+
+    output = str(process.stdout).strip()
+    json_data = json.loads(output)
+    df = pd.DataFrame(json_data)
+    return df
+
 if __name__ == "__main__":
-    series, info = get_abs_series_r(series_id, abs_path)
-    print(series, info)
+    search = browse_rba_series_r("cash rate")
+    print(search)
+
