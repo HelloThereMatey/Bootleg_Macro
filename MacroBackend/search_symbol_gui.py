@@ -14,6 +14,7 @@ import time
 
 from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data
 from MacroBackend.BEA_Data import bea_data_mate
+from MacroBackend.ABS_backend import abs_series_by_r
 import Macro_Chartist.chartist as mbchart
 
 keys = Utilities.api_keys().keys
@@ -679,6 +680,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                     elif self.selected_source == 'bea':
                         results =  self.source_function(term, keys['bea'])
                         results.rename(columns = {'TableId': 'id', "LineDescription": "title", "SeriesCode": "symbol"}, inplace=True)
+                    elif self.selected_source == 'rba_tables':
+                        results =  self.source_function(term)
+                        #results.rename(columns = {'id': 'name', "title": "title", "source": "source"}, inplace=True)    
+                    elif self.selected_source == 'rba_series':
+                        results =  self.source_function(term)
                     else:
                         print("No source table selected or something like this..... uhhhh...")
                         return    
@@ -936,7 +942,9 @@ def run_app():
             'quandl': None, 
             'glassnode': metricsListPath, 
             'abs': abs_index_path,
-            'bea': bea_data_mate.BEA_API_backend.bea_search_metadata}
+            'bea': bea_data_mate.BEA_API_backend.bea_search_metadata,
+            "rba_tables": abs_series_by_r.browse_rba_tables_r,
+            "rba_series": abs_series_by_r.browse_rba_series_r}
     
     app = QtWidgets.QApplication.instance()
     if app is None:
