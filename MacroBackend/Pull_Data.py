@@ -226,6 +226,9 @@ class dataset(object):
         elif self.source.lower() == 'bea':
             print("Currently working on BEA data source, not yet implemented.")
 
+        elif self.source.lower() == 'rba_tables':
+            out_df = abs_series_by_r.get_rba_series_r(series_id = self.data_code)
+            self.data = out_df
         else:
             if self.source in self.supported_sources:
                 print("Your specified source will be supported but the coding has not been done yet, sorry sucker..") 

@@ -18,7 +18,8 @@ from MacroBackend.ABS_backend import abs_series_by_r
 import Macro_Chartist.chartist as mbchart
 
 keys = Utilities.api_keys().keys
-abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_index.h5s"
+abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_Index.h5s"
+abs_tables_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Tables_Index.h5s"
 cG_allshitsPath = wd+fdel+"AllCG.csv"
 metricsListPath = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv"
 bea_path = wd+fdel+"BEA_Data"+fdel+"Datasets"+fdel+"BEA_First3_Datasets.csv"
@@ -660,11 +661,13 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                     elif not results.empty and self.selected_source == 'glassnode':
                         results['id'] = results['path'].apply(lambda x: str(x).split('/')[-1])
                         results['title'] = results['id'].copy()
-                    elif not results.empty and self.selected_source == 'abs':
+                    elif not results.empty and self.selected_source == 'abs_series':
                         results.rename(columns = {'Unnamed: 0': 'line_number', "Series ID": "id", "Data Item Description": "title"}, inplace=True)
+                    # elif not results.empty and self.selected_source == 'abs_tables':
+                    #     results
+                        #results.rename(columns = {'Unnamed: 0': 'line_number', "Series ID": "id", "Data Item Description": "title"}, inplace=True)
                     else:
-                        print("Dunno whaat happened here bruv..........")
-                        return
+                        pass
             
                 elif self.source_function is not None:
                     if self.selected_source == 'fred':
@@ -941,7 +944,8 @@ def run_app():
             'coingecko': cG_allshitsPath, 
             'quandl': None, 
             'glassnode': metricsListPath, 
-            'abs': abs_index_path,
+            'abs_tables': abs_tables_path,
+            'abs_series': abs_index_path,
             'bea': bea_data_mate.BEA_API_backend.bea_search_metadata,
             "rba_tables": abs_series_by_r.browse_rba_tables_r,
             "rba_series": abs_series_by_r.browse_rba_series_r}

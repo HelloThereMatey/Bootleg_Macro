@@ -1,7 +1,7 @@
 # BM chart style parameters
 # .15 = dark_gray
 # .8 = light_gray
-figure.facecolor: oldlace
+figure.facecolor: white
 text.color: .15
 axes.labelcolor: .15
 legend.frameon: True
@@ -13,18 +13,22 @@ xtick.color: .15
 ytick.color: .15
 axes.axisbelow: True
 image.cmap: Greys
+
+#### FONTS ########
 #font.family: serif
 #font.serif: Times New Roman, Georgia, Garamond, Palatino, Bookman, New Century Schoolbook, serif
 font.family: sans-serif
 font.sans-serif: Arial, Helvetica, DejaVu Sans, Bitstream Vera Sans, sans-serif
+
+
 grid.linestyle: --
 grid.linewidth: 0.5
 grid.alpha: 0.8
 lines.solid_capstyle: round
 axes.grid: True
-axes.facecolor: ivory
+axes.facecolor: EAEAF2
 axes.edgecolor: black
-axes.linewidth: 2
+axes.linewidth: 1
 grid.color: black
 xtick.major.size: 4
 ytick.major.size: 4
@@ -32,4 +36,5 @@ xtick.minor.visible: True
 xtick.minor.size: 2.5
 ytick.minor.size: 2.5
 axes.margins: 0.02, 0.02
+frameon: True
 figure.dpi: 200
