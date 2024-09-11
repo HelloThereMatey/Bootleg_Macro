@@ -15,14 +15,13 @@ import datetime
 from datetime import timedelta
 from . import Utilities, Fitting
 from typing import Union
+import math
 
 ###### Global matplotlib parameters that I want always set ###################################
-mpl.use("QtAgg")
-plt.rcParams['font.family'] = 'serif'
-plt.rcParams['savefig.dpi'] = 300
-plt.rcParams['figure.dpi'] = 300
-# plt.rcParams['savefig.jpeg_quality'] = 95
-
+try:
+    mpl.use("QtAgg")
+except:
+    mpl.use("TkAgg")
 
 Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  , 'burlywood', 'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson', 'cyan', 'darkblue', 'darkcyan', 
@@ -116,8 +115,6 @@ def FedFig(TheData:pd.Series,SeriesInfo:pd.Series,RightSeries:pd.Series=None,rig
                 ax.spines[axis].set_linewidth(1.5)
     ax.minorticks_on()
     return fig
-
-import math
 
 def plot_colortable(colors = mcolors.CSS4_COLORS, *, ncols=4, sort_colors=True):
 
@@ -371,14 +368,12 @@ def MainFig(MainSeries:pd.Series,CADict:dict,CorrDF:pd.DataFrame,AssetData:pd.Da
 def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
                LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None):
     
-    fig = plt.figure(num=title,figsize=(13,6.5), tight_layout=True)
+    fig = plt.figure(num=title,figsize=(12,6), tight_layout=True)
     gs1 = GridSpec(1, 1, top = 0.95, bottom=0.14 ,left=0.06,right=0.92)
     ax1 = fig.add_subplot(gs1[0])
     ax1 = fig.axes[0]
     ax1.set_title(title,fontweight='bold')
 
-    for trace in LeftTraces.keys():
-        ax1.plot(LeftTraces[trace][0],label = trace,color=LeftTraces[trace][1],lw=LeftTraces[trace][2])
     if LeftScale == 'log':
         ax1.set_yscale('log')    
     if LeftTicks is not None:    ### Ticks must be input as a tuple of lists or np.arrays. WIth format (Tick positions list, tick labels list)
@@ -386,11 +381,14 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
             ax1.tick_params(axis='y',which='both',length=0,labelsize=0,left=False,labelleft=False)
             ax1.set_yticks(LeftTicks[0]); ax1.set_yticklabels(LeftTicks[1])
             ax1.tick_params(axis='y',which='major',length=3,labelsize=9,left=True,labelleft=True)
-            #ax1.set_ylim(LeftTicks[0][0]-0.02*LeftTicks[0][0],LeftTicks[0][len(LeftTicks[0])-1]+0.02*LeftTicks[0][len(LeftTicks[0])-1])
             ax1.set_ylim(LeftTicks[0][0],LeftTicks[0][len(LeftTicks[0])-1])
+    
+    ax1.grid(visible=True, color = "black", lw = 0.75, ls = "--", which = 'major', axis = 'both', alpha = 0.7)
+    for trace in LeftTraces.keys():
+        ax1.plot(LeftTraces[trace][0],label = trace,color=LeftTraces[trace][1],lw=LeftTraces[trace][2])
+        
     if RightTraces is not None:
         ax1b = ax1.twinx()
-        #ax1b.margins(0.02,0.03)
         for axis in ['top','bottom','left','right']:
             ax1b.spines[axis].set_linewidth(1.5) 
         for trace in RightTraces.keys():
@@ -404,7 +402,6 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
             ax1b.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
             ax1b.set_yticks(RightTicks[0]); ax1b.set_yticklabels(RightTicks[1])
             ax1b.tick_params(axis='y',which='major',width=1,length=3,labelsize=9,right=True,labelright=True)
-            #ax1b.set_ylim(RightTicks[0][0]-0.02*RightTicks[0][0],RightTicks[0][len(RightTicks[0])-1]+0.02*RightTicks[0][len(RightTicks[0])-1])
             ax1b.set_ylim(RightTicks[0][0],RightTicks[0][len(RightTicks[0])-1])
             if RightMinTicks is not None:
                 ax1b.set_yticks(RightMinTicks[0],minor=True); 
@@ -712,6 +709,26 @@ def DF_DefPlot(data: pd.DataFrame, yLabel: str = "a.u", YScale:str='linear', tit
     plt.tight_layout() # This will ensure everything fits well    
 
     return fig      
+
+def gen_subplots_bar(series1: pd.Series, series2: pd.Series, color1: str = "b", color2: str = "r",
+                     title: str = "Bar plot...", ylabel: str = "USD"):
+
+        fig, axes = plt.subplots(2, 1, figsize=(14, 6))
+        plot_width = axes[0].get_window_extent().width # Convert from pixels to inches
+        width =  (plot_width/ len(series1)) # Width of each bar
+       
+        # Plot the bars
+        axes[0].bar(series1.index, series1, width = width*2, label=series1.name, color = color1)
+        axes[1].bar(series2.index, series2, width = width*2, label=series2.name, color = color2)
+        axes[1].legend()
+        # Set the title and labels
+        axes[0].set_title(title)
+        for ax in axes:
+            ax.set_axisbelow(True)
+            ax.legend(fontsize = 11, frameon = True)
+            ax.set_ylabel(ylabel)
+            ax.margins(0.02, 0.02)
+        return fig, axes
 
 class TracesTop_RoC_bottom(Figure):
 

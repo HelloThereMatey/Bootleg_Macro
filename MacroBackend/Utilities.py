@@ -11,6 +11,7 @@ import os
 import re
 import json
 from typing import Union, Tuple, List
+import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -77,6 +78,29 @@ def basic_load_dialog(initialdir: str = wd, title: str ='Choose your file...',
     file_path = filedialog.askopenfilename(filetypes=filetypes, initialdir=initialdir, parent=window, title=title)
     window.withdraw()  
     return file_path
+
+def save_path_dialog(initialdir: str = wd, title: str = 'Choose your save destination...', qt = True):
+    try:
+        if not qt: 
+            print("Using tkinter rather than Qt for dialog...")
+            raise ImportError
+        from PyQt6.QtWidgets import QApplication, QFileDialog
+        import sys
+
+        app = QApplication(sys.argv)
+        file_path = QFileDialog.getExistingDirectory(None, title, initialdir, options=QFileDialog.Option.DontUseNativeDialog)
+        app.exit()
+        return file_path
+
+    except ImportError:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        window = tk.Tk()
+        window.withdraw()
+        file_path = filedialog.askdirectory(initialdir=initialdir, mustexist=True, title=title)
+        window.withdraw()
+        return file_path
 
 def append_to_column(workbook_path, sheet_name:str = 'Sheet1', column:str = 'A', data_list: list = []):
     """
@@ -971,6 +995,7 @@ class Pair_stats(object):
         self.series2 = series2
 
         self.downsample_to = downsample_to  #Use pandas frequency strings to resample both series and decrease the frequency. e.g "W", "M", "MS"
+        self.freq_rep_dict = {'D': "Daily", "W": "Weekly", "M": "Monthly", "Q": "Quarterly", "Y": "Yearly"}
 
         if len(ser1_title) == 0:
             self.ser1_title = self.series1.name
@@ -993,14 +1018,16 @@ class Pair_stats(object):
         print("Series names: ",self.series2.name, self.series1.name)
         self.frequency = ""
         self.windows = windows 
-        print("Windows: ", self.windows)
-        self.windows.append(min(len(self.series1), len(self.series2))-2)
         
-        self.check_input_series()
+        if self.check_input_series() is None:
+            return
         self.name = f'{self.ser1_title} and {self.ser2_title}'
         self.data = self.returns_df()
+        print("Windows: ", self.windows)
+        self.windows.append(min(len(self.series1), len(self.series2))-2)
+
         self.rolling_stats()
-    
+
     def check_input_series(self):
             #Ensure that both are series first:
         try:
@@ -1009,13 +1036,15 @@ class Pair_stats(object):
             print("Input series object types: ", type(series1), type(series2))
         except ValueError as e:
             print(e)
-            print("Input series object types: ", type(series1), type(series2))
+            print("Input series object types: ", type(series1), type(series2), "only pd.Series objects are currentl supported. Convert them to Series first.")
+            return None
         
             ## Ensure that the two series are of the same frequency and length. 
         freq1 = freqDetermination(series1); freq1.DetermineSeries_Frequency()
         freq2 = freqDetermination(series2); freq2.DetermineSeries_Frequency()
         print(freq1.frequency, freq2.frequency)
-
+        self.series1 = freq1.series; self.series2 = freq2.series
+        
         if freq1.frequency != freq2.frequency:
             print("Frequency of series do not match, downsampling the higher freq series to match...")
             try:
@@ -1046,9 +1075,10 @@ class Pair_stats(object):
             self.series2 = series2.resample(self.downsample_to).last()
             freqCheck = freqDetermination(self.series1)
             freqCheck.DetermineSeries_Frequency();  self.frequency = freqCheck.frequency
-        else:
-            self.series1 = series1
-            self.series2 = series2
+        
+        # Make sure series are the same lengths after first having made them the same frequency:
+        self.series1, self.series2 = match_series_lengths(self.series1, self.series2)
+        return 1
     
     def returns_df(self):
             # # Let's calulate some returns innit...
@@ -1088,8 +1118,10 @@ class Pair_stats(object):
     def plot_log_returns(self, downsample_to: str = ""):
         # Extract the relevant data
         two_series_only = self.data[["ret_" + self.ser1_title, "ret_" + self.ser2_title]]
+        freq_str = self.frequency
         if downsample_to:
             two_series_only = two_series_only.resample(downsample_to).last()
+            freq_str = self.freq_rep_dict[downsample_to] if downsample_to in self.freq_rep_dict.keys() else downsample_to
 
         # Plot using matplotlib directly
         fig, ax = plt.subplots(figsize=(14, 6)) 
@@ -1111,20 +1143,25 @@ class Pair_stats(object):
         #ax.set_xlabel('Date')
         ax.set_ylabel('Log Returns')
         ax.legend()
+        ax.text(0.01, 1.02, "Data frequency: "+self.frequency, horizontalalignment='left', transform=ax.transAxes)
+        ax.margins(0.01, 0.03)
+        self.returns_plot = fig
         return fig, ax
 
     def plot_log_returns_alt(self, downsample_to: str = "", color1: str = "b", color2: str = "r"):
         two_series_only = self.data[["ret_" + self.ser1_title, "ret_" + self.ser2_title]]
+        freq_str = self.frequency
         if downsample_to:
             two_series_only = two_series_only.resample(downsample_to).last()
+            freq_str = self.freq_rep_dict[downsample_to] if downsample_to in self.freq_rep_dict.keys() else downsample_to
 
         fig, axes = plt.subplots(2, 1, figsize=(14, 6))
         plot_width = axes[0].get_window_extent().width # Convert from pixels to inches
         width =  (plot_width/ len(two_series_only)) # Width of each bar
         print("Plot width: ", plot_width, "bar width: ", width) 
         # Plot the log returns
-        axes[0].bar(two_series_only.index, two_series_only["ret_" + self.ser1_title], width = width, label=self.ser1_title, color = color1)
-        axes[1].bar(two_series_only.index, two_series_only["ret_" + self.ser2_title], width = width, label=self.ser2_title, color = color2)
+        axes[0].bar(two_series_only.index, two_series_only["ret_" + self.ser1_title], width = width*2, label=self.ser1_title, color = color1)
+        axes[1].bar(two_series_only.index, two_series_only["ret_" + self.ser2_title], width = width*2, label=self.ser2_title, color = color2)
         axes[1].legend()
         # Set the title and labels
         axes[0].set_title('Log Returns: ' + self.ser1_title + ' vs ' + self.ser2_title)
@@ -1132,7 +1169,10 @@ class Pair_stats(object):
             ax.set_axisbelow(True)
             ax.legend(fontsize = 11, frameon = True)
             ax.set_ylabel('Log Returns')
-            ax.grid(visible=True, lw = 1, ls = '--')
+            ax.margins(0.01, 0.03)
+
+        axes[0].text(0.01, 1.06, 'Data frequency: '+freq_str, ha='left', va='center', transform=axes[0].transAxes)
+        self.returns_plot = fig
         return fig, axes
 
     def plot_corrs(self, trim_windows: int = 0, percentage_ret_corr: bool = False, qd_corr: bool = False):
@@ -1140,7 +1180,7 @@ class Pair_stats(object):
 
         num_plots = 2 + percentage_ret_corr + qd_corr
         #Step 1: Create subplots
-        fig, axes = plt.subplots(num_plots, 1, figsize=(11, 7), sharex=True)  # Adjust figsize as needed
+        fig, axes = plt.subplots(num_plots, 1, figsize=(12, 5+(1.5*num_plots-2)), sharex=True)  # Adjust figsize as needed
 
         # Step 2: Plot data
         # Assuming self.data is a DataFrame with the necessary columns
@@ -1167,36 +1207,36 @@ class Pair_stats(object):
         fullCorrs = [self.full_corr, self.full_RetCorr, self.full_PctRetCorr, self.full_qdCorr]
         i = 0
         for ax in axes:
+            ax: plt.Axes
             ax.axhline(fullCorrs[i], color="r", linestyle="--", lw=1)
+            ax.tick_params(axis = 'x', labelsize = 0, length = 0, width = 0)
+            if i == len(axes)-1:
+                ax.tick_params(axis = 'x', labelsize = 11, length = 3)
             i += 1
         
         print("Frequency of the pair: ", self.frequency)
         # Optional: Titles, labels, etc.
-        axes[0].set_title(f"Correlation: {self.ser1_title} vs {self.ser2_title}", fontsize = 11, pad = 2.5)
-        axes[1].set_title(f"Log returns correlation.", fontsize = 10, pad = 2.5)
+        axes[0].set_title(f"Correlation: {self.ser1_title} vs {self.ser2_title}", fontsize = 11, pad = 3.5)
+        axes[1].set_title(f"Log returns correlation.", fontsize = 11, pad = 3.5)
         if percentage_ret_corr:
-            axes[2].set_title(f"Percentage returns correlation.", fontsize = 10, pad = 2.5)
+            axes[2].set_title(f"Percentage returns correlation.", fontsize = 11, pad = 3.5)
         if qd_corr:
-            axes[3].set_title(f"QuantDare returns correlation.", fontsize = 10, pad = 2.5)
+            axes[3].set_title(f"QuantDare returns correlation.", fontsize = 11, pad = 3.5)
 
         line_handle = Line2D([0], [0], color="r", linestyle="--", lw=1, label="Correlation\nfull length")
         handles, labels = axes[0].get_legend_handles_labels()
         handles_combined = handles + [line_handle]
         labels_combined = labels + ["Correlation\nfull length"]
-        axes[num_plots-1].legend(handles=handles_combined, labels=labels_combined, fontsize = 10, bbox_to_anchor=(0.95, -0.1), ncol = 6)
-        # axes[1] = add_line_to_legend(axes[1], "Correlation\nfull length", color="r", linestyle="--", lw=1)
-        # axes[2] = add_line_to_legend(axes[1], "Correlation\nfull length", color="r", linestyle="--", lw=1)
-        fig.text(0.865, 0.96, 'Data frequency: '+self.frequency, ha='center', va='center')
-    
+        axes[num_plots-1].legend(handles=handles_combined, labels=labels_combined, fontsize = 10, bbox_to_anchor=(0.75, -0.1), ncol = 6)
+        fig.text(0.865, 0.97, 'Data frequency: '+self.frequency, ha='center', va='center')
+
+        self.corr_plot = fig
+
     def plot_series(self):
-        plt.rcParams["font.family"] = "serif"
-        plt.rcParams["figure.figsize"] = (14, 7)
-        plt.style.use("dark_background") 
     
-        leftTraces = {self.ser1_title: (self.series1, "white", 1.5)}
-        rightTraces = {self.ser2_title: (self.series2, "dodgerblue", 1.5)}
+        leftTraces = {self.ser1_title: (self.series1, "orangered", 2.25)}
+        rightTraces = {self.ser2_title: (self.series2, "navy", 2.25)}
         
-        #print(self.watchlist_meta.loc["units", self.series1.name])
         try:
             lylabel = self.watchlist_meta.loc["units", self.series1.name] if not pd.isna(self.watchlist_meta.loc["units", self.series1.name]) else "USD"
         except:
@@ -1211,9 +1251,29 @@ class Pair_stats(object):
 
         self.fig1 = Charting.TwoAxisFig(leftTraces, "log", lylabel, title=self.name,
             RightTraces=rightTraces, RightScale="log", RYLabel=rylabel, LeftTicks=ytr, RightTicks=ytr2)
-        self.fig1.axes[0].grid(True, which='both', axis='both', color='white', linestyle='--', linewidth=1)
-        return self.fig1, self.fig1.axes[0]
         
+        return self.fig1, self.fig1.axes[0]
+    
+    def plot_lin_reg(self):
+        rets = self.data[["ret_"+self.ser1_title, "ret_"+self.ser2_title]]
+        reg = np.polyfit(rets["ret_"+self.ser1_title] , rets["ret_"+self.ser2_title], deg = 1, full = False)
+   
+        vals = np.polyval(reg, rets["ret_"+self.ser1_title])
+        # Calculate the R² value
+        residuals = rets["ret_"+self.ser2_title] - vals
+        ss_res = np.sum(residuals**2)
+        ss_tot = np.sum((rets["ret_"+self.ser2_title] - np.mean(rets["ret_"+self.ser2_title]))**2)
+        r_squared = 1 - (ss_res / ss_tot)
+        ax = rets.plot(kind="scatter", x = "ret_"+self.ser1_title, y = "ret_"+self.ser2_title, alpha = 0.6, figsize = (13, 5), edgecolor='none')
+        ax.plot(rets["ret_"+self.ser1_title], vals , 'r', lw = 1.5)
+
+        # Add a text box with the R² value
+        textstr = f'$R^2 = {r_squared:.2f}$'
+        props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=12,
+                verticalalignment='top', bbox=props)
+        self.lineRegPlot = ax.get_figure()
+
     def find_optimal_lag(self, n):
         correlations = []; backcorrs = []
         for i in range(n+1):
@@ -1254,6 +1314,33 @@ class Pair_stats(object):
         self.ret_lag_test = pd.concat([backcorr_ser, pd.Series(correlations, index=range(n+1))], axis=0)
         
         return optimal_lag, highest_correlation
+
+    def export_plots(self, savePath: str = "", dialog: str = "Tk", format: str = "png"):
+        savename = self.ser1_title + "-" + self.ser2_title
+        if not savePath:
+            if dialog == "Qt":
+                savePath = save_path_dialog()
+            else:
+                savePath = save_path_dialog(qt=False)
+
+        save_options = {
+            'format': format,
+            'bbox_inches': 'tight',
+            'pad_inches': 0.1  # Adjust padding as needed
+        }
+
+        if hasattr(self, "fig1"):
+            self.fig1.savefig(savePath + fdel + savename + '_series.' + format, **save_options)
+            print("Saved figure 1 to: ", savePath + fdel + savename + '_series.' + format)
+        if hasattr(self, "returns_plot"):
+            self.returns_plot.savefig(savePath + fdel + savename + '_ret.' + format, **save_options)
+            print("Saved returns_plot to: ", savePath + fdel + savename + '_ret.' + format)
+        if hasattr(self, "lineRegPlot"):
+            self.lineRegPlot.savefig(savePath + fdel + savename + '_reg.' + format, **save_options)
+            print("Saved linear regression scatter plot to: ", savePath + fdel + savename + '_reg.' + format)
+        if hasattr(self, "corr_plot"):
+            self.corr_plot.savefig(savePath + fdel + savename + '_corr.' + format, **save_options)
+            print("Saved correlation plot figure to: ", savePath + fdel + savename + '_corr.' + format)
 
 class api_keys():
 

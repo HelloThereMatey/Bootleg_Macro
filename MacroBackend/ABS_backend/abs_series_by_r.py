@@ -103,7 +103,25 @@ def browse_rba_series_r(searchterm: str = "rate") -> pd.DataFrame:
     df = pd.DataFrame(json_data)
     return df
 
+def get_rba_series_r(series_id: str = "FIRMMCRTD", rba_path: str = grampa+fdel+"User_Data"+fdel+"RBA") -> pd.DataFrame:
+    input_dict = {
+        "function": "get_series",
+        "series_id": series_id,
+        "rba_path": rba_path}
+    
+    input_string = json.dumps(input_dict)
+
+    rba_script_path = wd + fdel + "read_rba.r"
+    process = subprocess.run([r_executable_path, rba_script_path, input_string],
+                             capture_output=True, text=True)
+
+    output = str(process.stdout).strip()
+    print("\n\n", output, "\n\n")
+    json_data = json.loads(output)
+    df = pd.DataFrame(json_data)
+    return df
+
 if __name__ == "__main__":
-    search = browse_rba_series_r("cash rate")
+    search = get_rba_series_r()
     print(search)
 
