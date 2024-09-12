@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from typing import Union
 import datetime
 import tkinter as tk
 from tkinter import filedialog
@@ -16,6 +17,8 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.lines import Line2D
+from matplotlib.ticker import FuncFormatter
+import seaborn as sns
 from openpyxl import load_workbook
 import sys
 
@@ -102,6 +105,10 @@ def save_path_dialog(initialdir: str = wd, title: str = 'Choose your save destin
         window.withdraw()
         return file_path
 
+# Function to format the y-axis labels
+def format_func(value, tick_number):
+    return f'{value:.2f}'  # Format with 2 decimal places
+    
 def append_to_column(workbook_path, sheet_name:str = 'Sheet1', column:str = 'A', data_list: list = []):
     """
     Appends a list of strings to a specified column in an Excel sheet using openpyxl.
@@ -441,7 +448,7 @@ def RoCofRoC(input: pd.Series,periods:int = 1 ) -> pd.Series:
     return roc.diff(periods=periods)
 
 def GetClosestDateInIndex(df_index: Union[pd.DataFrame, pd.Series, pd.DatetimeIndex], searchDate: str = "2012-01-01"):
-    ## searchDate should bee in "YYYY-MM-DD" format. 
+    ## searchDate should be in "YYYY-MM-DD" format. 
     if isinstance(df_index, pd.DatetimeIndex):
         index = df_index
     elif isinstance(df_index, pd.DataFrame) or isinstance(df_index, pd.Series):
@@ -451,14 +458,24 @@ def GetClosestDateInIndex(df_index: Union[pd.DataFrame, pd.Series, pd.DatetimeIn
         return None
 
     # Convert the Datestring to a Timestamp object
-    date_ts = pd.Timestamp(searchDate)
-    # Find the closest date in the index
-    closest_date = min(index, key=lambda x: abs(x - date_ts))
-    index = index.get_loc(closest_date)
-    return closest_date, index
+    date_ts = pd.to_datetime(searchDate)
+    
+    # Ensure all elements in index are Timestamp objects
+    try:
+        index = pd.to_datetime(index)
+    except Exception as e:
+        print(f"Error converting index to datetime: {e}")
+        return None
 
-import pandas as pd
-from typing import Union
+    # Check for any non-datetime values in the index
+    if not all(isinstance(x, pd.Timestamp) for x in index):
+        print("Index contains non-datetime values.")
+        return None
+    
+    # Find the closest date in the index
+    closest_date = min(index, key=lambda x: abs((x - date_ts).total_seconds()))
+    index_loc = index.get_loc(closest_date)
+    return closest_date, index_loc
 
 def find_closest_val(series: pd.Series, target_value: Union[int, float]):
     """
@@ -929,7 +946,7 @@ def manual_frequency(series: pd.Series, threshold_multiplier=2.25):
     # Find the period whose number of days is closest to the average timedelta
     closest_period = min(daysInPeriod, key=lambda p: abs(daysInPeriod[p] - average))
     
-    resampled_series = series.resample(closest_period).ffill()  # Replace .mean() with an appropriate aggregation function if needed
+    resampled_series = series.resample(closest_period.replace("M", "ME")).ffill()  # Replace .mean() with an appropriate aggregation function if needed
     return resampled_series, closest_period
 
  # Create a custom legend handle for the red dashed lines
@@ -1315,6 +1332,38 @@ class Pair_stats(object):
         
         return optimal_lag, highest_correlation
 
+    def bm_scatterMatrix(self):
+        rets = self.data[["ret_"+self.ser1_title, "ret_"+self.ser2_title]]
+        # Create a scatter matrix
+        scatter_matrix = pd.plotting.scatter_matrix(rets, diagonal="kde", figsize=(13, 7))
+
+        # Add red dotted lines at the peak points of the KDE plots
+        for i, ax in enumerate(scatter_matrix.diagonal()):
+            # Extract the data for the current diagonal plot
+            data = rets.iloc[:, i]
+            
+            # Calculate the KDE
+            kde = sns.kdeplot(data, ax=ax, color='blue')
+            
+            # Find the peak of the KDE
+            kde_lines = kde.get_lines()[0]
+            x_data = kde_lines.get_xdata()
+            y_data = kde_lines.get_ydata()
+            peak_x = x_data[np.argmax(y_data)]
+            
+            # Add a red dotted line at the peak point
+            ax.axvline(peak_x, color='red', linestyle='--', lw = 1)
+            
+            # Set the y-axis formatter
+            ax.yaxis.set_major_formatter(FuncFormatter(format_func))
+            # Add a text box with the x value of the peak
+            textstr = f'Peak x = {peak_x:.2f}'
+            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+            ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=12,
+                    verticalalignment='top', bbox=props)
+        self.scatMatPlot = scatter_matrix
+        return scatter_matrix
+
     def export_plots(self, savePath: str = "", dialog: str = "Tk", format: str = "png"):
         savename = self.ser1_title + "-" + self.ser2_title
         if not savePath:
@@ -1341,6 +1390,9 @@ class Pair_stats(object):
         if hasattr(self, "corr_plot"):
             self.corr_plot.savefig(savePath + fdel + savename + '_corr.' + format, **save_options)
             print("Saved correlation plot figure to: ", savePath + fdel + savename + '_corr.' + format)
+        if hasattr(self, "scatMatPlot"):
+            self.corr_plot.savefig(savePath + fdel + savename + '_scatMat.' + format, **save_options)
+            print("Saved correlation plot figure to: ", savePath + fdel + savename + '_scatMat.' + format)
 
 class api_keys():
 

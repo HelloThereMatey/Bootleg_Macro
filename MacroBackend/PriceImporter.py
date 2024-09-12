@@ -420,7 +420,8 @@ def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_d
                 BarTimeFrame = timeFrames[index+1]
                 continue
         print('Data received length: ', len(data), 'start date: ', data.index[0], 'end date: ', data.index[len(data)-1], data.index[len(data)-1] - data.index[0])
-
+        
+        start_date = data.index[0] #Overwrite your start date with the actual first datapoint received....
         data = data[start_date::].copy().drop('symbol', axis = 1)
         if index > 1:
             dateIndex = pd.Series(pd.DatetimeIndex(pd.DatetimeIndex(data.index).date), name = 'Date')
@@ -509,7 +510,10 @@ def PullFredSeries(series:str,apikey:str,start="1776-07-04",filetype="&file_type
     if len(apikey) < 5: 
         print("Looks like you have not input your FRED API key. You need this to get the data from FRED. Save your key into Bootleg_Macro/MacroBackend/SystemInfo/API_Keys.json first.")
         quit()
-    
+
+    if datetime.datetime.strptime(start,'%Y-%m-%d').date() < datetime.datetime.strptime("1776-07-04",'%Y-%m-%d').date():  
+        start = "1776-07-04"
+          
     series_header = "https://api.stlouisfed.org/fred/series?series_id="      ##This pulls data series from FRED API. 
     r = requests.get(series_header+series+"&observation_start="+start+"&api_key="+apikey+filetype)
     print('FRED API response: ',r.status_code)

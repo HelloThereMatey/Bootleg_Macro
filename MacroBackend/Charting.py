@@ -588,11 +588,22 @@ class BMP_Fig(Figure):
                 newMinTicks.append(majList[i]+j*(dist[i]/4))
                 majTicks.append(np.nan)
     
-        newMinTicks2 = [np.nan for i in range(len(newMinTicks)-len(newMinTicks))]
-        newMinTicks3 = [*newMinTicks2,*newMinTicks]
-        self.ax1.set_xticks(newMinTicks3,minor=True); self.ax1.set_xticks(majList)
-        self.ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b-%Y'))
-        self.ax1.margins(0.01,0.05)
+        newMinTicks2 = [np.nan for i in range(len(newMinTicks) - len(newMinTicks))]
+        newMinTicks3 = [*newMinTicks2, *newMinTicks]
+        self.ax1.set_xticks(newMinTicks3, minor=True)
+        self.ax1.set_xticks(majList)
+        
+        # Determine the date format based on the range of the x-axis
+        x_min, x_max = self.ax1.get_xlim()
+        x_range_years = (mdates.num2date(x_max) - mdates.num2date(x_min)).days / 365.25
+        
+        if x_range_years < 5:
+            date_format = '%b-%Y'
+        else:
+            date_format = '%Y'
+        
+        self.ax1.xaxis.set_major_formatter(mdates.DateFormatter(date_format))
+        self.ax1.margins(0.01, 0.05)
     
     def set_Title(self,title:str):
         self.ax1.set_title(title, fontweight='bold', pad = 5)
@@ -713,13 +724,13 @@ def DF_DefPlot(data: pd.DataFrame, yLabel: str = "a.u", YScale:str='linear', tit
 def gen_subplots_bar(series1: pd.Series, series2: pd.Series, color1: str = "b", color2: str = "r",
                      title: str = "Bar plot...", ylabel: str = "USD"):
 
-        fig, axes = plt.subplots(2, 1, figsize=(14, 6))
+        fig, axes = plt.subplots(2, 1, figsize=(14, 6), sharex=True)
         plot_width = axes[0].get_window_extent().width # Convert from pixels to inches
         width =  (plot_width/ len(series1)) # Width of each bar
        
         # Plot the bars
-        axes[0].bar(series1.index, series1, width = width*2, label=series1.name, color = color1)
-        axes[1].bar(series2.index, series2, width = width*2, label=series2.name, color = color2)
+        axes[0].bar(series1.index, series1, width = width*4, label=series1.name, color = color1)
+        axes[1].bar(series2.index, series2, width = width*4, label=series2.name, color = color2)
         axes[1].legend()
         # Set the title and labels
         axes[0].set_title(title)

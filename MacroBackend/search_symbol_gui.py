@@ -111,7 +111,7 @@ class Watchlist(dict):
             print("Error saving watchlist data to file. Exception: ", e)
         return saveName, save_path
 
-    def get_watchlist_data(self, start_date: str = "1900-01-01"):
+    def get_watchlist_data(self, start_date: str = "1600-01-01"):
         """get_watchlist_data method.
         This function takes a Watchlist object and returns a dictionary of pandas Series and/or dataframe objects.
         Data will be pulled from the source listed for each asset/ticker/macrodata code in the watchlist.
@@ -135,9 +135,40 @@ class Watchlist(dict):
             except Exception as e:
                 print(f"Error pulling data for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Exception: {e}")
                 data[watchlist.loc[i,"id"]] = pd.Series(["Data pull failed for this series.", "Devo bro....",
-                                                         "Error messsage: "+e], name=["Error"], index = [0, 1, 2])
+                                                         "Error messsage: "+str(e)], name="Error_"+watchlist.loc[i,"id"], index = [0, 1, 2])
+                pass
         self["watchlist_datasets"] = data
-    
+
+        try:
+            self.update_metadata()
+        except Exception as e:
+            print("Error updating metadata after data pull. Exception: ", e)
+            pass
+
+    def update_metadata(self):
+        # Update the metadata with the new data
+        if self["watchlist_datasets"]:
+            for key in self["watchlist_datasets"].keys():
+                start_date = self["watchlist_datasets"][key].index[0]
+                end_date = self["watchlist_datasets"][key].index[-1]
+                if key in self["metadata"].columns and pd.notna(self["metadata"].loc["observation_start", key]):
+                    pass
+                else:
+                    self["metadata"].loc["observation_start", key] = start_date
+                    self["metadata"].loc["observation_end", key] = end_date
+                if key in self["metadata"].columns and pd.notna(self["metadata"].loc["frequency", key]):
+                    pass
+                else:
+                    try:
+                        freq = Utilities.freqDetermination(self["watchlist_datasets"][key])
+                        freq.DetermineSeries_Frequency()
+                        self["metadata"].loc["frequency", key] = freq.frequency
+                        self["metadata"].loc["frequency_short", key] = freq.frequency[0]
+                    except Exception as e:
+                        print("Error determining frequency for series: ", key, ". Exception: ", e)
+                        self["metadata"].loc["frequency", key] = "Unknown"
+                        self["metadata"].loc["frequency_short", key] = "U"
+
     def load_watchlist_data(self):
         print("Database filepath: ", self.storepath)
         if self.storepath is not None and os.path.isfile(self.storepath):
@@ -423,7 +454,7 @@ class WatchListView(QtWidgets.QMainWindow):
             colum = col[0].column
 
             i = 0
-            if colum == ticker_col:
+            if colum == ticker_col:      ###Note to self: add functionality to append exchange code to ticker for tv as id,exchangecode to Ticker column
                 colname = "id"
             elif colum == source_col:
                 colname = "source"

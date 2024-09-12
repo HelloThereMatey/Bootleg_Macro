@@ -345,7 +345,11 @@ def run_chartist(InputsPath: str = "", sheet_name: str = "", use_def_control: bo
             else:
                 TheData2 = pd.Series(TheData2[TheData2.columns[0]],name=TheSeries['Name'])
         print('Data pull function, data series name: ',TheSeries['Legend_Name'],'Datatype:  ',type(TheData2))    
-        TheData2 = TheData2[StartDate::]
+        
+        dstart = Utilities.GetClosestDateInIndex(TheData2, StartDate.strftime("%Y-%m-%d"))
+        if dstart is not None:
+            dstart = dstart[0]
+            TheData2 = TheData2[dstart::]
         TheSeries['Data'] = TheData2
         TheSeries['SeriesInfo'] = SeriesInfo     ###Gotta make series info for the non-FRED series.  
         SeriesDict[series] = TheSeries
@@ -576,4 +580,4 @@ def run_chartist(InputsPath: str = "", sheet_name: str = "", use_def_control: bo
     plt.show()        ## This shows the matplotlib figure.
 
 if __name__ == "__main__":
-    run_chartist(use_def_control=True)
+    run_chartist()

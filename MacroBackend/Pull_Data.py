@@ -173,7 +173,10 @@ class dataset(object):
 
             self.SeriesInfo = info
             TheData.set_index(dtIndex,inplace=True)
-            print('Data pulled from TV for ticker: ', self.data_code)    
+            print('Data pulled from TV for ticker: ', self.data_code)  
+              
+            # Overwrite the start and end dates to match the data pulled from TV.
+            self.start_date = TheData.index[0]; self.end_date = TheData.index[-1]
             self.data = TheData[self.start_date:self.end_date]      
         
         elif self.source == 'coingecko':
