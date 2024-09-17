@@ -830,5 +830,37 @@ class TracesTop_RoC_bottom(Figure):
                 self.axb.set_ylabel(axDeets['ylabel_top_right'], fontsize=10, fontweight='bold')
   
 
+def plot_lin_reg(series1: pd.Series, series2: pd.Series):
+    ser1_title = series1.name; ser2_title = series2.name
+    df = pd.concat([series1, series2], axis=1)
+
+    df["ret_"+ser1_title] = np.log(df[ser1_title]/df[ser1_title].shift(1))
+    df["ret_"+ser2_title] = np.log(df[ser2_title]/df[ser2_title].shift(1))
+    df.dropna(inplace = True)
+
+    reg = np.polyfit(df["ret_"+ser1_title] , df["ret_"+ser2_title], deg = 1, full = False)
+    vals = np.polyval(reg, df["ret_"+ser1_title])
+    # Calculate the R² value
+    residuals = df["ret_"+ser2_title] - vals
+    ss_res = np.sum(residuals**2)
+    ss_tot = np.sum((df["ret_"+ser2_title] - np.mean(df["ret_"+ser2_title]))**2)
+    r_squared = 1 - (ss_res / ss_tot)
+
+    fig, ax = plt.subplots(figsize=(13, 3))
+    ax.scatter(df["ret_" + ser1_title], df["ret_" + ser2_title], alpha=0.6, edgecolor='none')
+    ax.plot(df["ret_" + ser1_title], vals, 'r', lw=1.5)
+
+    # Add a text box with the R² value
+    textstr = f'$R^2 = {r_squared:.2f}$'
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=12,
+            verticalalignment='top', bbox=props)
+
+    ax.set_title("Scatter plot of log returns of series "+ser1_title+" and "+ser2_title+" with linear regression...")
+    ax.set_xlabel(f'Log Returns of {ser1_title}')
+    ax.set_ylabel(f'Log Returns of {ser2_title}')
+
+    plt.show()
+    return fig
 
 

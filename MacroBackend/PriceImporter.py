@@ -9,9 +9,8 @@ import matplotlib.dates as mdates
 import datetime
 import pandas_datareader.data as web
 import yfinance as yf
-from .tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
 import os
-from sys import platform
+import sys 
 import re
 import enum
 import time
@@ -19,7 +18,11 @@ import time
 wd = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(wd)
 fdel = os.path.sep
+sys.path.append(wd)
 
+from tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
+
+## ACCTION BELOW... ######################################################################################################################################
 class TimeInterval(enum.Enum):
     in_1_minute = "1"
     in_3_minute = "3"
@@ -916,6 +919,33 @@ def GetRecessionDates(startDate:datetime.date,
         with pd.ExcelWriter(filepath, engine='openpyxl', mode='a') as writer:  
             SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
     return dates     
+
+def Recession_Series(fred_key: str, startdate: str = '1776-07-04') -> tuple[pd.Series, list[tuple]]:
+    """Get the recession series from FRED and return the series and the periods of recession.
+    **Returns:**
+    - recs: pd.Series, daily frequency, 0 or 1 for recession or not on that day.
+    - recession_periods: list of tuples, start and end dates of each recession period."""
+
+    _, dates = PullFredSeries('USRECDM', fred_key)
+    recs = pd.Series(dates, name='Recessions_NBER').astype(bool)
+    recs = recs[pd.Timestamp(startdate)::]
+
+    # Find the start and end dates of each recession period
+    vals = recs.to_list(); dates = recs.index.to_list()
+    start_dates = []; end_dates = []
+    recession_periods = []
+    for i in range(len(vals)):
+        if not vals[i-1] and vals[i]:
+            start_dates.append(dates[i])
+        elif vals[i-1] and not vals[i]:
+            end_dates.append(dates[i])
+        else:
+            pass
+    for i in range(len(start_dates)):
+        recession_periods.append((start_dates[i], end_dates[i]))
+    recession_periods
+
+    return recs, recession_periods
 
 def export_series_to_chartist(series: pd.Series, SeriesInfo: pd.Series):
     savePath = wd+fdel+parent+fdel+'Macro_Chartist'+fdel+'SavedData'

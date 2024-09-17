@@ -73,7 +73,7 @@ class plot_rippa(object):
                     else:
                         self.trace_colors["left"][trace_key] = {'RGB': rgb_values, 'Locations': pixel_locations}
                     print(f"{trace_key}: RGB values at ({x}, {y}): {rgb_values}, Number of matching pixels: {len(pixel_locations)}")
-                    print(trace_key, self.trace_colors[trace_key]['RGB'], type(self.trace_colors[trace_key]['RGB']))
+                    print("Trace data added, data thus far: ", self.trace_colors)
 
         if provide_trace_colors:
             self.trace_colors = provide_trace_colors
@@ -211,19 +211,25 @@ def rip_chart(imagePath: str = "", trace_colors: dict = {} , x0: float = 0, x1: 
     
 
 if __name__ == "__main__":
-    image_path = '/Users/jamesbishop/Pictures/CHartPics_ToDIgitize/CapWars_GLvsXAU-cc.png'
-    trace_colors_given = {"left": {"Trace1": {"RGB": np.array([0, 0, 0, 1])}},
-                          "right": {"Trace2": {"RGB": np.array([0.92941177, 0.49019608, 0.19215687, 1.0])}}}
-    ##Will want to modify the above to add te axis for the trace and change the modification that the trace_colors flag does...
-    x0, x1, y0, y1 = 0, 1, 1000, 2600
-    yr0, yr1 = 80, 220
-    title = "Plot Rippa"
-    plot = plot_rippa(imagePath=image_path, x0=x0, x1=x1, y0=y0, y1=y1, title=title, chart_data_frequency='D') #imagePath=image_path, 
-    plot.active_chart(provide_trace_colors=trace_colors_given)
-    plot.display_trace_locations()
-    plot.trace_locs_to_values(yr0=yr0, yr1=yr1, start_date = "2010-01-01", end_date = "2024-07-07")
-    ax = pd.Series(plot.data_series["left"]["Trace1"]).plot()
-    pd.Series(plot.data_series["right"]["Trace2"]).plot(ax = ax, secondary_y=True)
-    plt.show()
-    print(plot.data_series, pd.Series(plot.data_series["left"]["Trace1"]).index.has_duplicates,
-           pd.Series(plot.data_series["right"]["Trace2"]).index.has_duplicates)
+    image_path = '/Users/jamesbishop/Downloads/fknScamercnt.png'
+    # trace_colors_given = {"left": {"Trace1": {"RGB": np.array([0, 0, 0, 1])}},
+    #                       "right": {"Trace2": {"RGB": np.array([0.92941177, 0.49019608, 0.19215687, 1.0])}}}
+    # ##Will want to modify the above to add te axis for the trace and change the modification that the trace_colors flag does...
+    # x0, x1, y0, y1 = 0, 1, 116000, 124000
+    # yr0, yr1 = 38000, 100000
+    # title = "Plot Rippa"
+    # plot = plot_rippa(imagePath=image_path, x0=x0, x1=x1, y0=y0, y1=y1, title=title, chart_data_frequency='D') #imagePath=image_path, 
+    # plot.active_chart()
+    # plot.display_trace_locations()
+    # plot.trace_locs_to_values(yr0=yr0, yr1=yr1, start_date = "2023-12-01", end_date = "2024-12-31")
+    # ax = pd.Series(plot.data_series["left"]["Trace1"]).plot()
+    # pd.Series(plot.data_series["right"]["Trace2"]).plot(ax = ax, secondary_y=True)
+    # plt.show()
+    # print(plot.data_series, pd.Series(plot.data_series["left"]["Trace1"]).index.has_duplicates,
+    #        pd.Series(plot.data_series["right"]["Trace2"]).index.has_duplicates)
+
+    plot = rip_chart(imagePath='/Users/jamesbishop/Downloads/cw_gli.png', y0 = 1000, y1 = 2600,
+                             yr0=80, yr1=220, start_date="2010-01-01", end_date="2024-08-20", resample_to_freq="W")
+    export = pd.HDFStore('/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/SavedData/gli_cw.h5s')
+    export['cwgli'] = plot.data_series['right']['Trace2'].rename('Global_Liquidity_Index_CW')
+    export.close()

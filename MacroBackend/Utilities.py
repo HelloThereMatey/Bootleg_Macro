@@ -882,7 +882,7 @@ class freqDetermination(object):
             "Minutely": 'T',
             "Hourly": 'H',
             "Daily": 'D',
-            "Weekly": 'W',
+            "Weekly": 'W-SUN',
             "Monthly": "M",
             "Quarterly": 'Q',
             "Yearly": 'A'}
@@ -1074,13 +1074,15 @@ class Pair_stats(object):
             if s1_rank > s2_rank:
                 print('Resampling series 2 to match series 1...')
                 series2 = series2.resample(freq1.freq).last()
+                self.series2 = series2
                 self.frequency = freq1.frequency
                 print(freq1.frequency, self.frequency)
             elif s1_rank < s2_rank:
                 print('Resampling series 1 to match series 2...')
                 series1 = series1.resample(freq2.freq).last()
+                self.series1 = series1
                 self.frequency = freq2.frequency
-                print(freq1.frequency, self.frequency)
+                print(freq2.frequency, self.frequency)
             else:
                 print("Are the two series of the same frequency?...")
                 return None
@@ -1311,25 +1313,51 @@ class Pair_stats(object):
         return optimal_lag, highest_correlation
     
     def find_optimal_ret_lag(self, n):
-        correlations = []; backcorrs = []
+        """ Find the optimal lag-time that yields the highest correlation between the returns of the two series. 
+        parameter n: int, the maximum number of lags to test. The function will test lags from 0 to n and -n to 0.
+        concatenating the results into a series. The lags are periods of the datetime index of the series."""
+
         ser1 = self.data["ret_"+self.ser1_title]
         ser2 = self.data["ret_"+self.ser2_title]
 
-        for i in range(n+1):
+        ## Shift series and calculate correlations
+        shifted = {}; correlations = {}
+        output_data = pd.DataFrame([ser1])
+        # Shift series 1 forward, corresponding to series 2 being shifted back...
+        for i in range(-n, n+1, 1):
             shifted_series2 = ser2.shift(i)
+            shifted[i] = shifted_series2
             correlation = ser1.corr(shifted_series2)
-            correlations.append(correlation)
-        for i in range(n+1):
-            shifted_series1 = ser2.shift(i)
-            backcorr = ser1.corr(shifted_series1)
-            backcorrs.append(backcorr)
+            correlations[i] = correlation
+            output_data = pd.concat([output_data, shifted_series2], axis=1)
+    
 
-        print("Correlations for shifted series2: ", correlations)
-        optimal_lag = correlations.index(max(correlations))
-        highest_correlation = max(correlations)
-        backcorr_ser = pd.Series(backcorrs[::-1], index=range(-(n+1), 0))
-        self.ret_lag_test = pd.concat([backcorr_ser, pd.Series(correlations, index=range(n+1))], axis=0)
+        ### Plot the shifted series for inspection, normalize plotted series to between 0 & 1 and offset in Y for easy viewing.
+        fig1, ax1 = plt.subplots(1, 1, figsize=(12, 5))
+        ax1.set_title("Full period correlation for "+self.ser1_title+" (static) and "+self.ser2_title+" (shifted over range: -"+str(n)+" to "+str(n)+")")
+        for i in range(-n, n+1, 10):
+            norm_series = (shifted[i]-shifted[i].min())/shifted[i].max()
+            ax1.plot(norm_series+(0.05*i), label=f"Shifted series {i}",lw=0.5)
+        norm_ser1 = (ser1-ser1.min())/ser1.max()
+        ax1.plot(norm_ser1, label=self.ser1_title, lw=1.5, color = 'black', alpha = 0.7)
+    
+        self.ret_lag_test = pd.Series(correlations, name = "Corr_shift_"+self.ser1_title+"_"+self.ser2_title)
+
+       # Find the key with the maximum value
+        optimal_lag = max(correlations, key=correlations.get)
+        highest_correlation = correlations[optimal_lag]  # Find the maximum value
+
+        print(f"Optimal lag: {optimal_lag}", f"Highest correlation: {highest_correlation}")
         
+        ###### Plot de cunt....
+        fig2, ax2 = plt.subplots(figsize=(12, 5))
+        ax2.set_title("Lag-test for "+self.ser1_title+" and "+self.ser2_title+". Corrleation as function of series time-shift.")
+        ax2.plot(self.ret_lag_test, label = "", color = 'green')
+        ax2.text(0, -0.1, "Data frequency: "+self.frequency, horizontalalignment='left', transform=ax2.transAxes)
+        ax2.set_xlabel("Time shift of "+self.ser2_title+" (number of periods)")
+        ax2.set_ylabel("Correlation (Pearson)")
+        
+        self.shiftmatrix = output_data
         return optimal_lag, highest_correlation
 
     def bm_scatterMatrix(self):
