@@ -35,6 +35,4 @@ ytick.major.size: 4
 xtick.minor.visible: True
 xtick.minor.size: 2.5
 ytick.minor.size: 2.5
-axes.margins: 0.02, 0.02
-frameon: True
 figure.dpi: 200

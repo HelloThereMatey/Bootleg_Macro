@@ -381,9 +381,9 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
             ax1.tick_params(axis='y',which='both',length=0,labelsize=0,left=False,labelleft=False)
             ax1.set_yticks(LeftTicks[0]); ax1.set_yticklabels(LeftTicks[1])
             ax1.tick_params(axis='y',which='major',length=3,labelsize=9,left=True,labelleft=True)
-            ax1.set_ylim(LeftTicks[0][0],LeftTicks[0][len(LeftTicks[0])-1])
+            ax1.set_ylim(LeftTicks[0][0]-LeftTicks[0][0]*0.025,LeftTicks[0][len(LeftTicks[0])-1]+LeftTicks[0][len(LeftTicks[0])-1]*0.025)
     
-    ax1.grid(visible=True, color = "black", lw = 0.75, ls = "--", which = 'major', axis = 'both', alpha = 0.7)
+    #ax1.grid(visible=True, color = "black", lw = 0.75, ls = "--", which = 'major', axis = 'both', alpha = 0.7)
     for trace in LeftTraces.keys():
         ax1.plot(LeftTraces[trace][0],label = trace,color=LeftTraces[trace][1],lw=LeftTraces[trace][2])
         
@@ -402,7 +402,7 @@ def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,R
             ax1b.tick_params(axis='y',which='both',length=0,width=0,right=False,labelright=False,labelsize=0)  
             ax1b.set_yticks(RightTicks[0]); ax1b.set_yticklabels(RightTicks[1])
             ax1b.tick_params(axis='y',which='major',width=1,length=3,labelsize=9,right=True,labelright=True)
-            ax1b.set_ylim(RightTicks[0][0],RightTicks[0][len(RightTicks[0])-1])
+            ax1b.set_ylim(RightTicks[0][0]-RightTicks[0][0]*0.025,RightTicks[0][len(RightTicks[0])-1]+RightTicks[0][len(RightTicks[0])-1]*0.025)
             if RightMinTicks is not None:
                 ax1b.set_yticks(RightMinTicks[0],minor=True); 
                 ax1b.set_yticklabels(RightMinTicks[1],minor=True)
@@ -830,25 +830,36 @@ class TracesTop_RoC_bottom(Figure):
                 self.axb.set_ylabel(axDeets['ylabel_top_right'], fontsize=10, fontweight='bold')
   
 
-def plot_lin_reg(series1: pd.Series, series2: pd.Series):
+def plot_lin_reg(series1: pd.Series, series2: pd.Series, returns: bool = True, title: str = None):
     ser1_title = series1.name; ser2_title = series2.name
+
     df = pd.concat([series1, series2], axis=1)
+    if returns:
+        ser1rets = np.log(df[ser1_title]/df[ser1_title].shift(1)).dropna() 
+        ser2rets = np.log(df[ser2_title]/df[ser2_title].shift(1)).dropna()
+    else:
+        ser1rets = series1.copy(); 
+        ser2rets = series2.copy()
 
-    df["ret_"+ser1_title] = np.log(df[ser1_title]/df[ser1_title].shift(1))
-    df["ret_"+ser2_title] = np.log(df[ser2_title]/df[ser2_title].shift(1))
-    df.dropna(inplace = True)
-
-    reg = np.polyfit(df["ret_"+ser1_title] , df["ret_"+ser2_title], deg = 1, full = False)
-    vals = np.polyval(reg, df["ret_"+ser1_title])
+    # Perform linear regression using the new API with full=True
+    reg, [resid, rank, sv, rcond] = np.polynomial.Polynomial.fit(ser2rets, ser1rets, 1, full=True)
+    vals = reg(ser2rets)
     # Calculate the R² value
-    residuals = df["ret_"+ser2_title] - vals
-    ss_res = np.sum(residuals**2)
-    ss_tot = np.sum((df["ret_"+ser2_title] - np.mean(df["ret_"+ser2_title]))**2)
+    ss_res = resid[0]  # Sum of squared residuals
+    ss_tot = np.sum((ser1rets - np.mean(ser1rets))**2)
     r_squared = 1 - (ss_res / ss_tot)
 
     fig, ax = plt.subplots(figsize=(13, 3))
-    ax.scatter(df["ret_" + ser1_title], df["ret_" + ser2_title], alpha=0.6, edgecolor='none')
-    ax.plot(df["ret_" + ser1_title], vals, 'r', lw=1.5)
+    ax.scatter(ser2rets, ser1rets, alpha=0.6, edgecolor='none')
+    ax.plot(ser2rets, vals, 'r', lw=1.5)
+
+    if title:
+        ax.set_title(title)
+    else:
+        if returns:
+            ax.set_title("Scatter plot: log returns, series "+ser1_title+" vs "+ser2_title+" with linear regression...")
+        else:
+            ax.set_title("Scatter plot: series "+ser1_title+" vs "+ser2_title+" with linear regression...")
 
     # Add a text box with the R² value
     textstr = f'$R^2 = {r_squared:.2f}$'
@@ -856,11 +867,13 @@ def plot_lin_reg(series1: pd.Series, series2: pd.Series):
     ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=12,
             verticalalignment='top', bbox=props)
 
-    ax.set_title("Scatter plot of log returns of series "+ser1_title+" and "+ser2_title+" with linear regression...")
-    ax.set_xlabel(f'Log Returns of {ser1_title}')
-    ax.set_ylabel(f'Log Returns of {ser2_title}')
+    if returns:
+        ax.set_xlabel(f'Log Returns of {ser2_title}')
+        ax.set_ylabel(f'Log Returns of {ser1_title}')
+    else:
+        ax.set_xlabel(f'{ser2_title} values')
+        ax.set_ylabel(f'{ser1_title} values')
 
-    plt.show()
     return fig
 
 
