@@ -1026,13 +1026,14 @@ class Pair_stats(object):
         if self.series1.name != self.ser1_title or self.series2.name != self.ser2_title:
             print("Renaming series to match titles....")
             series1.rename(self.ser1_title, inplace=True)
+            series2.rename(self.ser2_title, inplace=True)
 
         if watchlist_meta.empty:
             self.watchlist_meta = None
         else:
             self.watchlist_meta = watchlist_meta
 
-        print("Series names: ",self.series2.name, self.series1.name)
+        print("Series names: series1:",self.series1.name, "series2:", self.series2.name)
         self.frequency = ""
         self.windows = windows 
         
@@ -1046,6 +1047,9 @@ class Pair_stats(object):
         self.rolling_stats()
 
     def check_input_series(self):
+        """ Check the input series and ensure they are of the same frequency and length. 
+        Force them into to that state if not."""
+
             #Ensure that both are series first:
         try:
             series1 = ensure_series(self.series1)
@@ -1057,15 +1061,16 @@ class Pair_stats(object):
             return None
         
             ## Ensure that the two series are of the same frequency and length. 
-        freq1 = freqDetermination(series1); freq1.DetermineSeries_Frequency()
+        self.freq1 = freqDetermination(series1); self.freq1.DetermineSeries_Frequency()
         freq2 = freqDetermination(series2); freq2.DetermineSeries_Frequency()
-        print(freq1.frequency, freq2.frequency)
-        self.series1 = freq1.series; self.series2 = freq2.series
+        print(self.freq1.frequency, freq2.frequency)
+        self.series1 = self.freq1.series; self.series2 = freq2.series
+        self.freq_rep_dict = self.freq1.frequency_dict
         
-        if freq1.frequency != freq2.frequency:
+        if self.freq1.frequency != freq2.frequency:
             print("Frequency of series do not match, downsampling the higher freq series to match...")
             try:
-                s1_rank = freq1.freq_list[freq1.freq_list == freq1.frequency].index.to_list()[0]
+                s1_rank = self.freq1.freq_list[self.freq1.freq_list == self.freq1.frequency].index.to_list()[0]
                 s2_rank = freq2.freq_list[freq2.freq_list == freq2.frequency].index.to_list()[0]
             except Exception as e:
                 print('Error getting frequency rank for resampling, ', e)
@@ -1073,10 +1078,10 @@ class Pair_stats(object):
             
             if s1_rank > s2_rank:
                 print('Resampling series 2 to match series 1...')
-                series2 = series2.resample(freq1.freq).last()
+                series2 = series2.resample(self.freq1.freq).last()
                 self.series2 = series2
-                self.frequency = freq1.frequency
-                print(freq1.frequency, self.frequency)
+                self.frequency = self.freq1.frequency
+                print(self.freq1.frequency, self.frequency)
             elif s1_rank < s2_rank:
                 print('Resampling series 1 to match series 2...')
                 series1 = series1.resample(freq2.freq).last()
@@ -1087,7 +1092,7 @@ class Pair_stats(object):
                 print("Are the two series of the same frequency?...")
                 return None
         else:
-            self.frequency = freq1.frequency
+            self.frequency = self.freq1.frequency
 
         if len(self.downsample_to) > 0: 
             self.series1 = series1.resample(self.downsample_to).last() #Must use a lower frequency than original freq, e.g "W"from "D"..
@@ -1100,6 +1105,10 @@ class Pair_stats(object):
         return 1
     
     def returns_df(self):
+        """ Calculate the log returns for the two series and return a DataFrame with the returns. 
+        The DataFrame will contain the original series, the log returns, and the percentage returns.
+        - This is stored in the self.data attribute."""
+
             # # Let's calulate some returns innit...
         df = pd.concat([self.series1, self.series2], axis = 1)
         print("Calculating returns for series: ", self.series1.name, self.series2.name)
@@ -1112,6 +1121,10 @@ class Pair_stats(object):
         return df
 
     def rolling_stats(self):
+        """ Calculate the rolling correlation between the two series for different window lengths.
+        - The results are stored in the self.data DataFrame. 
+        - The full correlation is stored in the self.full_corr attribute."""
+
         ## Now for correlations...
         self.full_corr = self.data[self.series1.name].corr(self.data[self.series2.name], method = 'pearson')
         print("Whole time correlation, "+self.ser1_title+" vs "+self.ser2_title, ":", self.full_corr)
@@ -1135,6 +1148,8 @@ class Pair_stats(object):
                   * self.data[self.series2.name].rolling(window=window).mean()
 
     def plot_log_returns(self, downsample_to: str = ""):
+        """ Plot the log returns of the two series on the same chart.
+        Results may vary with this method, use plot_log_returns_alt for more reliable results."""
         # Extract the relevant data
         two_series_only = self.data[["ret_" + self.ser1_title, "ret_" + self.ser2_title]]
         freq_str = self.frequency
@@ -1168,6 +1183,7 @@ class Pair_stats(object):
         return fig, ax
 
     def plot_log_returns_alt(self, downsample_to: str = "", color1: str = "b", color2: str = "r"):
+        """ Plot the log returns of the two series as subplots."""
         two_series_only = self.data[["ret_" + self.ser1_title, "ret_" + self.ser2_title]]
         freq_str = self.frequency
         if downsample_to:
@@ -1194,67 +1210,10 @@ class Pair_stats(object):
         self.returns_plot = fig
         return fig, axes
 
-    def plot_corrs(self, trim_windows: int = 0, percentage_ret_corr: bool = False, qd_corr: bool = False):
-        ## Using plt directly...
-
-        num_plots = 2 + percentage_ret_corr + qd_corr
-        #Step 1: Create subplots
-        fig, axes = plt.subplots(num_plots, 1, figsize=(12, 5+(1.5*num_plots-2)), sharex=True)  # Adjust figsize as needed
-
-        # Step 2: Plot data
-        # Assuming self.data is a DataFrame with the necessary columns
-        for i in range(trim_windows, len(self.windows), 1):
-            corr_col = f"{self.ser1_title}_{self.ser2_title}_Corr_{self.windows[i]}"
-            retcorr_col = f"{self.ser1_title}_{self.ser2_title}_RetCorr_{self.windows[i]}"
-            pctRetcorr_col = f"{self.ser1_title}_{self.ser2_title}_PctRetCorr_{self.windows[i]}"
-            qdcorr_col = f"{self.ser1_title}_{self.ser2_title}_qdCorr_{self.windows[i]}"
-            
-            if corr_col in self.data.columns:
-                axes[0].plot(self.data.index, self.data[corr_col], label=f"{self.windows[i]} periods")
-            if retcorr_col in self.data.columns:
-                axes[1].plot(self.data.index, self.data[retcorr_col], label=f"{self.windows[i]} periods")
-            if pctRetcorr_col in self.data.columns and percentage_ret_corr:
-                axes[2].plot(self.data.index, self.data[pctRetcorr_col], label=f"{self.windows[i]} periods")
-            if qdcorr_col in self.data.columns and qd_corr:
-                axes[3].plot(self.data.index, self.data[qdcorr_col], label=f"{self.windows[i]} periods")
-
-        fig.subplots_adjust(left=0.08, bottom=0.06, right = 0.97, top = 0.95, hspace=0.11)  # Adjust the right margin to fit the legend
-        # Step 3: Style (mimicking pandas.plot)
-        for ax in axes:
-            ax.set_ylabel('Correlation', fontweight = 'bold', fontsize = 10)
-        
-        fullCorrs = [self.full_corr, self.full_RetCorr, self.full_PctRetCorr, self.full_qdCorr]
-        i = 0
-        for ax in axes:
-            ax: plt.Axes
-            ax.axhline(fullCorrs[i], color="r", linestyle="--", lw=1)
-            ax.tick_params(axis = 'x', labelsize = 0, length = 0, width = 0)
-            if i == len(axes)-1:
-                ax.tick_params(axis = 'x', labelsize = 11, length = 3)
-            i += 1
-        
-        print("Frequency of the pair: ", self.frequency)
-        # Optional: Titles, labels, etc.
-        axes[0].set_title(f"Correlation: {self.ser1_title} vs {self.ser2_title}", fontsize = 11, pad = 3.5)
-        axes[1].set_title(f"Log returns correlation.", fontsize = 11, pad = 3.5)
-        if percentage_ret_corr:
-            axes[2].set_title(f"Percentage returns correlation.", fontsize = 11, pad = 3.5)
-        if qd_corr:
-            axes[3].set_title(f"QuantDare returns correlation.", fontsize = 11, pad = 3.5)
-
-        line_handle = Line2D([0], [0], color="r", linestyle="--", lw=1, label="Correlation\nfull length")
-        handles, labels = axes[0].get_legend_handles_labels()
-        handles_combined = handles + [line_handle]
-        labels_combined = labels + ["Correlation\nfull length"]
-        axes[num_plots-1].legend(handles=handles_combined, labels=labels_combined, fontsize = 10, bbox_to_anchor=(0.75, -0.1), ncol = 6)
-        fig.text(0.865, 0.97, 'Data frequency: '+self.frequency, ha='center', va='center')
-
-        self.corr_plot = fig
-
-    def plot_series(self):
+    def plot_series(self, color1: str = "black", color2: str = "blue"):
     
-        leftTraces = {self.ser1_title: (self.series1, "orangered", 2.25)}
-        rightTraces = {self.ser2_title: (self.series2, "navy", 2.25)}
+        leftTraces = {self.ser1_title: (self.series1, color1, 2.25)}
+        rightTraces = {self.ser2_title: (self.series2, color2, 2.25)}
         
         try:
             lylabel = self.watchlist_meta.loc["units", self.series1.name] if not pd.isna(self.watchlist_meta.loc["units", self.series1.name]) else "USD"
@@ -1272,19 +1231,98 @@ class Pair_stats(object):
             RightTraces=rightTraces, RightScale="log", RYLabel=rylabel, LeftTicks=ytr, RightTicks=ytr2)
         
         return self.fig1, self.fig1.axes[0]
-    
+
+    def plot_corrs(self, trim_windows: int = 0, plot_wrong_way: bool = True, percentage_ret_corr: bool = False, qd_corr: bool = False):
+        """
+        Plot rolling Pearson correlations between your two series for the different window lengths.
+        *** Parameters: ***
+        - trim_windows: int = 0, (optional). The number of windows to trim from the beginning of the list.
+        - plot_wrong_way: bool = True, (optional). Whether to plot the rolling correlation traces calculated using the actual series
+        values instead of the log or percentage returns. This is not recommended for financial data yet is often done by Rookies and 
+        it can be useful to also plot this to show the contrast between the two methods.
+        - percentage_ret_corr: Whether to plot the percentage returns correlation.
+        - qd_corr: Whether to plot the QuantDare returns correlation. This is an alternative formula to Pearson correlation where the means
+        are removed from the formula.
+        """
+        # Determine the number of plots
+        plot_types = [
+            ('RetCorr', True),  # Always plot RetCorr
+            ('Corr', plot_wrong_way),
+            ('PctRetCorr', percentage_ret_corr),
+            ('qdCorr', qd_corr)
+        ]
+        num_plots = sum([pt[1] for pt in plot_types])
+
+        # Step 1: Create subplots
+        if num_plots == 1:
+            fig, ax = plt.subplots(num_plots, 1, figsize=(12, 3 + (1.5 * num_plots)), sharex=True)  # Adjust figsize as needed
+            axes = [ax]
+        else:
+            fig, axes = plt.subplots(num_plots, 1, figsize=(12, 3 + (1.5 * num_plots)), sharex=True)  # Adjust figsize as needed
+
+        # Step 2: Plot data
+        # Assuming self.data is a DataFrame with the necessary columns
+        current_ax = 0
+        for plot_type, should_plot in plot_types:
+            if should_plot:
+                for i in range(trim_windows, len(self.windows), 1):
+                    col_name = f"{self.ser1_title}_{self.ser2_title}_{plot_type}_{self.windows[i]}"
+                    if col_name in self.data.columns:
+                        axes[current_ax].plot(self.data.index, self.data[col_name], label=f"{self.windows[i]} periods")
+                current_ax += 1
+
+        fig.subplots_adjust(left=0.08, bottom=0.06, right=0.97, top=0.95, hspace=0.11)  # Adjust the right margin to fit the legend
+
+        # Step 3: Style (mimicking pandas.plot)
+        for ax in axes:
+            ax.set_ylabel('Correlation', fontweight='bold', fontsize=10)
+
+        fullCorrs = [self.full_RetCorr, self.full_corr, self.full_PctRetCorr, self.full_qdCorr]
+        current_ax = 0
+        for plot_type, should_plot in plot_types:
+            if should_plot:
+                ax = axes[current_ax]
+                ax.axhline(fullCorrs[current_ax], color="r", linestyle="--", lw=1)
+                ax.tick_params(axis='x', labelsize=0, length=0, width=0)
+                if current_ax == len(axes) - 1:
+                    ax.tick_params(axis='x', labelsize=11, length=3)
+                current_ax += 1
+
+        print("Frequency of the pair: ", self.frequency)
+        # Optional: Titles, labels, etc.
+        current_ax = 0
+        for plot_type, should_plot in plot_types:
+            if should_plot:
+                title = {
+                    'RetCorr': f"Correlation: {self.ser1_title} vs {self.ser2_title}: Log returns correlation.",
+                    'Corr': f"Correlation: {self.ser1_title} vs {self.ser2_title} (wrong way)",
+                    'PctRetCorr': "Percentage returns correlation.",
+                    'qdCorr': "QuantDare returns correlation."
+                }[plot_type]
+                axes[current_ax].set_title(title, fontsize=11, pad=3.5)
+                current_ax += 1
+
+        line_handle = Line2D([0], [0], color="r", linestyle="--", lw=1, label="Correlation\nfull length")
+        handles, labels = axes[0].get_legend_handles_labels()
+        handles_combined = handles + [line_handle]
+        labels_combined = labels + ["Correlation\nfull length"]
+        axes[num_plots - 1].legend(handles=handles_combined, labels=labels_combined, fontsize=10, bbox_to_anchor=(0.75, -0.1), ncol=6)
+        fig.text(0.865, 0.97, 'Data frequency: ' + self.frequency, ha='center', va='center')
+
+        self.corr_plot = fig
+        
     def plot_lin_reg(self):
         rets = self.data[["ret_"+self.ser1_title, "ret_"+self.ser2_title]]
-        reg = np.polyfit(rets["ret_"+self.ser1_title] , rets["ret_"+self.ser2_title], deg = 1, full = False)
+        reg = np.polyfit(rets["ret_"+self.ser2_title], rets["ret_"+self.ser1_title], deg = 1, full = False)
    
-        vals = np.polyval(reg, rets["ret_"+self.ser1_title])
+        vals = np.polyval(reg, rets["ret_"+self.ser2_title])
         # Calculate the R² value
-        residuals = rets["ret_"+self.ser2_title] - vals
+        residuals = rets["ret_"+self.ser1_title] - vals
         ss_res = np.sum(residuals**2)
-        ss_tot = np.sum((rets["ret_"+self.ser2_title] - np.mean(rets["ret_"+self.ser2_title]))**2)
+        ss_tot = np.sum((rets["ret_"+self.ser1_title] - np.mean(rets["ret_"+self.ser1_title]))**2)
         r_squared = 1 - (ss_res / ss_tot)
-        ax = rets.plot(kind="scatter", x = "ret_"+self.ser1_title, y = "ret_"+self.ser2_title, alpha = 0.6, figsize = (13, 5), edgecolor='none')
-        ax.plot(rets["ret_"+self.ser1_title], vals , 'r', lw = 1.5)
+        ax = rets.plot(kind="scatter", x = "ret_"+self.ser2_title, y = "ret_"+self.ser1_title, alpha = 0.6, figsize = (13, 5), edgecolor='none')
+        ax.plot(rets["ret_"+self.ser2_title], vals , 'r', lw = 1.5)
 
         # Add a text box with the R² value
         textstr = f'$R^2 = {r_squared:.2f}$'
@@ -1351,7 +1389,7 @@ class Pair_stats(object):
         
         ###### Plot de cunt....
         fig2, ax2 = plt.subplots(figsize=(12, 5))
-        ax2.set_title("Lag-test for "+self.ser1_title+" and "+self.ser2_title+". Corrleation as function of series time-shift.")
+        ax2.set_title("Lag-test for "+self.ser1_title+" and "+self.ser2_title+". Correlation as function of series time-shift.")
         ax2.plot(self.ret_lag_test, label = "", color = 'green')
         ax2.text(0, -0.1, "Data frequency: "+self.frequency, horizontalalignment='left', transform=ax2.transAxes)
         ax2.set_xlabel("Time shift of "+self.ser2_title+" (number of periods)")
@@ -1389,7 +1427,10 @@ class Pair_stats(object):
             props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
             ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=12,
                     verticalalignment='top', bbox=props)
-        self.scatMatPlot = scatter_matrix
+        
+        # Extract the figure from the scatter matrix
+        fig = scatter_matrix[0][0].get_figure()
+        self.scatMatPlot = fig
         return scatter_matrix
 
     def export_plots(self, savePath: str = "", dialog: str = "Tk", format: str = "png"):
@@ -1419,7 +1460,7 @@ class Pair_stats(object):
             self.corr_plot.savefig(savePath + fdel + savename + '_corr.' + format, **save_options)
             print("Saved correlation plot figure to: ", savePath + fdel + savename + '_corr.' + format)
         if hasattr(self, "scatMatPlot"):
-            self.corr_plot.savefig(savePath + fdel + savename + '_scatMat.' + format, **save_options)
+            self.scatMatPlot.savefig(savePath + fdel + savename + '_scatMat.' + format, **save_options)
             print("Saved correlation plot figure to: ", savePath + fdel + savename + '_scatMat.' + format)
 
 class api_keys():

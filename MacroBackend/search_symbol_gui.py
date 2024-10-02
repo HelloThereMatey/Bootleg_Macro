@@ -49,6 +49,40 @@ class MyTableView(QtWidgets.QTableView):
 
 ############ Watchlist object defiition ####################    
 class Watchlist(dict):
+    """
+    **Watchlist class.*
+    A class for watchlists of time-series data, price history data for equities, commodities, macroeconomic series, etc.
+    Stores a list of assets/tickers/macrodata codes to be watched, with metadata for each asset/ticker/macrodata code.
+    The data for each asset/ticker/macrodata code can come from a wide range of sources. 
+    This class is a dictionary of pandas DataFrames, with the following pre-set
+    keys: 
+    - 'watchlist': pd.DataFrame - created on init, contains the list of assets/tickers/macrodata codes to be watched, with columns 'id' and 'source'.
+    tickers/data codes are the index of this DataFrame.
+    - 'metadata': pd.DataFrame - created on init, contains metadata for each asset/ticker/macrodata code. The data codes are the column names of this
+    dataframe and the index contains different metadata categories such as "source", "observation_start", "observation_end", "frequency", "units".
+    - 'watchlist_datasets': dict - contains pandas Series and/or DataFrame objects, with the keys being the asset/ticker/macrodata codes. This is not
+    created until the method "get_watchlist_data" is called, which pulls data from the source listed for each asset/ticker/macrodata code in the watchlist.
+    
+    *** __init__ Parameters :***
+    - watchlist_data: pd.DataFrame, default None - a DataFrame containing the list of assets/tickers/macrodata codes to be watched, with columns 'id' and 'source'.
+    - metadata_data: pd.DataFrame, default None - a DataFrame containing metadata for each asset/ticker/macrodata code. The data codes are the column names of this
+    dataframe and the index contains different metadata categories such as "source", "observation_start", "observation_end", "frequency", "units".
+    - watchlist_name: str, default "base_watchlist" - the name of the watchlist.
+    - watchlists_path: str, default parent+fdel+"User_Data"+fdel+"Watchlists" - the path to the folder where watchlists are saved, relative to this file.
+    
+    The Watchlist  object can be initialized with watchlist and metadata data, that you may have gotten from the search_symbol_gui or created manually
+    or you can just init a blank watchlist and add data to it later, using the GUI or manually.
+
+    *** Methods: ***
+    - load_watchlist: loads a watchlist from an Excel file, with two sheets: 'watchlist' and 'all_metadata'.
+    - append_current_watchlist: appends new data to the current watchlist.
+    - save_watchlist: saves the watchlist data to an Excel file.
+    - get_watchlist_data: pulls data from the source listed for each asset/ticker/macrodata code in the watchlist.
+    - update_metadata: updates the metadata with the new data.
+    - load_watchlist_data: loads the watchlist data from a .h5s database file.
+    - insert_data: inserts data into the watchlist_datasets dictionary.
+    - drop_data: drops data from the watchlist_datasets dictionary.
+    """
     def __init__(self, watchlist_data=None, metadata_data=None, watchlist_name: str = "base_watchlist", watchlists_path: str = parent+fdel+"User_Data"+fdel+"Watchlists"):
         super().__init__()
         # Initialize watchlist and metadata as pandas DataFrames
@@ -60,7 +94,8 @@ class Watchlist(dict):
         self.storepath = None
 
     def load_watchlist(self, filepath: str = ""):
-        """load_watchlist method. Loads a watchlist from an Excel file, with two sheets: 'watchlist' and 'all_metadata'."""
+        """load_watchlist method. Loads a watchlist from an Excel file, with two sheets: 'watchlist' and 'all_metadata'.
+        If no filepath is provided, a file dialog will open to allow the user to choose a file."""
 
         print("Loading watchlist from filepath: ", filepath)
         if len(filepath) == 0:
@@ -81,11 +116,19 @@ class Watchlist(dict):
         self.storepath  = self.watchlists_path + fdel + self.name + fdel + self.name + ".h5s"
     
     def append_current_watchlist(self, watchlist_data: pd.DataFrame, metadata_data: pd.DataFrame):
+        """append_current_watchlist method.
+        Mostly for use with the GUI, this method appends new data to the current watchlist."""
+
+
         # Append new data to the current watchlist
         self['watchlist'] = pd.concat([self['watchlist'], watchlist_data], axis=0)
         self['metadata'] = pd.concat([self['metadata'], metadata_data], axis=1)
 
     def save_watchlist(self, path: str = parent+fdel+"User_Data"+fdel+"Watchlists"):
+        """save_watchlist method.
+        This function saves the watchlist data to an Excel file with two sheets 'watchlist' and 'metadata'. 
+        """
+
         # Example method to save watchlist data to an Excel file
         saveName = self.name.replace(" ", "_")
         save_path = path+fdel+saveName+fdel+saveName+".xlsx"
@@ -115,6 +158,8 @@ class Watchlist(dict):
         """get_watchlist_data method.
         This function takes a Watchlist object and returns a dictionary of pandas Series and/or dataframe objects.
         Data will be pulled from the source listed for each asset/ticker/macrodata code in the watchlist.
+        The max time-length for each asset will be pulled. Geting higher frequency data from trading view may require 
+        doing it manually with the tvDatafeedz module.
 
         Parameters:
 
@@ -170,6 +215,10 @@ class Watchlist(dict):
                         self["metadata"].loc["frequency_short", key] = "U"
 
     def load_watchlist_data(self):
+        """load_watchlist_data method.
+        This function loads the watchlist data from a .h5s database file. The data is stored in the 'watchlist_datasets' dictionary.
+        This can be run as an alternative to get_wtaclist_data, if the data has already been pulled and saved to a .h5s file."""
+
         print("Database filepath: ", self.storepath)
         if self.storepath is not None and os.path.isfile(self.storepath):
             with pd.HDFStore(self.storepath, mode='r') as data:
@@ -190,6 +239,10 @@ class Watchlist(dict):
             self["metadata"][data_name] = data
 
     def drop_data(self, data_name: str = None, drop_duplicates: bool = False):
+        """drop_data method.
+        Eliminate duplicates from the watchlist and metadata dataframes, and drop data from the watchlist_datasets dictionary.
+        Or just drop a given data_name from the watchlist_datasets dictionary, watchlist and metadata dataframes."""
+        
         if data_name is not None:
             if data_name in self["watchlist_datasets"].keys():
                 self["watchlist_datasets"].pop(data_name)
