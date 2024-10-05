@@ -30,7 +30,7 @@ watchlists_path_def = parent+fdel+"User_Data"+fdel+"Watchlists"
 def drop_duplicate_columns(df):
     # Identify columns with a dot followed by a numeric character
     regex = re.compile(r'\.\d+')
-    columns_to_drop = [col for col in df.columns if regex.search(col)]
+    columns_to_drop = [str(col) for col in df.columns if regex.search(str(col))]
     
     # Drop the identified columns
     df = df.drop(columns=columns_to_drop)
@@ -126,7 +126,9 @@ class Watchlist(dict):
 
     def save_watchlist(self, path: str = parent+fdel+"User_Data"+fdel+"Watchlists"):
         """save_watchlist method.
+
         This function saves the watchlist data to an Excel file with two sheets 'watchlist' and 'metadata'. 
+        It also saves your data series if you have pulled the data first using the get_watchlist_data method.
         """
 
         # Example method to save watchlist data to an Excel file
@@ -155,7 +157,9 @@ class Watchlist(dict):
         return saveName, save_path
 
     def get_watchlist_data(self, start_date: str = "1600-01-01"):
-        """get_watchlist_data method.
+        """
+        get_watchlist_data method.
+
         This function takes a Watchlist object and returns a dictionary of pandas Series and/or dataframe objects.
         Data will be pulled from the source listed for each asset/ticker/macrodata code in the watchlist.
         The max time-length for each asset will be pulled. Geting higher frequency data from trading view may require 
@@ -189,6 +193,8 @@ class Watchlist(dict):
         except Exception as e:
             print("Error updating metadata after data pull. Exception: ", e)
             pass
+
+        self.save_watchlist()
 
     def update_metadata(self):
         # Update the metadata with the new data
@@ -227,7 +233,11 @@ class Watchlist(dict):
                 data.close()
         else:
             print("No .h5s database found for this watchlist. Get and save data first....")
-            return
+            if input("Do you want to attempt pulling the data for the watchlist now? y/n?") == "y":
+                self.get_watchlist_data()
+                self.save_watchlist()
+            else:
+                return
         
         print("Loaded database from .h5s file, keys: ", self["watchlist_datasets"].keys())
 
