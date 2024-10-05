@@ -3,6 +3,7 @@ pandas
 pandas-datareader
 numpy
 matplotlib
+seaborn
 plotly
 altair
 openpyxl
