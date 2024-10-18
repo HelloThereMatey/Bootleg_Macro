@@ -399,7 +399,7 @@ class TvDatafeed:
                 full_data = pd.concat([full_data, new_data], axis = 0)
                 bars += 300 
         else:
-            print("No other data collections are implemented yet, pther than 0 or 1.")      
+            print("No other data collections are implemented yet, other than 0 or 1.")      
             return None  
 
         return full_data

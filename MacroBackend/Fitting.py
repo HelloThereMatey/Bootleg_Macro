@@ -5,8 +5,9 @@ sys.path.append(parent)
 fdel = os.path.sep
 
 import numpy as np
-from scipy.signal import find_peaks, argrelextrema
+from scipy.signal import argrelextrema
 from scipy.optimize import curve_fit
+import scipy.stats as stats
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -81,6 +82,204 @@ def identify_peaks_and_troughs(data: pd.Series, x_range: datetime.timedelta):
 
     return ThePeaks, Troffz, ThePeaksRaw, TroffzRaw
 
+
+def normality_tests(data: pd.Series):
+    """
+    Perform normality tests on the dataset. These tests include the Shapiro-Wilk test, the Anderson-Darling test, and the Kolmogorov-Smirnov test.
+    These tests quantify how well the data fits a normal distribution.
+
+    *Parameters:*
+    - data (pd.Series): The dataset to be tested. Must be a pandas Series.
+
+    *Returns:*
+    - results (pd.DataFrame): A DataFrame containing the results of the normality tests.
+    """
+
+    # Ensure the data is a numpy array
+    data = data.dropna().values
+
+    # Shapiro-Wilk test
+    shapiro_stat, shapiro_p = stats.shapiro(data)
+
+    # Anderson-Darling test
+    anderson_result = stats.anderson(data, dist='norm')
+    anderson_stat = anderson_result.statistic
+    anderson_critical_values = anderson_result.critical_values
+    anderson_significance_levels = anderson_result.significance_level
+
+    # Kolmogorov-Smirnov test
+    ks_stat, ks_p = stats.kstest(data, 'norm', args=(np.mean(data), np.std(data)))
+
+    # Create a DataFrame to store the results
+    results = pd.DataFrame({
+        'Test': ['Shapiro-Wilk', 'Anderson-Darling', 'Kolmogorov-Smirnov'],
+        'Statistic': [shapiro_stat, anderson_stat, ks_stat],
+        'p-value': [shapiro_p, np.nan, ks_p],
+        'Critical Values': [np.nan, anderson_critical_values, np.nan],
+        'Significance Levels': [np.nan, anderson_significance_levels, np.nan]
+    })
+
+    # Q-Q plot
+    fig, ax = plt.subplots(figsize=(6, 6))
+    stats.probplot(data, dist="norm", plot=ax)
+    ax.set_title('Q-Q Plot')
+    plt.show()
+
+    return results
+
+def ks_test_distribution(data: pd.Series, distribution: str):
+    """
+    Perform the Kolmogorov-Smirnov test on the dataset to check how well it fits a specified distribution.
+    Generate a Q-Q plot for visual inspection.
+
+    *Parameters:*
+    - data (pd.Series): The dataset to be tested. Must be a pandas Series.
+    - distribution (str): The distribution type to test against (e.g., 'norm' for normal, 'cauchy' for Lorentzian).
+
+    *Returns:*
+    - results (pd.DataFrame): A DataFrame containing the results of the Kolmogorov-Smirnov test.
+    """
+
+    # Ensure the data is a numpy array
+    data = data.dropna().values
+    stats.norm
+    # Kolmogorov-Smirnov test
+    if distribution == 'norm':
+        ks_stat, ks_p = stats.kstest(data, stats.norm.cdf, args=(np.mean(data), np.std(data)))
+    elif distribution == 'cauchy':
+        ks_stat, ks_p = stats.kstest(data, stats.cauchy.cdf, args=(np.median(data), stats.iqr(data)))
+    else:
+        ks_stat, ks_p = stats.kstest(data, distribution)
+
+    # Create a DataFrame to store the results
+    results_dict = {
+        'Test': ['Kolmogorov-Smirnov'],
+        'Statistic': [ks_stat],
+        'p-value': [ks_p]
+    }
+    results = pd.DataFrame(results_dict)
+
+    # Q-Q plot
+    fig, ax = plt.subplots(figsize=(6, 6))
+    stats.probplot(data, dist=distribution, plot=ax)
+    ax.set_title(f'Q-Q Plot for {distribution} Distribution')
+    plt.show()
+
+    return results   
+
+# Define Gaussian function
+def gaussian(x, amp, cen, wid):
+    return amp * np.exp(-(x-cen)**2 / (2*wid**2))
+
+# Define Lorentzian function
+def lorentzian(x, amp, cen, wid):
+    return amp * wid**2 / ((x-cen)**2 + wid**2)
+
+# Define Student's t-distribution function
+def student_t(x, amp, cen, df, scale):
+    return amp * stats.t.pdf(x, df, loc=cen, scale=scale)
+
+class stat_models_fit(object):
+    def __init__(self, data: pd.Series):
+        self.data = data
+        self.name = data.name
+
+         # Create histogram data
+        self.hist, self.bin_edges = np.histogram(self.data, bins=500, density=True)
+        self.bin_centers = (self.bin_edges[:-1] + self.bin_edges[1:]) / 2
+        # Plot Gaussian fit
+        self.x_fit = np.linspace(self.bin_edges[0], self.bin_edges[-1], 1000)
+
+    def fit_gaussian(self):
+        # Fit Gaussian
+        popt, _ = curve_fit(gaussian, self.bin_centers, self.hist, p0=[1, 0, 1])
+        fit_series = pd.Series(gaussian(self.x_fit, *popt), index=self.x_fit)
+        self.gaussian = fit_series
+        self.gaussian_params = popt
+        return popt, fit_series
+
+    def fit_lorentzian(self):
+        # Fit Lorentzian
+        popt, _ = curve_fit(lorentzian, self.bin_centers, self.hist, p0=[1, 0, 1])
+        fit_series = pd.Series(lorentzian(self.x_fit, *popt), index=self.x_fit)
+        self.lorentzian = fit_series
+        self.lorentzian_params = popt
+        return popt
+
+    def fit_student_t(self):
+        # Fit Student's t-distribution
+        popt_t, _ = curve_fit(student_t, self.bin_centers, self.hist, p0=[1, 0, 3, 1])
+        fit_series = pd.Series(student_t(self.x_fit, *popt_t), index=self.x_fit)
+        self.student_t = fit_series
+        self.t_popt = popt_t
+        return popt_t
+    
+    def plot_histogram_with_fits(self):
+        """
+        Plot a histogram of your data and show how it compares to fitted distributions...
+        """
+        # Plot histogram
+        fig, ax = plt.subplots(figsize=(6, 6))
+        ax.hist(self.data, bins=1000, color='blue', alpha=0.6, label=self.name + " hist", density=True)
+
+        if hasattr(self, 'gaussian'):
+            ax.plot(self.gaussian, color='red', label='Gaussian Fit')
+        if hasattr(self, 'lorentzian'):
+            ax.plot(self.lorentzian, color='green', label='Lorentzian Fit')
+        if hasattr(self, 'student_t'):
+            ax.plot(self.student_t, color='purple', label=f'Student\'s t-Distribution Fit (df={self.t_popt[2]:.2f})')
+
+        ax.legend(loc="upper left", fontsize=10)
+        ax.set_xlabel('Value')
+        ax.set_ylabel('Density')
+        ax.set_title('Histogram with Gaussian, Lorentzian, and Student\'s t-Distribution Fits')
+
+        self.hist_fig = fig
+        plt.show()
+
+    def qq_plots(self):
+        """
+        Generate Q-Q plots for four distributions, the Cauchy (Lorentzian) distribution, Normal (Gaussian) distribution,
+        Student's T distribution, and the Binomial distribution against the input series data.
+
+        *Parameters:*
+        - data (pd.Series): The dataset to be tested. Must be a pandas Series.
+        """
+
+        # Ensure the data is a numpy array
+        data = self.data.dropna().values
+
+        # Q-Q plot for Normal distribution
+        fig, ax = plt.subplots(2, 2, figsize=(12, 12))
+
+        # Q-Q plot for Normal distribution using fitted parameters
+        if hasattr(self, 'gaussian_params'):
+            mean, std = self.gaussian_params[1], self.gaussian_params[2]
+            stats.probplot(data, dist="norm", sparams=(mean, std), plot=ax[0][0])
+            ax[0][0].set_title('Q-Q Plot for Normal Distribution')
+
+        # Q-Q plot for Cauchy distribution using fitted parameters
+        if hasattr(self, 'lorentzian_params'):
+            loc, scale = self.lorentzian_params[1], self.lorentzian_params[2]
+            stats.probplot(data, dist="cauchy", sparams=(loc, scale), plot=ax[0][1])
+            ax[0][1].set_title('Q-Q Plot for Cauchy Distribution')
+
+        # Q-Q plot for Student's T distribution using fitted parameters
+        if hasattr(self, 't_popt'):
+            amp, loc, df, scale = self.t_popt
+            stats.probplot(data, dist="t", sparams=(df, loc, scale), plot=ax[1][0])
+            ax[1][0].set_title("Q-Q Plot for Student's T Distribution")
+
+        # Q-Q plot for Binomial distribution
+        n = 10  # Number of trials
+        p = 0.5  # Probability of success
+        binom_data = np.random.binomial(n, p, size=len(data))
+        stats.probplot(binom_data, dist="binom", sparams=(n, p), plot=ax[1][1])
+        ax[1][1].set_title("Q-Q Plot for Binomial Distribution")
+
+        plt.tight_layout()
+        plt.show()
+        
 #### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
 def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
             LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None):

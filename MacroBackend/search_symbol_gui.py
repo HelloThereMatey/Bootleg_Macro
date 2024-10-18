@@ -241,12 +241,53 @@ class Watchlist(dict):
         
         print("Loaded database from .h5s file, keys: ", self["watchlist_datasets"].keys())
 
-    def insert_data(self, data: Union[pd.DataFrame, pd.Series], data_name: str = "new_data", ticker_to_insert: str = None):
-        self["watchlist_datasets"][data_name] = data
-        if ticker_to_insert is not None:
-            ### This not working yet.............
-            self["watchlist"].loc[ticker_to_insert] = data_name
-            self["metadata"][data_name] = data
+    def insert_data(self, data: Union[pd.DataFrame, pd.Series], metadata: pd.Series):
+        """ INSERT DATA METHOD.
+        Add a dataset into your watchlist database. Must be pandas series or dataframe. 
+        Some metadata must be supplied.
+
+        **Parameters:**
+        - data: pd.DataFrame or pd.Series: Your dataset.
+        - metadata: pd.Series - This must have index values "id", "title" & "source"at a minimum.
+            - "title": str - this is the title/name for your dataset, can be the same as id.
+            - "id": str - this is the all important datacode/ticker/id for the dataset from the source. 
+            - "source": str - this is the name of the data source. It can be one of the sources used by Pull_Data module 
+            or it can be "SavedData"to load the series from the User_Data/SavedData folder. An arbitrary source name can also be used 
+            and if it does not match any of the upported sources the dataset will never be updated when the get_watchlist_data method is run. 
+        """
+        for key in ["id", "title", "source"]:
+            if key not in metadata.index.to_list():
+                print(f'You need to have {key} in your metadata series for this to work, pulling out.')
+                return
+
+        self["watchlist_datasets"][metadata["id"]] = data
+        self["watchlist"].loc[metadata["id"], "id"] = metadata["id"]
+        self["watchlist"].loc[metadata["id"], "title"] = metadata["title"]
+        self["watchlist"].loc[metadata["id"], "source"] = metadata["source"]
+        self["metadata"] = pd.concat([self["metadata"], metadata], axis = 1)
+        print("Dataset ", metadata['title'], f"inserted into your {self.name} watchlist.")
+
+    def add_series_from_SavedData(self, seriesName: str):
+        """Add a data series that is found in the User_Data/SavedData folder to your watchlist.
+
+        **Parameters:**
+        - seriesName: str - This must match the name of an .xlsx file that is found in your SavedData folder. These files are generated
+        by the Pull_Data module when the data is pulled and saved. These have tw sheets with names 'Closing_Price' and 'SeriesInfo'that
+        contain your data and metadata.
+        """
+        rel_datapath = parent+fdel+"User_Data"+fdel+"SavedData"
+        
+        try:
+            series = pd.read_excel(rel_datapath+fdel+seriesName+".xlsx", sheet_name="Closing_Price", index_col=0, parse_dates=True).squeeze()
+            series_meta = pd.read_excel(rel_datapath+fdel+seriesName+".xlsx", sheet_name="SeriesInfo",index_col=0).squeeze().rename(seriesName)
+            series_meta.loc["title"] = series.name
+            series_meta.loc["id"] = seriesName
+            series_meta.loc["source"] = "SavedData"
+            series_meta.loc["notes"] = series_meta.loc["title"]+", aggregate index by the Macro Bootlegger."
+            self.insert_data(series, series_meta)
+        except Exception as e:
+            print("Could not find the data or something else went wrong, check you seriesName, error message: ", e)
+            return
 
     def drop_data(self, data_name: str = None, drop_duplicates: bool = False):
         """drop_data method.

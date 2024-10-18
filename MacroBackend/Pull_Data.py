@@ -49,8 +49,8 @@ class dataset(object):
                                     'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
                                     'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                     'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
-                                    'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver']
-        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs']
+                                    'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'saveddata']
+        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs', 'bea', 'rba_tables', 'saveddata']
 
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
         self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
@@ -59,7 +59,7 @@ class dataset(object):
         self.api_keys = dict(self.keyz.keys)
         self.data = None
 
-    def get_data(self, source: str, data_code: str, start_date: str, exchange_code: str = None, 
+    def get_data(self, source: str, data_code: str, start_date: str = "1800-01-01", exchange_code: str = None, 
                  end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close",
                  capitalize_column_names: bool = False, asset: str = "BTC", resolution: str = '24h', format: str = 'json'):
         """
@@ -89,9 +89,9 @@ class dataset(object):
         self.check_key()
 
         if self.source not in self.supported_sources:
-            print('The data source: ', source, 'is not supported. You must choose from the following sources: \n', self.supported_sources)
+            print('The data source: ', "\n", source, "\n", 'is not supported. You must choose from the following sources: \n', self.supported_sources)
             print("Your specified source is not supported, get the fuck out of town you cunt.") 
-            quit()
+            return
 
         self.data_code = data_code
         self.exchange_code = exchange_code
@@ -178,6 +178,7 @@ class dataset(object):
             # Overwrite the start and end dates to match the data pulled from TV.
             self.start_date = TheData.index[0]; self.end_date = TheData.index[-1]
             self.data = TheData[self.start_date:self.end_date]      
+            self.filterData(self.data)
         
         elif self.source == 'coingecko':
             CoinID = PriceImporter.getCoinID(self.data_code, InputTablePath=parent+fdel+'MacroBackend'+fdel+'AllCG.csv')
@@ -232,6 +233,12 @@ class dataset(object):
         elif self.source.lower() == 'rba_tables':
             out_df = abs_series_by_r.get_rba_series_r(series_id = self.data_code)
             self.data = out_df
+
+        elif self.source == "saveddata":
+            path = parent + fdel + "User_Data" + fdel + "SavedData"
+            self.data = pd.read_excel(path+fdel+self.data_code+".xlsx", sheet_name = "Closing_Price", index_col=0)
+            self.SeriesInfo = pd.read_excel(path+fdel+self.data_code+".xlsx", sheet_name = "SeriesInfo", index_col=0)
+
         else:
             if self.source in self.supported_sources:
                 print("Your specified source will be supported but the coding has not been done yet, sorry sucker..") 
