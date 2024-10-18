@@ -875,5 +875,3 @@ def plot_lin_reg(series1: pd.Series, series2: pd.Series, returns: bool = True, t
         ax.set_ylabel(f'{ser1_title} values')
 
     return fig
-
-

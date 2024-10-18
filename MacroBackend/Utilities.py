@@ -1102,25 +1102,28 @@ class Pair_stats(object):
         
         # Make sure series are the same lengths after first having made them the same frequency:
         self.series1, self.series2 = match_series_lengths(self.series1, self.series2)
+        self.per_in_year = round(self.freq1.periods_in_day[self.frequency]*365.25)
+        print("Series frequencies (common to both): ", self.frequency, "periods in year: ", self.per_in_year)
         return 1
     
     def returns_df(self):
         """ Calculate the log returns for the two series and return a DataFrame with the returns. 
         The DataFrame will contain the original series, the log returns, and the percentage returns.
         - This is stored in the self.data attribute."""
-
             # # Let's calulate some returns innit...
         df = pd.concat([self.series1, self.series2], axis = 1)
         print("Calculating returns for series: ", self.series1.name, self.series2.name)
 
         df["ret_"+self.ser1_title] = np.log(df[self.series1.name]/df[self.series1.name].shift(1))
         df["ret_"+self.ser2_title] = np.log(df[self.series2.name]/df[self.series2.name].shift(1))
+        df["retYoY_"+self.ser1_title] = np.log(df[self.series1.name]/df[self.series1.name].shift(self.per_in_year))
+        df["retYoY_"+self.ser2_title] = np.log(df[self.series2.name]/df[self.series2.name].shift(self.per_in_year))
         df["retPct_"+self.ser1_title] = df[self.series1.name].pct_change(fill_method=None)
         df["retPct_"+self.ser2_title] = df[self.series2.name].pct_change(fill_method=None)
         df.dropna(inplace=True)
         return df
 
-    def rolling_stats(self):
+    def rolling_stats(self, yoy: bool = False):
         """ Calculate the rolling correlation between the two series for different window lengths.
         - The results are stored in the self.data DataFrame. 
         - The full correlation is stored in the self.full_corr attribute."""
@@ -1130,18 +1133,25 @@ class Pair_stats(object):
         print("Whole time correlation, "+self.ser1_title+" vs "+self.ser2_title, ":", self.full_corr)
         self.full_RetCorr = self.data["ret_"+self.ser1_title].corr(self.data["ret_"+self.ser2_title], method = 'pearson')
         print("Whole time correlation between log returns, "+self.ser1_title+" vs "+self.ser2_title+":", self.full_RetCorr)
+        self.full_YoYRetCorr = self.data["retYoY_"+self.ser1_title].corr(self.data["retYoY_"+self.ser2_title], method = 'pearson')
+        print("Whole time correlation between log YoY returns, "+self.ser1_title+" vs "+self.ser2_title+":", self.full_YoYRetCorr)
         self.full_PctRetCorr = self.data["retPct_"+self.ser1_title].corr(self.data["retPct_"+self.ser2_title], method = 'pearson')
-        print("Whole time correlation between percentage returns,"+self.ser1_title+" vs "+self.ser2_title+":",self.full_PctRetCorr)
+        print("Whole time correlation between percentage returns,"+self.ser1_title+" vs "+self.ser2_title+":", self.full_PctRetCorr)
         self.full_qdCorr = qd_corr(self.data["ret_"+self.ser1_title], self.data["ret_"+self.ser2_title])
-        print("Whole time qd correlation between log returns,"+self.ser1_title+" vs "+self.ser2_title+":",self.full_qdCorr)
+        print("Whole time qd correlation between log returns,"+self.ser1_title+" vs "+self.ser2_title+":", self.full_qdCorr)
         print("Rolling stats Windows: ", self.windows)
         names = self.ser1_title+"_"+self.ser2_title
 
         for window in self.windows:
             self.data[names+"_Corr_"+str(window)] = self.data[self.series1.name].rolling(window).corr(self.data[self.series2.name])
             self.data[names+"_RetCorr_"+str(window)] = self.data["ret_"+self.ser1_title].rolling(window).corr(self.data["ret_"+self.ser2_title])
+            self.data[names+"retYoY_"+str(window)] = self.data["retYoY_"+self.ser1_title].rolling(window).corr(self.data["retYoY_"+self.ser2_title])
             self.data[names+"_PctRetCorr_"+str(window)] = self.data["retPct_"+self.ser1_title].rolling(window).corr(self.data["retPct_"+self.ser2_title])
-            self.data[names+"_qdCorr_"+str(window)] = rolling_qd(self.data["ret_"+self.ser1_title], self.data["ret_"+self.ser2_title], window)
+            try:
+                self.data[names+"_qdCorr_"+str(window)] = rolling_qd(self.data["ret_"+self.ser1_title], self.data["ret_"+self.ser2_title], window)
+            except Exception as ahshitfckdup:
+                print("Could not calculate the corr using the quant dare formula, for this pair, ", self.ser1_title, "&", self.ser2_title\
+                      , "\nError message: ", ahshitfckdup)
             self.data[names+"_beta_"+str(window)] = self.data[names+"_Corr_"+str(window)] * (self.data["ret_"+self.ser1_title].rolling(window=window).std()\
                         / self.data["ret_"+self.ser2_title].rolling(window=window).std())
             self.data[names+"_alpha_"+str(window)] = self.data[self.series1.name].rolling(window=window).mean() - self.data[names+"_beta_"+str(window)]\
@@ -1182,9 +1192,14 @@ class Pair_stats(object):
         self.returns_plot = fig
         return fig, ax
 
-    def plot_log_returns_alt(self, downsample_to: str = "", color1: str = "b", color2: str = "r"):
+    def plot_log_returns_alt(self, downsample_to: str = "", color1: str = "b", color2: str = "r", YoY : bool = False):
         """ Plot the log returns of the two series as subplots."""
-        two_series_only = self.data[["ret_" + self.ser1_title, "ret_" + self.ser2_title]]
+        if YoY:
+            two_series_only = self.data[["retYoY_" + self.ser1_title, "retYoY_" + self.ser2_title]]
+            plot_title = 'YoY Log Returns: ' + self.ser1_title + ' vs ' + self.ser2_title
+        else:
+            two_series_only = self.data[["ret_" + self.ser1_title, "ret_" + self.ser2_title]]
+            plot_title = 'Log Returns: ' + self.ser1_title + ' vs ' + self.ser2_title
         freq_str = self.frequency
         if downsample_to:
             two_series_only = two_series_only.resample(downsample_to).last()
@@ -1195,11 +1210,11 @@ class Pair_stats(object):
         width =  (plot_width/ len(two_series_only)) # Width of each bar
         print("Plot width: ", plot_width, "bar width: ", width) 
         # Plot the log returns
-        axes[0].bar(two_series_only.index, two_series_only["ret_" + self.ser1_title], width = width*2, label=self.ser1_title, color = color1)
-        axes[1].bar(two_series_only.index, two_series_only["ret_" + self.ser2_title], width = width*2, label=self.ser2_title, color = color2)
+        axes[0].bar(two_series_only.index, two_series_only[two_series_only.columns[0]], width = width*2, label=self.ser1_title, color = color1)
+        axes[1].bar(two_series_only.index, two_series_only[two_series_only.columns[1]], width = width*2, label=self.ser2_title, color = color2)
         axes[1].legend()
         # Set the title and labels
-        axes[0].set_title('Log Returns: ' + self.ser1_title + ' vs ' + self.ser2_title)
+        axes[0].set_title(plot_title)
         for ax in axes:
             ax.set_axisbelow(True)
             ax.legend(fontsize = 11, frameon = True)
@@ -1232,7 +1247,8 @@ class Pair_stats(object):
         
         return self.fig1, self.fig1.axes[0]
 
-    def plot_corrs(self, trim_windows: int = 0, plot_wrong_way: bool = True, percentage_ret_corr: bool = False, qd_corr: bool = False):
+    def plot_corrs(self, trim_windows: int = 0, plot_wrong_way: bool = True, percentage_ret_corr: bool = False, qd_corr: bool = False,
+                   YoY_retCorr: bool = False):
         """
         Plot rolling Pearson correlations between your two series for the different window lengths.
         *** Parameters: ***
@@ -1249,16 +1265,17 @@ class Pair_stats(object):
             ('RetCorr', True),  # Always plot RetCorr
             ('Corr', plot_wrong_way),
             ('PctRetCorr', percentage_ret_corr),
-            ('qdCorr', qd_corr)
+            ('qdCorr', qd_corr),
+            ('retYoY_',YoY_retCorr)
         ]
         num_plots = sum([pt[1] for pt in plot_types])
 
         # Step 1: Create subplots
         if num_plots == 1:
-            fig, ax = plt.subplots(num_plots, 1, figsize=(12, 3 + (1.5 * num_plots)), sharex=True)  # Adjust figsize as needed
+            fig, ax = plt.subplots(num_plots, 1, figsize=(12, 2.5 + (1.75 * num_plots)), sharex=True)  # Adjust figsize as needed
             axes = [ax]
         else:
-            fig, axes = plt.subplots(num_plots, 1, figsize=(12, 3 + (1.5 * num_plots)), sharex=True)  # Adjust figsize as needed
+            fig, axes = plt.subplots(num_plots, 1, figsize=(12, 2.5 + (1.75 * num_plots)), sharex=True)  # Adjust figsize as needed
 
         # Step 2: Plot data
         # Assuming self.data is a DataFrame with the necessary columns
@@ -1277,7 +1294,7 @@ class Pair_stats(object):
         for ax in axes:
             ax.set_ylabel('Correlation', fontweight='bold', fontsize=10)
 
-        fullCorrs = [self.full_RetCorr, self.full_corr, self.full_PctRetCorr, self.full_qdCorr]
+        fullCorrs = [self.full_RetCorr, self.full_corr, self.full_YoYRetCorr, self.full_PctRetCorr, self.full_qdCorr]
         current_ax = 0
         for plot_type, should_plot in plot_types:
             if should_plot:
@@ -1295,6 +1312,7 @@ class Pair_stats(object):
             if should_plot:
                 title = {
                     'RetCorr': f"Correlation: {self.ser1_title} vs {self.ser2_title}: Log returns correlation.",
+                    'retYoY_': f"Correlation: {self.ser1_title} vs {self.ser2_title}: YoY returns correlation.",
                     'Corr': f"Correlation: {self.ser1_title} vs {self.ser2_title} (wrong way)",
                     'PctRetCorr': "Percentage returns correlation.",
                     'qdCorr': "QuantDare returns correlation."
@@ -1396,6 +1414,8 @@ class Pair_stats(object):
         ax2.set_ylabel("Correlation (Pearson)")
         
         self.shiftmatrix = output_data
+        self.lag_plot = fig1
+        self.lag_plot2 = fig2
         return optimal_lag, highest_correlation
 
     def bm_scatterMatrix(self):
@@ -1434,7 +1454,7 @@ class Pair_stats(object):
         return scatter_matrix
 
     def export_plots(self, savePath: str = "", dialog: str = "Tk", format: str = "png"):
-        savename = self.ser1_title + "-" + self.ser2_title
+        savename = self.ser1_title + "-" + self.ser2_title; savename = savename.replace(" ", "_")
         if not savePath:
             if dialog == "Qt":
                 savePath = save_path_dialog()
@@ -1461,7 +1481,13 @@ class Pair_stats(object):
             print("Saved correlation plot figure to: ", savePath + fdel + savename + '_corr.' + format)
         if hasattr(self, "scatMatPlot"):
             self.scatMatPlot.savefig(savePath + fdel + savename + '_scatMat.' + format, **save_options)
-            print("Saved correlation plot figure to: ", savePath + fdel + savename + '_scatMat.' + format)
+            print("Saved scatter matrix plot figure to: ", savePath + fdel + savename + '_scatMat.' + format)
+        if hasattr(self, "lag_plot"):
+            self.lag_plot.savefig(savePath + fdel + savename + '_lag.' + format, **save_options)
+            print("Saved lag plot figure to: ", savePath + fdel + savename + '_lag.' + format)
+        if hasattr(self, "lag_plot2"):
+            self.lag_plot2.savefig(savePath + fdel + savename + '_lagRes.' + format, **save_options)
+            print("Saved lag plot figure to: ", savePath + fdel + savename + '_lagRes.' + format)
 
 class api_keys():
 
@@ -1483,7 +1509,7 @@ class api_keys():
             print('Error loading API keys, ', e)
             pass    
         if keyFile is not None and default_keyFile is not None:
-            print('API_keys found but the "API_Keys_demo.json" file is still present... Delete that file to silence this warning.')
+            #print('API_keys found but the "API_Keys_demo.json" file is still present... Delete that file to silence this warning.')
             self.keys = json.load(keyFile)
         elif keyFile is not None and default_keyFile is None:   
             self.keys = json.load(keyFile)
