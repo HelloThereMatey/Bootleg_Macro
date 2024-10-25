@@ -264,6 +264,8 @@ class Watchlist(dict):
         self["watchlist"].loc[metadata["id"], "id"] = metadata["id"]
         self["watchlist"].loc[metadata["id"], "title"] = metadata["title"]
         self["watchlist"].loc[metadata["id"], "source"] = metadata["source"]
+        if self["metadata"][metadata["id"]] in self["metadata"].columns:
+            self["metadata"].drop(metadata["id"], axis=1, inplace=True)
         self["metadata"] = pd.concat([self["metadata"], metadata], axis = 1)
         print("Dataset ", metadata['title'], f"inserted into your {self.name} watchlist.")
 
