@@ -8,6 +8,7 @@ import numpy as np
 from scipy.signal import argrelextrema
 from scipy.optimize import curve_fit
 import scipy.stats as stats
+
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -119,13 +120,21 @@ def normality_tests(data: pd.Series):
         'Significance Levels': [np.nan, anderson_significance_levels, np.nan]
     })
 
-    # Q-Q plot
+    # Q-Q plot and R² calculation
     fig, ax = plt.subplots(figsize=(6, 6))
-    stats.probplot(data, dist="norm", plot=ax)
-    ax.set_title('Q-Q Plot')
+    (osm, osr), (slope, intercept, r) = stats.probplot(data, dist="norm", fit=True, plot=ax)
+    
+    # Calculate R² manually
+    y_pred = slope * osm + intercept
+    ss_res = np.sum((osr - y_pred) ** 2)
+    ss_tot = np.sum((osr - np.mean(osr)) ** 2)
+    r2 = 1 - (ss_res / ss_tot)
+    
+    ax.text(0.05, 0.95, f'R² = {r2:.4f}', fontsize=10, transform=ax.transAxes, 
+            bbox=dict(facecolor='beige', edgecolor='black', boxstyle='round,pad=0.5'))
     plt.show()
 
-    return results
+    return results, fig
 
 def ks_test_distribution(data: pd.Series, distribution: str):
     """
@@ -185,36 +194,60 @@ class stat_models_fit(object):
         self.name = data.name
 
          # Create histogram data
-        self.hist, self.bin_edges = np.histogram(self.data, bins=500, density=True)
+        self.hist, self.bin_edges = np.histogram(self.data, bins=len(self.data), density=True)
         self.bin_centers = (self.bin_edges[:-1] + self.bin_edges[1:]) / 2
         # Plot Gaussian fit
-        self.x_fit = np.linspace(self.bin_edges[0], self.bin_edges[-1], 1000)
+        self.x_fit = np.linspace(self.bin_edges[0], self.bin_edges[-1], len(self.data))
 
-    def fit_gaussian(self):
-        # Fit Gaussian
-        popt, _ = curve_fit(gaussian, self.bin_centers, self.hist, p0=[1, 0, 1])
-        fit_series = pd.Series(gaussian(self.x_fit, *popt), index=self.x_fit)
-        self.gaussian = fit_series
-        self.gaussian_params = popt
-        return popt, fit_series
+    def fit_gaussian(self, method: str = 'MLE'):
+        """Fit method optons are 'MLE' for maximum likelihood estimation and 'MM' for moment matching."""
+        try:
+            gauss_fit = stats.norm.fit(self.data, method=method)
+            fit_series = stats.norm.pdf(self.x_fit, *gauss_fit)
+            self.gaussian = pd.Series(fit_series, index = self.x_fit, name = self.name + " Gauss fit")
+            self.gaussian_params = gauss_fit
+            return gauss_fit
+        except Exception as e:
+            print(f"Gaussian fit failed: {e}")
+            return None
 
-    def fit_lorentzian(self):
-        # Fit Lorentzian
-        popt, _ = curve_fit(lorentzian, self.bin_centers, self.hist, p0=[1, 0, 1])
-        fit_series = pd.Series(lorentzian(self.x_fit, *popt), index=self.x_fit)
-        self.lorentzian = fit_series
-        self.lorentzian_params = popt
-        return popt
+    def fit_lorentzian(self, method: str = 'MLE'):
+        """Fit method optons are 'MLE' for maximum likelihood estimation and 'MM' for moment matching."""
+        try:
+            cauchy_fit = stats.cauchy.fit(self.data, method=method)
+            fit_series = stats.cauchy.pdf(self.x_fit, *cauchy_fit)
+            self.lorentzian = pd.Series(fit_series, index = self.x_fit, name = self.name + " Lorentzian fit")
+            self.lorentzian_params = cauchy_fit
+            return cauchy_fit
+        except Exception as e:
+            print(f"Lorentzian fit failed: {e}")
+            return None
 
-    def fit_student_t(self):
-        # Fit Student's t-distribution
-        popt_t, _ = curve_fit(student_t, self.bin_centers, self.hist, p0=[1, 0, 3, 1])
-        fit_series = pd.Series(student_t(self.x_fit, *popt_t), index=self.x_fit)
-        self.student_t = fit_series
-        self.t_popt = popt_t
-        return popt_t
+    def fit_student_t(self, method: str = 'MLE'):
+        """Fit method optons are 'MLE' for maximum likelihood estimation and 'MM' for moment matching."""
+        try:
+            t_fit = stats.t.fit(self.data, method=method)
+            fit_series = stats.t.pdf(self.x_fit, *t_fit)
+            self.t = pd.Series(fit_series, index = self.x_fit, name = self.name + " Student T fit")
+            self.t_params = t_fit
+            return t_fit
+        except Exception as e:
+            print(f"Student T fit failed: {e}")
+            return None
     
-    def plot_histogram_with_fits(self):
+    def fit_gamma(self, method: str = 'MLE'):
+        """Fit method optons are 'MLE' for maximum likelihood estimation and 'MM' for moment matching."""
+        try:
+            gamma_fit = stats.gamma.fit(self.data, method=method)
+            fit_series = stats.gamma.pdf(self.x_fit, *gamma_fit)
+            self.gamma = pd.Series(fit_series, index = self.x_fit, name = self.name + " Gamma dist. fit")
+            self.gamma_params = gamma_fit
+            return gamma_fit
+        except Exception as e:
+            print(f"Gamma fit failed bruh: {e}")
+            return None
+
+    def plot_histogram_with_fits(self, log: bool = False):
         """
         Plot a histogram of your data and show how it compares to fitted distributions...
         """
@@ -226,13 +259,18 @@ class stat_models_fit(object):
             ax.plot(self.gaussian, color='red', label='Gaussian Fit')
         if hasattr(self, 'lorentzian'):
             ax.plot(self.lorentzian, color='green', label='Lorentzian Fit')
-        if hasattr(self, 'student_t'):
-            ax.plot(self.student_t, color='purple', label=f'Student\'s t-Distribution Fit (df={self.t_popt[2]:.2f})')
+        if hasattr(self, 't'):
+            ax.plot(self.t, color='purple', label=f'T-Dist. Fit (df={self.t_params[0]:.2f})')
+        if hasattr(self, 'gamma'):
+            ax.plot(self.gamma, color='fuchsia', label='Gamma Fit')
 
         ax.legend(loc="upper left", fontsize=10)
         ax.set_xlabel('Value')
         ax.set_ylabel('Density')
-        ax.set_title('Histogram with Gaussian, Lorentzian, and Student\'s t-Distribution Fits')
+        ax.set_title('Histogram with Gaussian, Lorentzian, Student\'s t and Gamma dist. fits', fontsize = 12)
+        if log:
+            ax.set_yscale('log')
+            ax.set_ylim(10**(-2), self.hist.max())
 
         self.hist_fig = fig
         plt.show()
@@ -240,7 +278,7 @@ class stat_models_fit(object):
     def qq_plots(self):
         """
         Generate Q-Q plots for four distributions, the Cauchy (Lorentzian) distribution, Normal (Gaussian) distribution,
-        Student's T distribution, and the Binomial distribution against the input series data.
+        Student's T distribution, and the Gamma distribution against the input series data.
 
         *Parameters:*
         - data (pd.Series): The dataset to be tested. Must be a pandas Series.
@@ -252,33 +290,74 @@ class stat_models_fit(object):
         # Q-Q plot for Normal distribution
         fig, ax = plt.subplots(2, 2, figsize=(12, 12))
 
+        # Function to calculate R² and set transparency
+        def plot_with_r2(ax, data, dist, sparams, title):
+            (osm, osr), (slope, intercept, r) = stats.probplot(data, dist=dist, sparams=sparams, fit=True, plot=ax)
+            y_pred = slope * osm + intercept
+            ss_res = np.sum((osr - y_pred) ** 2)
+            ss_tot = np.sum((osr - np.mean(osr)) ** 2)
+            r2 = 1 - (ss_res / ss_tot)
+            ax.set_title(f'{title} (R² = {r2:.4f})', fontsize=11)
+            for line in ax.get_lines():
+                if line.get_linestyle() == 'None':  # This identifies the markers
+                    line.set_alpha(0.5)
+                    line.set_markeredgewidth(0)  # Remove the line around the marker perimeter
+
         # Q-Q plot for Normal distribution using fitted parameters
         if hasattr(self, 'gaussian_params'):
-            mean, std = self.gaussian_params[1], self.gaussian_params[2]
-            stats.probplot(data, dist="norm", sparams=(mean, std), plot=ax[0][0])
-            ax[0][0].set_title('Q-Q Plot for Normal Distribution')
+            plot_with_r2(ax[0][0], data, "norm", self.gaussian_params, 'Q-Q Plot for Normal Distribution')
 
         # Q-Q plot for Cauchy distribution using fitted parameters
         if hasattr(self, 'lorentzian_params'):
-            loc, scale = self.lorentzian_params[1], self.lorentzian_params[2]
-            stats.probplot(data, dist="cauchy", sparams=(loc, scale), plot=ax[0][1])
-            ax[0][1].set_title('Q-Q Plot for Cauchy Distribution')
+            plot_with_r2(ax[0][1], data, "cauchy", self.lorentzian_params, 'Q-Q Plot for Cauchy Distribution')
 
         # Q-Q plot for Student's T distribution using fitted parameters
-        if hasattr(self, 't_popt'):
-            amp, loc, df, scale = self.t_popt
-            stats.probplot(data, dist="t", sparams=(df, loc, scale), plot=ax[1][0])
-            ax[1][0].set_title("Q-Q Plot for Student's T Distribution")
+        if hasattr(self, 't_params'):
+            plot_with_r2(ax[1][0], data, "t", self.t_params, "Q-Q Plot for Student's T Distribution")
 
-        # Q-Q plot for Binomial distribution
-        n = 10  # Number of trials
-        p = 0.5  # Probability of success
-        binom_data = np.random.binomial(n, p, size=len(data))
-        stats.probplot(binom_data, dist="binom", sparams=(n, p), plot=ax[1][1])
-        ax[1][1].set_title("Q-Q Plot for Binomial Distribution")
+        # Q-Q plot for Gamma distribution using fitted parameters
+        if hasattr(self, 'gamma_params'):
+            plot_with_r2(ax[1][1], data, "gamma", self.gamma_params, "Q-Q Plot for Gamma Distribution")
 
         plt.tight_layout()
         plt.show()
+        self.qq_fig = fig
+
+    def remove_outliers(self, distribution: str, cutoff_threshold: float = 5):  ### This one not working yet.......
+        """
+        Remove outliers that fall outside of the given distribution from the self.data time series.
+
+        *Parameters:*
+        - distribution (str): The name of the distribution to use for filtering ('gaussian', 'lorentzian', 'student_t', 'gamma').
+        - cutoff_threshold (float): The percentile threshold for removing outliers. In percentage. 
+
+        *Returns:*
+        - None: The self.data series is modified in place.
+        """
+        if distribution == 'gaussian' and hasattr(self, 'gaussian'):
+            dist = self.gaussian
+        elif distribution == 'lorentzian' and hasattr(self, 'lorentzian'):
+            dist = self.lorentzian
+        elif distribution == 't' and hasattr(self, 't'):
+            dist = self.t
+        elif distribution == 'gamma' and hasattr(self, 'gamma'):
+            dist = self.gamma
+        else:
+            raise ValueError(f"Distribution '{distribution}' not fitted or not recognized.")
+
+        # Set a threshold for outliers (e.g., very low PDF values)
+        threshold = np.percentile(dist, cutoff_threshold)  # You can adjust this threshold
+        # Create a boolean mask for outliers
+        outliers_mask = dist > threshold
+        print(outliers_mask)
+        # Ensure the mask has the same index as the original data
+        outliers_mask = pd.Series(outliers_mask.to_list(), index=self.data.index)
+        outliers_mask.ffill(axis = 0, inplace=True)
+        print(outliers_mask)
+        # Set points that fall outside of the distribution to NaN
+        self.data[outliers_mask] = np.nan
+
+        print(f"Outliers removed using {distribution} distribution.")
         
 #### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
 def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\

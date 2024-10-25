@@ -986,6 +986,9 @@ def match_series_lengths(series1: pd.Series, series2: pd.Series) -> tuple[pd.Ser
 
     return series1_trimmed, series2_trimmed
 
+def rolling_corr(series1: pd.Series, series2: pd.Series, window: int, method: str = "pearson") -> pd.Series:
+    return series1.rolling(window).apply(lambda x: x.corr(series2.loc[x.index], method=method), raw=False)
+
 class Pair_stats(object):
     """"
     Class to calculate stats between two series for a number of different window lengths. 
@@ -1003,7 +1006,7 @@ class Pair_stats(object):
     - self.full_corr (float): The full correlation between the two series over the whole length. 
     """
 
-    def __init__(self, series1: pd.Series, series2: pd.Series, windows: list = [30, 90, 180, 365], 
+    def __init__(self, series1: pd.Series, series2: pd.Series, windows: list = [30, 90, 180, 365], corr_method: str = "pearson",
                  ser1_title: str = "", ser2_title: str = "", watchlist_meta: pd.DataFrame = pd.DataFrame(),
                  downsample_to: str = ""):
         super().__init__()
@@ -1044,7 +1047,7 @@ class Pair_stats(object):
         print("Windows: ", self.windows)
         self.windows.append(min(len(self.series1), len(self.series2))-2)
 
-        self.rolling_stats()
+        self.rolling_stats(corr_method = corr_method)
 
     def check_input_series(self):
         """ Check the input series and ensure they are of the same frequency and length. 
@@ -1123,19 +1126,28 @@ class Pair_stats(object):
         df.dropna(inplace=True)
         return df
 
-    def rolling_stats(self, yoy: bool = False):
+    def rolling_stats(self, yoy: bool = False, corr_method: str = 'pearson'):
         """ Calculate the rolling correlation between the two series for different window lengths.
+
+        **Parameters:**
+
+        - yoy (bool): Flag indicating whether to calculate the rolling correlation on a year-over-year basis using YoY log returns.
+        - corr_method (str): The correlation method to use (e.g., 'pearson', 'spearman', 'kendall').
+
+        **Returns:**
+
         - The results are stored in the self.data DataFrame. 
-        - The full correlation is stored in the self.full_corr attribute."""
+        - The full correlation is stored in the self.full_corr attribute.
+        """
 
         ## Now for correlations...
-        self.full_corr = self.data[self.series1.name].corr(self.data[self.series2.name], method = 'pearson')
+        self.full_corr = self.data[self.series1.name].corr(self.data[self.series2.name], method = corr_method)
         print("Whole time correlation, "+self.ser1_title+" vs "+self.ser2_title, ":", self.full_corr)
-        self.full_RetCorr = self.data["ret_"+self.ser1_title].corr(self.data["ret_"+self.ser2_title], method = 'pearson')
+        self.full_RetCorr = self.data["ret_"+self.ser1_title].corr(self.data["ret_"+self.ser2_title], method = corr_method)
         print("Whole time correlation between log returns, "+self.ser1_title+" vs "+self.ser2_title+":", self.full_RetCorr)
-        self.full_YoYRetCorr = self.data["retYoY_"+self.ser1_title].corr(self.data["retYoY_"+self.ser2_title], method = 'pearson')
+        self.full_YoYRetCorr = self.data["retYoY_"+self.ser1_title].corr(self.data["retYoY_"+self.ser2_title], method = corr_method)
         print("Whole time correlation between log YoY returns, "+self.ser1_title+" vs "+self.ser2_title+":", self.full_YoYRetCorr)
-        self.full_PctRetCorr = self.data["retPct_"+self.ser1_title].corr(self.data["retPct_"+self.ser2_title], method = 'pearson')
+        self.full_PctRetCorr = self.data["retPct_"+self.ser1_title].corr(self.data["retPct_"+self.ser2_title], method = corr_method)
         print("Whole time correlation between percentage returns,"+self.ser1_title+" vs "+self.ser2_title+":", self.full_PctRetCorr)
         self.full_qdCorr = qd_corr(self.data["ret_"+self.ser1_title], self.data["ret_"+self.ser2_title])
         print("Whole time qd correlation between log returns,"+self.ser1_title+" vs "+self.ser2_title+":", self.full_qdCorr)
@@ -1143,19 +1155,16 @@ class Pair_stats(object):
         names = self.ser1_title+"_"+self.ser2_title
 
         for window in self.windows:
-            self.data[names+"_Corr_"+str(window)] = self.data[self.series1.name].rolling(window).corr(self.data[self.series2.name])
-            self.data[names+"_RetCorr_"+str(window)] = self.data["ret_"+self.ser1_title].rolling(window).corr(self.data["ret_"+self.ser2_title])
-            self.data[names+"retYoY_"+str(window)] = self.data["retYoY_"+self.ser1_title].rolling(window).corr(self.data["retYoY_"+self.ser2_title])
-            self.data[names+"_PctRetCorr_"+str(window)] = self.data["retPct_"+self.ser1_title].rolling(window).corr(self.data["retPct_"+self.ser2_title])
+            self.data[names + "_Corr_" + str(window)] = rolling_corr(self.data[self.series1.name], self.data[self.series2.name], window, method = corr_method)
+            self.data[names + "_RetCorr_" + str(window)] = rolling_corr(self.data["ret_" + self.ser1_title], self.data["ret_" + self.ser2_title], window, method = corr_method)
+            self.data[names + "retYoY_" + str(window)] = rolling_corr(self.data["retYoY_" + self.ser1_title], self.data["retYoY_" + self.ser2_title], window, method = corr_method)
+            self.data[names + "_PctRetCorr_" + str(window)] = rolling_corr(self.data["retPct_" + self.ser1_title], self.data["retPct_" + self.ser2_title], window, method = corr_method)
             try:
-                self.data[names+"_qdCorr_"+str(window)] = rolling_qd(self.data["ret_"+self.ser1_title], self.data["ret_"+self.ser2_title], window)
+                self.data[names + "_qdCorr_" + str(window)] = rolling_qd(self.data["ret_" + self.ser1_title], self.data["ret_" + self.ser2_title], window)
             except Exception as ahshitfckdup:
-                print("Could not calculate the corr using the quant dare formula, for this pair, ", self.ser1_title, "&", self.ser2_title\
-                      , "\nError message: ", ahshitfckdup)
-            self.data[names+"_beta_"+str(window)] = self.data[names+"_Corr_"+str(window)] * (self.data["ret_"+self.ser1_title].rolling(window=window).std()\
-                        / self.data["ret_"+self.ser2_title].rolling(window=window).std())
-            self.data[names+"_alpha_"+str(window)] = self.data[self.series1.name].rolling(window=window).mean() - self.data[names+"_beta_"+str(window)]\
-                  * self.data[self.series2.name].rolling(window=window).mean()
+                print("Could not calculate the corr using the quant dare formula, for this pair, ", self.ser1_title, "&", self.ser2_title, "\nError message: ", ahshitfckdup)
+            self.data[names + "_beta_" + str(window)] = self.data[names + "_Corr_" + str(window)] * (self.data["ret_" + self.ser1_title].rolling(window=window).std() / self.data["ret_" + self.ser2_title].rolling(window=window).std())
+            self.data[names + "_alpha_" + str(window)] = self.data[self.series1.name].rolling(window=window).mean() - self.data[names + "_beta_" + str(window)] * self.data[self.series2.name].rolling(window=window).mean()
 
     def plot_log_returns(self, downsample_to: str = ""):
         """ Plot the log returns of the two series on the same chart.
