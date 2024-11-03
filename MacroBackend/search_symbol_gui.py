@@ -149,7 +149,12 @@ class Watchlist(dict):
                 self.storepath = save_directory+fdel+saveName+".h5s"
                 watchstore = pd.HDFStore(self.storepath, mode='w')
                 for key in self["watchlist_datasets"].keys():
-                    watchstore[key] = self["watchlist_datasets"][key]
+                    series = self["watchlist_datasets"][key]
+                    if isinstance(series, pd.DataFrame):
+                        if len(series.columns) == 1:
+                            series = series.squeeze()
+                            self["watchlist_datasets"][key] = series
+                    watchstore[key] = series
                 watchstore.close()
                 print("Saved watchlist datasets to .h5s database... save name: ", saveName)
         except Exception as e:
@@ -264,8 +269,11 @@ class Watchlist(dict):
         self["watchlist"].loc[metadata["id"], "id"] = metadata["id"]
         self["watchlist"].loc[metadata["id"], "title"] = metadata["title"]
         self["watchlist"].loc[metadata["id"], "source"] = metadata["source"]
-        if self["metadata"][metadata["id"]] in self["metadata"].columns:
+
+        ## Drop if already exiting in the dataset
+        if metadata["id"] in self["metadata"].columns:
             self["metadata"].drop(metadata["id"], axis=1, inplace=True)
+            
         self["metadata"] = pd.concat([self["metadata"], metadata], axis = 1)
         print("Dataset ", metadata['title'], f"inserted into your {self.name} watchlist.")
 
@@ -299,8 +307,10 @@ class Watchlist(dict):
         if data_name is not None:
             if data_name in self["watchlist_datasets"].keys():
                 self["watchlist_datasets"].pop(data_name)
-            self["metadata"].drop(data_name, axis=1, inplace=True)
-            self["watchlist"].drop(data_name, axis=0, inplace=True)
+            if data_name in self["metadata"].columns:
+                self["metadata"].drop(data_name, axis=1, inplace=True)
+            if data_name in self["watchlist"].index:
+                self["watchlist"].drop(data_name, axis=0, inplace=True)
         
         if drop_duplicates:
             watch = pd.DataFrame(self["watchlist"])

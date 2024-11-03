@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from typing import Union
-import datetime
 import tkinter as tk
 from tkinter import filedialog
 import tkinter.font as tkfont
@@ -21,12 +20,18 @@ from matplotlib.ticker import FuncFormatter
 import seaborn as sns
 from openpyxl import load_workbook
 import sys
+from scipy import stats
+from statsmodels.tsa.stattools import adfuller
 
+#######  Add the parent directory to the path so that the MacroBackend module can be imported.  #######
 wd = os.path.dirname(__file__); parent = os.path.dirname(wd)
 fdel = os.path.sep
 sys.path.append(parent)
 
+## Import the MacroBackend module
 from MacroBackend import Charting
+
+### Workig code below ##################################################################
 
 def qd_corr(series1: pd.Series, series2: pd.Series) -> float:
     """
@@ -1013,6 +1018,7 @@ class Pair_stats(object):
   
         self.series1 = series1
         self.series2 = series2
+        self.corr_method = corr_method
 
         self.downsample_to = downsample_to  #Use pandas frequency strings to resample both series and decrease the frequency. e.g "W", "M", "MS"
         self.freq_rep_dict = {'D': "Daily", "W": "Weekly", "M": "Monthly", "Q": "Quarterly", "Y": "Yearly"}
@@ -1335,10 +1341,15 @@ class Pair_stats(object):
         labels_combined = labels + ["Correlation\nfull length"]
         axes[num_plots - 1].legend(handles=handles_combined, labels=labels_combined, fontsize=10, bbox_to_anchor=(0.75, -0.1), ncol=6)
         fig.text(0.865, 0.97, 'Data frequency: ' + self.frequency, ha='center', va='center')
+        fig.text(0.1, 0.97, 'Correlation method' + self.corr_method, ha='center', va='center')
 
         self.corr_plot = fig
         
     def plot_lin_reg(self):
+        """ Plot a scatter plot of the returns of the two series, along with a linear regression line.
+        The plot will also display the R² value.
+        """
+
         rets = self.data[["ret_"+self.ser1_title, "ret_"+self.ser2_title]]
         reg = np.polyfit(rets["ret_"+self.ser2_title], rets["ret_"+self.ser1_title], deg = 1, full = False)
    
@@ -1359,14 +1370,18 @@ class Pair_stats(object):
         self.lineRegPlot = ax.get_figure()
 
     def find_optimal_lag(self, n):
+        """ Find the optimal lag-time that yields the highest correlation between the two series.
+        Note that this does not use log returns of series1 and series2 and is therefore not recommended for financial data
+        or any other series that deviate significantly from stationarity and normality."""
+
         correlations = []; backcorrs = []
         for i in range(n+1):
             shifted_series2 = self.series2.shift(i)
-            correlation = self.series1.corr(shifted_series2)
+            correlation = self.series1.corr(shifted_series2, method=self.corr_method)
             correlations.append(correlation)
         for i in range(n+1):
             shifted_series1 = self.series1.shift(i)
-            backcorr = self.series2.corr(shifted_series1)
+            backcorr = self.series2.corr(shifted_series1, method=self.corr_method)
             backcorrs.append(backcorr)
 
         print("Correlations for shifted series2: ", correlations)
@@ -1383,20 +1398,20 @@ class Pair_stats(object):
         concatenating the results into a series. The lags are periods of the datetime index of the series."""
 
         ser1 = self.data["ret_"+self.ser1_title]
-        ser2 = self.data["ret_"+self.ser2_title]
+        ser2 = self.data[self.ser2_title]
 
         ## Shift series and calculate correlations
         shifted = {}; correlations = {}
         output_data = pd.DataFrame([ser1])
         # Shift series 1 forward, corresponding to series 2 being shifted back...
-        for i in range(-n, n+1, 1):
+        for i in range(-n, n+1, 1): 
             shifted_series2 = ser2.shift(i)
-            shifted[i] = shifted_series2
-            correlation = ser1.corr(shifted_series2)
+            shifted_series2_rets = np.log(shifted_series2/shifted_series2.shift(1))
+            shifted[i] = shifted_series2_rets
+            correlation = ser1.corr(shifted_series2_rets, method=self.corr_method)
             correlations[i] = correlation
-            output_data = pd.concat([output_data, shifted_series2], axis=1)
+            output_data = pd.concat([output_data, shifted_series2_rets], axis=1)
     
-
         ### Plot the shifted series for inspection, normalize plotted series to between 0 & 1 and offset in Y for easy viewing.
         fig1, ax1 = plt.subplots(1, 1, figsize=(12, 5))
         ax1.set_title("Full period correlation for "+self.ser1_title+" (static) and "+self.ser2_title+" (shifted over range: -"+str(n)+" to "+str(n)+")")
@@ -1428,6 +1443,8 @@ class Pair_stats(object):
         return optimal_lag, highest_correlation
 
     def bm_scatterMatrix(self):
+        """ Custom scatter matrix plot. Incudes kernel density approximations and line for the max of each kde.
+        """
         rets = self.data[["ret_"+self.ser1_title, "ret_"+self.ser2_title]]
         # Create a scatter matrix
         scatter_matrix = pd.plotting.scatter_matrix(rets, diagonal="kde", figsize=(13, 7))
@@ -1463,6 +1480,15 @@ class Pair_stats(object):
         return scatter_matrix
 
     def export_plots(self, savePath: str = "", dialog: str = "Tk", format: str = "png"):
+        """ 
+        Save the plot figures created by the other methods here to disk.
+
+        **Parameters:**
+        - savePath (str): The path to save the figures to. If not provided, a dialog will be shown.
+        - dialog (str): The dialog to use for saving the files. Options are 'Tk' (default) or 'Qt'.
+        - format (str): The format to save the figures in. Default is 'png'.
+        """
+
         savename = self.ser1_title + "-" + self.ser2_title; savename = savename.replace(" ", "_")
         if not savePath:
             if dialog == "Qt":
@@ -1497,6 +1523,53 @@ class Pair_stats(object):
         if hasattr(self, "lag_plot2"):
             self.lag_plot2.savefig(savePath + fdel + savename + '_lagRes.' + format, **save_options)
             print("Saved lag plot figure to: ", savePath + fdel + savename + '_lagRes.' + format)
+
+    def assess_correlation_error(self, returns: bool = True):
+        """ Assess the correlation between the two series and the error involved,
+        including normality and stationarity tests.
+
+        **Parameters:**
+        - returns (bool): Flag indicating whether to assess the correlation between the log returns or the original series values.
+        """
+
+        
+        if returns:
+            ds1 = self.data["ret_"+self.ser1_title]; ds2 = self.data["ret_"+self.ser2_title]
+        else:
+            ds1 = self.data[self.ser1_title]; ds2 = self.data[self.ser2_title]
+
+        n = len(ds1)
+        if n < 3:
+            raise ValueError("Not enough data points to calculate correlation.")
+        # Compute Pearson correlation
+        r, pval = stats.pearsonr(ds1, ds2)
+        # Standard error
+        se_r = np.sqrt((1 - r**2) / (n - 2))
+        # Normality tests
+        shapiro_p1 = stats.shapiro(ds1)
+        shapiro_p2 = stats.shapiro(ds2)
+        # Stationarity tests
+        adf_p1 = adfuller(ds1)
+        adf_p2 = adfuller(ds2)
+
+        # Results
+        ser1res = self.ser1_title + " log returns" if returns else self.ser1_title
+        ser2res = self.ser2_title + " log returns" if returns else self.ser2_title
+
+        results = {
+            'correlation_coefficient': r,
+            'p_value_non_corr': pval,
+            'standard_error': se_r,
+            'normality_tests': {
+                ser1res: shapiro_p1,
+                ser2res: shapiro_p2
+            },
+            'stationarity_tests': {
+                ser1res: adf_p1,
+                ser2res: adf_p2
+            }
+        }
+        return results
 
 class api_keys():
 
