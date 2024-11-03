@@ -61,7 +61,7 @@ class dataset(object):
 
     def get_data(self, source: str, data_code: str, start_date: str = "1800-01-01", exchange_code: str = None, 
                  end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close",
-                 capitalize_column_names: bool = False, asset: str = "BTC", resolution: str = '24h', format: str = 'json'):
+                 capitalize_column_names: bool = False, asset: str = "BTC", resolution: str = '24h', format: str = 'json'):  ## To do make GlassNode params a single dict parameter...
         """
         The get_data method is responsible for pulling data from various sources. Pulled data will be stored in 3 important 
         attributes: 
@@ -94,7 +94,11 @@ class dataset(object):
             return
 
         self.data_code = data_code
-        self.exchange_code = exchange_code
+        if exchange_code is not None:
+            self.exchange_code = exchange_code
+        else:
+            self.exchange_code = "N/A"
+
         self.start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
         self.end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d') 
         self.SeriesInfo = pd.Series([],dtype=str)
@@ -283,10 +287,9 @@ class glassnode_data(object):   ## One can use this class to get data from Glass
     def get_data(self, asset: str = "BTC", tier: int = 1, resolution: str = '24h', format: str = 'csv', paramsDomain: str = "a"):
         params = {'a': asset,'i': resolution,'f': format,'api_key': self.keys['glassnode']} 
         self.data = GlassNode_API.GetMetric(path = self.metric_path, APIKey = self.keys['glassnode'], params = params)
-        self.seriesInfo = {"Source": "glassnode", "metric_short": self.metric, "metric_full": self.metric_path, "asset": asset,
-                           "tier": tier, "resolution": resolution, "format": format, "paramsDomain": paramsDomain}
+        self.seriesInfo = pd.Series({"source": "glassnode", "metric_short": self.metric, "metric_full": self.metric_path, "asset": asset,
+                           "tier": tier, "resolution": resolution, "format": format, "paramsDomain": paramsDomain} , name = "metadata_gn")
                
-
 if __name__ == "__main__":
     
     me_data = dataset()

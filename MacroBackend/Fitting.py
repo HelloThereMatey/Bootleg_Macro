@@ -190,7 +190,7 @@ def student_t(x, amp, cen, df, scale):
 
 class stat_models_fit(object):
     def __init__(self, data: pd.Series):
-        self.data = data
+        self.data = data.copy()
         self.name = data.name
 
          # Create histogram data
@@ -203,7 +203,8 @@ class stat_models_fit(object):
         """Fit method optons are 'MLE' for maximum likelihood estimation and 'MM' for moment matching."""
         try:
             gauss_fit = stats.norm.fit(self.data, method=method)
-            fit_series = stats.norm.pdf(self.x_fit, *gauss_fit)
+            self.norm = stats.norm(*gauss_fit)
+            fit_series = self.norm.pdf(self.x_fit)
             self.gaussian = pd.Series(fit_series, index = self.x_fit, name = self.name + " Gauss fit")
             self.gaussian_params = gauss_fit
             return gauss_fit
@@ -215,7 +216,8 @@ class stat_models_fit(object):
         """Fit method optons are 'MLE' for maximum likelihood estimation and 'MM' for moment matching."""
         try:
             cauchy_fit = stats.cauchy.fit(self.data, method=method)
-            fit_series = stats.cauchy.pdf(self.x_fit, *cauchy_fit)
+            self.cauchy = stats.cauchy(*cauchy_fit)
+            fit_series = self.cauchy.pdf(self.x_fit)
             self.lorentzian = pd.Series(fit_series, index = self.x_fit, name = self.name + " Lorentzian fit")
             self.lorentzian_params = cauchy_fit
             return cauchy_fit
@@ -227,7 +229,8 @@ class stat_models_fit(object):
         """Fit method optons are 'MLE' for maximum likelihood estimation and 'MM' for moment matching."""
         try:
             t_fit = stats.t.fit(self.data, method=method)
-            fit_series = stats.t.pdf(self.x_fit, *t_fit)
+            self.t_dist = stats.t(*t_fit)
+            fit_series = self.t_dist.pdf(self.x_fit)
             self.t = pd.Series(fit_series, index = self.x_fit, name = self.name + " Student T fit")
             self.t_params = t_fit
             return t_fit
@@ -239,7 +242,8 @@ class stat_models_fit(object):
         """Fit method optons are 'MLE' for maximum likelihood estimation and 'MM' for moment matching."""
         try:
             gamma_fit = stats.gamma.fit(self.data, method=method)
-            fit_series = stats.gamma.pdf(self.x_fit, *gamma_fit)
+            self.gam_dist = stats.t(*gamma_fit)
+            fit_series = self.gam_dist.pdf(self.x_fit)
             self.gamma = pd.Series(fit_series, index = self.x_fit, name = self.name + " Gamma dist. fit")
             self.gamma_params = gamma_fit
             return gamma_fit
@@ -253,7 +257,7 @@ class stat_models_fit(object):
         """
         # Plot histogram
         fig, ax = plt.subplots(figsize=(6, 6))
-        ax.hist(self.data, bins=1000, color='blue', alpha=0.6, label=self.name + " hist", density=True)
+        ax.hist(self.data, bins=1000, color='blue', alpha=0.85, label=self.name + " hist", density=True)
 
         if hasattr(self, 'gaussian'):
             ax.plot(self.gaussian, color='red', label='Gaussian Fit')
@@ -263,6 +267,11 @@ class stat_models_fit(object):
             ax.plot(self.t, color='purple', label=f'T-Dist. Fit (df={self.t_params[0]:.2f})')
         if hasattr(self, 'gamma'):
             ax.plot(self.gamma, color='fuchsia', label='Gamma Fit')
+        if hasattr(self, 'data_filtered'):
+            ax.hist(self.data_filtered, bins=1000, color='red', alpha=0.6, label=self.name + " filtered", density=True)
+        if hasattr(self, 'lower_threshold') and hasattr(self, 'upper_threshold'):
+            ax.axvline(self.upper_threshold, color='blue', linestyle='--', lw = 1, label='Upper cut-off')
+            ax.axvline(self.lower_threshold, color='black', linestyle='--', lw = 1, label='Lower cut-off')
 
         ax.legend(loc="upper left", fontsize=10)
         ax.set_xlabel('Value')
@@ -275,7 +284,7 @@ class stat_models_fit(object):
         self.hist_fig = fig
         plt.show()
 
-    def qq_plots(self):
+    def qq_plots(self, data: pd.Series = None):
         """
         Generate Q-Q plots for four distributions, the Cauchy (Lorentzian) distribution, Normal (Gaussian) distribution,
         Student's T distribution, and the Gamma distribution against the input series data.
@@ -283,9 +292,11 @@ class stat_models_fit(object):
         *Parameters:*
         - data (pd.Series): The dataset to be tested. Must be a pandas Series.
         """
-
-        # Ensure the data is a numpy array
-        data = self.data.dropna().values
+        if data is not None:
+            data = data.copy().dropna().values
+        else:
+            # Ensure the data is a numpy array
+            data = self.data.copy().dropna().values
 
         # Q-Q plot for Normal distribution
         fig, ax = plt.subplots(2, 2, figsize=(12, 12))
@@ -323,41 +334,60 @@ class stat_models_fit(object):
         plt.show()
         self.qq_fig = fig
 
-    def remove_outliers(self, distribution: str, cutoff_threshold: float = 5):  ### This one not working yet.......
+    def remove_outliers(self, distribution: str, cutoff_threshold: float = 5):
         """
-        Remove outliers that fall outside of the given distribution from the self.data time series.
+        Remove outliers that fall outside of the given fitted distribution from the self.data time series.
 
-        *Parameters:*
-        - distribution (str): The name of the distribution to use for filtering ('gaussian', 'lorentzian', 'student_t', 'gamma').
-        - cutoff_threshold (float): The percentile threshold for removing outliers. In percentage. 
+        Parameters:
+            distribution (str): The name of the distribution to use for filtering ('gaussian', 'lorentzian', 'student_t', 'gamma').
+            cutoff_threshold (float): The percentile threshold for removing outliers. In percentage. 
 
-        *Returns:*
-        - None: The self.data series is modified in place.
+        Returns:
+            pandas.DataFrame: DataFrame containing original data, outlier mask, and filtered data
         """
+        # Get the appropriate distribution object
         if distribution == 'gaussian' and hasattr(self, 'gaussian'):
-            dist = self.gaussian
+            dist = self.norm
         elif distribution == 'lorentzian' and hasattr(self, 'lorentzian'):
-            dist = self.lorentzian
+            dist = self.cauchy
         elif distribution == 't' and hasattr(self, 't'):
-            dist = self.t
+            dist = self.t_dist
         elif distribution == 'gamma' and hasattr(self, 'gamma'):
-            dist = self.gamma
+            dist = self.gam_dist
         else:
             raise ValueError(f"Distribution '{distribution}' not fitted or not recognized.")
 
-        # Set a threshold for outliers (e.g., very low PDF values)
-        threshold = np.percentile(dist, cutoff_threshold)  # You can adjust this threshold
-        # Create a boolean mask for outliers
-        outliers_mask = dist > threshold
-        print(outliers_mask)
-        # Ensure the mask has the same index as the original data
-        outliers_mask = pd.Series(outliers_mask.to_list(), index=self.data.index)
-        outliers_mask.ffill(axis = 0, inplace=True)
-        print(outliers_mask)
-        # Set points that fall outside of the distribution to NaN
-        self.data[outliers_mask] = np.nan
+        # Convert percentiles to proportions (e.g., 5% -> 0.05)
+        lower_prop = cutoff_threshold / 100
+        upper_prop = 1 - lower_prop
 
+        # Get the theoretical quantiles from the fitted distribution
+        self.lower_threshold = dist.ppf(lower_prop)
+        self.upper_threshold = dist.ppf(upper_prop)
+
+        # Create a boolean mask for outliers using the theoretical thresholds
+        outliers_mask = (self.data < self.lower_threshold) | (self.data > self.upper_threshold)
+        # Ensure the mask has the same index as the original data
+        outliers_mask = pd.Series(outliers_mask, index=self.data.index)
+        
+        # Create output DataFrame
+        dataout = pd.DataFrame({
+            "Data_at_start": self.data.copy(),
+            "Is_outlier": outliers_mask
+        })
+
+        # Set points that fall outside of the distribution to NaN
+        self.data_filtered = self.data.copy()
+        self.data_filtered[outliers_mask] = np.nan
+        
         print(f"Outliers removed using {distribution} distribution.")
+        print(f"Theoretical thresholds: lower={self.lower_threshold:.3f}, upper={self.upper_threshold:.3f}")
+        print(f"Number of outliers removed: {outliers_mask.sum()}")
+        
+        # Add filtered data to output DataFrame
+        dataout["Data_filtered"] = self.data_filtered
+
+        return dataout
         
 #### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
 def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
