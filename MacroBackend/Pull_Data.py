@@ -242,6 +242,11 @@ class dataset(object):
             path = parent + fdel + "User_Data" + fdel + "SavedData"
             self.data = pd.read_excel(path+fdel+self.data_code+".xlsx", sheet_name = "Closing_Price", index_col=0)
             self.SeriesInfo = pd.read_excel(path+fdel+self.data_code+".xlsx", sheet_name = "SeriesInfo", index_col=0)
+        
+        elif self.source == "saveddata":
+            path = parent + fdel + "User_Data" + fdel + "SavedData"
+            self.data = pd.read_excel(path+fdel+self.data_code+".xlsx", sheet_name = "Closing_Price", index_col=0)
+            self.SeriesInfo = pd.read_excel(path+fdel+self.data_code+".xlsx", sheet_name = "SeriesInfo", index_col=0)
 
         else:
             if self.source in self.supported_sources:
