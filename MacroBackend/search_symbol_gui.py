@@ -114,6 +114,11 @@ class Watchlist(dict):
         self.drop_data(drop_duplicates=True)
         self.storepath = os.path.splitext(filepath)[0] + ".h5s"
         self.storepath  = self.watchlists_path + fdel + self.name + fdel + self.name + ".h5s"
+
+        try:
+            self.load_watchlist_data()
+        except Exception as e:
+            print("Watchlist and metadata were loaded but error encountered in loading the watchlist datasets from hdfStore file, error: ", e)
     
     def append_current_watchlist(self, watchlist_data: pd.DataFrame, metadata_data: pd.DataFrame):
         """append_current_watchlist method.
@@ -205,8 +210,21 @@ class Watchlist(dict):
         # Update the metadata with the new data
         if self["watchlist_datasets"]:
             for key in self["watchlist_datasets"].keys():
-                start_date = self["watchlist_datasets"][key].index[0]
-                end_date = self["watchlist_datasets"][key].index[-1]
+                series = self["watchlist_datasets"][key]
+                #first reduce dataframes to series if the df has only a single column
+                if isinstance(series, pd.DataFrame):
+                    if len(series.columns) == 1:
+                        series = series.squeeze()
+                try:   #Rename the series to have the title in the metadata rather than id. 
+                    if series.name != self["metadata"].loc["title", key]:
+                        series.rename(self["metadata"].loc["title", key], inplace=True)
+                except Exception as err:
+                    print("Failed to rename series, ", series.name, " to title found in metadata, error: ", err)
+
+                start_date = series.index[0]
+                end_date = series.index[-1]
+                self["watchlist_datasets"][key] = series
+
                 if key in self["metadata"].columns and pd.notna(self["metadata"].loc["observation_start", key]):
                     pass
                 else:
@@ -216,7 +234,7 @@ class Watchlist(dict):
                     pass
                 else:
                     try:
-                        freq = Utilities.freqDetermination(self["watchlist_datasets"][key])
+                        freq = Utilities.freqDetermination(series)
                         freq.DetermineSeries_Frequency()
                         self["metadata"].loc["frequency", key] = freq.frequency
                         self["metadata"].loc["frequency_short", key] = freq.frequency[0]
@@ -224,6 +242,9 @@ class Watchlist(dict):
                         print("Error determining frequency for series: ", key, ". Exception: ", e)
                         self["metadata"].loc["frequency", key] = "Unknown"
                         self["metadata"].loc["frequency_short", key] = "U"
+        else:
+            print("Download datasets for the watchlist first using get_watchlist_data() or load_watchlist_data() methods.....")
+            return
 
     def load_watchlist_data(self):
         """load_watchlist_data method.
@@ -236,11 +257,13 @@ class Watchlist(dict):
                 print("Databse keys: ", data.keys())
                 self['watchlist_datasets'] = {key.lstrip('/'): data[key] for key in data.keys()}
                 data.close()
+            self.update_metadata()
         else:
             print("No .h5s database found for this watchlist. Get and save data first....")
             if input("Do you want to attempt pulling the data for the watchlist now? y/n?") == "y":
                 self.get_watchlist_data()
                 self.save_watchlist()
+                self.update_metadata()
             else:
                 return
         
