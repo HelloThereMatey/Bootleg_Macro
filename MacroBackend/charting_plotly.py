@@ -1,13 +1,12 @@
 import pandas as pd
-import plotly.io as pio
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from . import search_symbol_gui
-import numpy as np
-import PriceImporter
-import Utilities
-
-keys = Utilities.api_keys()
+import plotly.express as px
+#import numpy as np
+if __name__ == '__main__':
+    import Utilities
+else:
+    from . import Utilities
 
 # Assuming yrange_bot is a tuple or list with two elements: (min_y, max_y)
 def yrange_margin(yrange: list, margin_percentage=0.03):
@@ -57,6 +56,8 @@ def plotly_twoPart_fig(plot_dict: dict, recessions: str = "us"):
 
     startdate = min(plot_dict["upper"][0].index.min(), plot_dict["upper"][1].index.min())
     if recessions == "us":
+        import PriceImporter
+        keys = Utilities.api_keys()
         _, rec_periods = PriceImporter.Recession_Series(keys.keys['fred'], startdate.strftime("%Y-%m-%d"))
 
     # Create subplots with different row heights
@@ -141,8 +142,60 @@ def plotly_twoPart_fig(plot_dict: dict, recessions: str = "us"):
 
     return fig
 
+def plotly_multiline(df: pd.DataFrame, 
+                     x_col: str = None,
+                     title: str = "",
+                     yaxis_title: str = "",
+                     log_y: bool = False,
+                     height: int = 800,
+                     width: int = 1200):
+    """
+    Create a multi-line plot using plotly express
+    
+    Parameters:
+        df (pd.DataFrame): DataFrame containing the data
+        x_col (str): Name of column to use for x-axis (default: index)
+        title (str): Plot title
+        yaxis_title (str): Y-axis label
+        log_y (bool): Use log scale for y-axis
+        height (int): Plot height in pixels
+        width (int): Plot width in pixels
+    
+    Returns:
+        px.Figure: Plotly figure object
+    """
+    
+    # If no x column specified, use index
+    if x_col is None:
+        df = df.reset_index()
+        x_col = df.columns[0]
+    
+    # Create figure
+    fig = px.line(df, 
+                  x=x_col,
+                  y=df.columns,
+                  title=title,
+                  height=height,
+                  width=width)
+    
+    # Update layout
+    fig.update_layout(
+        showlegend=True,
+        legend_title_text='Series',
+        yaxis_title=yaxis_title,
+        yaxis_type='log' if log_y else 'linear',
+        hovermode='x unified',
+        template='plotly_white'
+    )
+    
+    # Update line styling
+    fig.update_traces(line={'width': 1})
+    
+    return fig
+
 if __name__ == '__main__':
     # Load the data
+    import search_symbol_gui
     watch = search_symbol_gui.Watchlist()
     watch.load_watchlist(filepath = '/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/Watchlists/EquityIndexes/EquityIndexes.xlsx')
     watch.load_watchlist_data()
