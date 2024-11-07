@@ -1,4 +1,4 @@
-from . import chart_rip
+#from .options import chart_rip
 from . import charting_plotly 
 from . import Charting 
 from . import Fitting 

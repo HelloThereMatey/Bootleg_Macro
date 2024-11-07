@@ -173,6 +173,7 @@ class BEA_Data(pybea.client.BureauEconomicAnalysisClient):
                 pass  
         
         Data = pd.DataFrame(self.Data['Data'])
+        print("Data filled: ", Data)
         SeriesInfo, FinalData = self.Data_2DF(Data,frequency,tDesc)
 
         self.Data['Series_Split'] = FinalData
@@ -245,9 +246,6 @@ class BEA_Data(pybea.client.BureauEconomicAnalysisClient):
                 i += 1
 
     def BEAPreviewPlot(self, data: pd.DataFrame = None, YScale:str='linear', seriesInfo: pd.Series=None, title: str = None):
-        plt.rcParams['font.family'] = 'serif'
-        plt.rcParams['figure.dpi'] = 200
-        plt.rcParams['backend'] = 'tkagg'
         fig = plt.figure(figsize=(11, 5), dpi = 150)
         fig.suptitle('U.S Bureau of Economic Analysis', fontweight='bold')
         ax = fig.add_axes(rect=[0.07,0.06,0.67,0.84])
@@ -513,10 +511,6 @@ class CustomIndexWindow(ctk.CTkToplevel):
             self.SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
        
     def PlotIndex(self, C_Index:pd.Series, YScale:str='linear', title: str = None):     #Chart template.
-        plt.rcParams['font.family'] = 'serif'
-        plt.rcParams['figure.dpi'] = 200
-        plt.rcParams['backend'] = 'tkagg'
-        
         fig = plt.figure(figsize=(11, 5), dpi=150)
         fig.suptitle('U.S Bureau of Economic Analysis, custom Index', fontweight='bold')
         ax = fig.add_axes(rect=[0.07,0.06,0.85,0.84])

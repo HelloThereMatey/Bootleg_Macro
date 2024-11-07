@@ -87,7 +87,7 @@ def basic_load_dialog(initialdir: str = wd, title: str ='Choose your file...',
     window.withdraw()  
     return file_path
 
-def save_path_dialog(initialdir: str = wd, title: str = 'Choose your save destination...', qt = True):
+def save_path_dialog(initialdir: str = wd, title: str = 'Choose your save destination...', qt = False):
     try:
         if not qt: 
             print("Using tkinter rather than Qt for dialog...")
