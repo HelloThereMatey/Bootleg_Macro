@@ -89,7 +89,8 @@ It may be necessary to first make the script executable prior to running it:
  - You could alternatively run everything in an editor such as VS code, yet if you're not planning to edit any code I'd recommend to stick with the terminal method. 
  - A free excel alternative such as libre office can be used but make sure that the file type is always ".xlsx".
 
-- **More experienced python users can import the MacroBackend module into their Jupyter notebook or python script**. Use:
+- **More experienced python users can import the MacroBackend module into their Jupyter notebook or python script**.
+    - Make and save a Jupyter Notebooks in UserData/Research_notebooks. Add this below to the top of top cell to import the MacroBackend. Use:
   ```
     import os
     wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
@@ -97,8 +98,8 @@ It may be necessary to first make the script executable prior to running it:
     import sys  #We'll append the path to the Botleg_Macro directory to sys.path so that the modules are found to import.
     #Note, this is for a working .ipynb file located in Bootleg_Macro/User_Data/Research_notebooks, modify if in different location, paths are relative to the location your working file. 
     sys.path.append(grampa)
-    from MacroBackend import PriceImporter, Utilities, Charting, Pull_Data, chart_rip, Fitting, search_symbol_gui  #or just import MacroBackend.
-    from MacroBackend.BEA_Data import bea_data_mate   #For BEA data, bea_data_mate will be a standalone module for BEA data.
+    import MacroBackend # Here is the main parts of Bootleg_Macro.
+
   ```
   - You'll want to add the Bootleg_Macro directory to your Python > Analysis > Extra_paths in settings in vscode (if using vscode). This will provide vscode access to the files for popup documentation and syntax coloring. 
 
