@@ -91,7 +91,7 @@ It may be necessary to first make the script executable prior to running it:
 
 - **More experienced python users can import the MacroBackend module into their Jupyter notebook or python script**.
     - Make and save a Jupyter Notebooks in UserData/Research_notebooks. Add this below to the top of top cell to import the MacroBackend. Use:
-  ```
+  ```python
     import os
     wd = os.path.dirname(__file__)  ## This gets the working directory which is the folder where you have placed this .py file. 
     parent = os.path.dirname(wd); grampa = os.path.dirname(parent)
