@@ -193,6 +193,40 @@ def plotly_multiline(df: pd.DataFrame,
     
     return fig
 
+def dual_axis_plot(left_traces: dict, right_traces: dict, 
+                   title: str = "", width: int = 1600, height: int = 500,
+                   left_yaxis_title: str = "", right_yaxis_title: str = "") -> go.Figure:
+    """
+    Create plotly figure with dual y-axes from trace dicts
+    left_traces = {'trace1': {'x': x1, 'y': y1, 'name': 'name1', 'line': {'color': 'blue'}}}
+    """
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    
+    # Add left axis traces
+    for trace in left_traces.values():
+        fig.add_trace(go.Scatter(**trace), secondary_y=False)
+        
+    # Add right axis traces  
+    for trace in right_traces.values():
+        fig.add_trace(go.Scatter(**trace), secondary_y=True)
+
+    fig.update_layout(
+        title=title,
+        template="plotly_white",
+        width=width,
+        height=height,
+        hovermode="x unified",
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.5),
+        margin=dict(l=25, r=10, t=40, b=20),  # Reduce whitespace at edges
+        font={"family": "Arial, sans-serif", "size": 14, "color": "black"}  # Set font to Arial
+    )
+    
+    # Update y-axes titles
+    fig.update_yaxes(title_text=left_yaxis_title, secondary_y=False)
+    fig.update_yaxes(title_text=right_yaxis_title, secondary_y=True, showgrid=False)
+    
+    return fig
+
 if __name__ == '__main__':
     # Load the data
     import search_symbol_gui
