@@ -633,6 +633,150 @@ def PullTGA_Data(AccountName = 'Federal Reserve Account',start_date='2000-01-01'
             
     return FullData
 
+def tresury_api(endpoint: str = '/v1/accounting/mts/mts_table_1', start_date: str = "all_history", fields: str = "", filters: str = "") -> pd.DataFrame:
+    urlBase = 'https://api.fiscaldata.treasury.gov/services/api/fiscal_service'
+    #fields = '?fields=record_date,account_type,close_today_bal,open_today_bal,open_month_bal'
+    if start_date == 'all_history':
+        filters += ''
+    else:
+        filters += '&filter=record_date:gte:'+start_date
+    if len(fields) == 0 and len(filters) == 0:
+        pass
+    else:
+        endpoint += '?'
+   
+    url = urlBase+endpoint+fields+filters
+
+    r = requests.get(url)
+    df = pd.json_normalize(r.json())
+    data = pd.json_normalize(df['data'][0])
+
+    return data
+
+def treasury_api_paginated(endpoint: str = '/v1/accounting/mts/mts_table_1', 
+                          start_date: str = "1900-01-01",
+                          end_date: str = None,
+                          fields: str = "", 
+                          filters: str = "",
+                          page_size: int = 1000,
+                          max_retries: int = 5) -> pd.DataFrame:
+    """
+    Get paginated data from Treasury API with specified page size
+    **Parameters**
+    - endpoint: str - API endpoint
+    - start_date: str - Start date for data
+    - end_date: str - End date for data
+    - fields: str - Fields to include in response
+    - filters: str - Filters to apply to data
+    - page_size: int - Number of records per page
+    - max_retries: int - Number of retries for failed requests
+    """
+    
+    base_url = 'https://api.fiscaldata.treasury.gov/services/api/fiscal_service'
+    
+     # Build query parameters
+    params = []
+    if fields:
+        params.append(f"fields={fields}")
+    if filters:
+        # Remove leading & if present in filters
+        params.append(filters.lstrip('&'))
+    
+    # Add date filters - ensure no duplicate date filters
+    if 'record_date:gte:' not in filters and start_date:
+        params.append(f"filter=record_date:gte:{start_date}")
+    if 'record_date:lte:' not in filters and end_date:
+        params.append(f"filter=record_date:lte:{end_date}")
+    
+    # Add page size
+    params.append(f"page[size]={page_size}")
+    
+    # Join parameters with & 
+    query = '?' + '&'.join(params) if params else ''
+    
+    print(f"Debug - Final URL: {base_url}{endpoint}{query}")  # Debug URL
+
+    
+    # Get total count first
+    try:
+        initial_url = f"{base_url}{endpoint}{query}"
+        r = requests.get(initial_url)
+        r.raise_for_status()
+        metadata = r.json().get('meta', {})
+        total_count = metadata.get('total-count', 0)
+        total_pages = (total_count + page_size - 1) // page_size
+        print(f"Total records: {total_count}, Pages needed: {total_pages}")
+    except Exception as e:
+        print(f"Error getting total count: {e}")
+        return pd.DataFrame()
+    
+    # Get all pages
+    full_data = pd.DataFrame()
+    for page in range(1, total_pages + 1):
+        page_url = f"{base_url}{endpoint}{query}&page[number]={page}"
+            
+        # Retry logic
+        for attempt in range(max_retries):
+            try:
+                r = requests.get(page_url)
+                r.raise_for_status()
+                response = r.json()
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    print(f"Failed to get page {page} after {max_retries} attempts: {e}")
+                    return full_data
+                time.sleep(2 ** attempt)  # Exponential backoff
+                
+        # Extract data
+        try:
+            df = pd.json_normalize(response['data'])
+            if df.empty:
+                break
+            full_data = pd.concat([full_data, df], ignore_index=True)
+            print(f"Retrieved page {page}/{total_pages} ({len(df)} records)")
+            
+        except Exception as e:
+            print(f"Error processing page {page}: {e}")
+            break
+            
+    print(f"Retrieved {len(full_data)} total records")
+    return full_data
+
+def parse_fiscal_months(series):
+    """Convert fiscal year and month series to datetime index"""
+    import pandas as pd
+    from datetime import datetime
+    
+    # Initialize variables
+    current_fy = None
+    dates = []
+    
+    # Month name to number mapping
+    month_map = {
+        'October': 10, 'November': 11, 'December': 12,
+        'January': 1, 'February': 2, 'March': 3,
+        'April': 4, 'May': 5, 'June': 6,
+        'July': 7, 'August': 8, 'September': 9
+    }
+    
+    for value in series:
+        if 'FY' in str(value):
+            # Extract fiscal year
+            current_fy = int(value.split()[-1])
+        elif value in month_map:
+            if current_fy is None:
+                continue
+                
+            month = month_map[value]
+            # For fiscal year, if month is Oct-Dec, use previous calendar year
+            year = current_fy - 1 if month >= 10 else current_fy
+            # Create date and set to month end
+            date = pd.to_datetime(f"{year}-{month}-1") + pd.offsets.MonthEnd(0)
+            dates.append(date)
+            
+    return pd.DatetimeIndex(dates)
+
 def AssCorr(series1:pd.Series, series2:pd.Series,periodsList:list, SaveDatas: str = None):    #This calculates the pearson correlation coefficient for two given series. 
     datas = {"data_1": series1, "data_2": series2}
     datas = check_pd_inputDatas(datas)

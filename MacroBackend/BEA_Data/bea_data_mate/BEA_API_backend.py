@@ -178,6 +178,7 @@ class BEA_Data(pybea.client.BureauEconomicAnalysisClient):
 
         self.Data['Series_Split'] = FinalData
         AddInfo["Source"] = "Bureau of economic analysis"
+        AddInfo["frequency"] = frequency
         addThis = pd.Series(AddInfo)
         SeriesInfo = pd.concat([SeriesInfo, addThis])
         self.Data['SeriesInfo'] = SeriesInfo
@@ -222,7 +223,7 @@ class BEA_Data(pybea.client.BureauEconomicAnalysisClient):
         for column in FinalData.columns:
             FinalData[column] = FinalData[column].apply(convert_to_float_with_commas)  
         SeriesCodes = pd.Series(codes,index=names)     
-        SeriesInfo = pd.concat([SeriesInfo,SeriesCodes],axis=0)
+        SeriesInfo = pd.concat([SeriesInfo,SeriesCodes],axis=0).rename('SeriesInfo')
         return SeriesInfo,FinalData   
     
     def Export_BEA_Data(self, filenames:list, saveLoc:str = wd+"/Datasets/"):
@@ -232,7 +233,7 @@ class BEA_Data(pybea.client.BureauEconomicAnalysisClient):
             Export["Data"] = self.Data.copy()
     ############# Export data to an Excel file (.xlsx).
         for n, export in enumerate(Export.keys()):
-            savePath = saveLoc+filenames[n]+".xlsx"
+            savePath = saveLoc+filenames[n]+"_"+self.Data_freq+".xlsx"
             ExportData = dict(Export[export])
             print('Exporting BEA data to excel file: ',savePath)
             i = 0
@@ -305,6 +306,24 @@ class BEA_Data(pybea.client.BureauEconomicAnalysisClient):
         else:
             print('Load NIPA table data from BEA first.')    
 
+    def load_table(self, load_path: str):
+        try:
+            self.Data = pd.read_excel(load_path, sheet_name=None, index_col=0, parse_dates=True)
+            for dataset in self.Data.keys():
+                if isinstance(self.Data[dataset], pd.DataFrame) and len(self.Data[dataset].columns) == 1:
+                    self.Data[dataset] = self.Data[dataset].squeeze().rename(dataset)
+            print('BEA Data loaded from: ', load_path, "Here the metadata:\n", self.Data['SeriesInfo'], type(self.Data['SeriesInfo']))
+            print('BEA Data loaded from: ', load_path)
+            self.Data_tCode = self.Data['SeriesInfo'].loc['TableName']
+            print("Table code: ", self.Data_tCode, "\n")
+            self.Data_name = self.Data['SeriesInfo'].loc['TableName']
+            print("Series code: ", self.Data_name, "\n")
+            self.Data_freq = self.Data['SeriesInfo'].loc['frequency']
+            print("Frequency: ", self.Data_freq, "\n")
+        except Exception as error:
+            print('Error loading data from: ', load_path, 'Error: ', error)
+            return
+        
 class Custom_FisherIndex(ctk.CTkToplevel):     #Still working on this page................................................................
 
     def __init__(self, master, exportPath:str = parent+fdel+'Macro_Chartist'+fdel+'SavedData'+fdel+'BEA'):
