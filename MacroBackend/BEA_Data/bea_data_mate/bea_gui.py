@@ -197,14 +197,29 @@ def bea_gui():
 
         data = pd.DataFrame(bea.Data['Series_Split'])
         print(data, data.index, type(data.index), data.dtypes)
-        
+        seriesInfo = bea.Data["SeriesInfo"]
+        units = int(seriesInfo.loc['UNIT_MULT'])
+        unit = str(seriesInfo.loc['METRIC_NAME'])
+        if unit == 'Current Dollars' or unit == 'Chained Dollars':
+            unit = unit.replace('Dollars','$')
+            if units == 6:
+                yLabel = 'Millions of US '+unit
+            elif units == 9:
+                yLabel = 'Billions of US '+unit
+            elif units == 3:
+                yLabel = 'Thousands of US '+unit
+            else:
+                yLabel = 'US '+unit+r' (x 10$^{'+str(units)+r'}$)'  
+        else:
+            yLabel = unit 
+
         if use_plotly:
             log_y = True if yScale == 'log' else False
-            fig = charting_plotly.plotly_multiline(data, title='BEA Data Preview', yaxis_title='Index', log_y=log_y,
+            fig = charting_plotly.plotly_multiline(data, title="BEA Data: "+bea.Data_name, yaxis_title=yLabel, log_y=log_y,
                                                 height = 900, width = 1600)
             fig.show()
         else:
-            figure = bea.BEAPreviewPlot(YScale=yScale)
+            figure = bea.BEAPreviewPlot(YScale=yScale, seriesInfo = bea.Data['SeriesInfo'])
             plt.show()       
 
     def SetSavingPath():
@@ -229,6 +244,20 @@ def bea_gui():
     def open_info_window(title: str, info_text: str):
         info_window = Utilities.InfoWindow(root, title, info_text)
         info_window.open()  
+
+    def load_excel_table():
+        loadPath = Utilities.basic_load_dialog(initialdir= savePath , title="Choose an excel file (.xlsx)containing a BEA data table previously downloaded and svaed by this GUI.",
+                                            filetypes=[("Excel files","*.xlsx")])
+        print('Loading table from: ',loadPath)
+        try:
+            bea.load_table(loadPath) 
+            for sheet in bea.Data.keys():   
+                print(sheet, "\n", bea.Data[sheet])
+            print('Successfully laoded BEA table from: ',loadPath)
+            return
+        except Exception as e:
+            print('Error loading table: ',e)
+            return
 
     ######## Define and arange the features on the GUI window 
     path = ctk.StringVar(master=root,value=defPath,name='Data folder path.')
@@ -271,11 +300,12 @@ def bea_gui():
     searchLabel = ctk.CTkLabel(top, text = 'Enter search term/s separated by ","', font=('Arial', 11)); searchLabel.grid(column=1,row=1,padx=5)
     searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=1,row=2,padx=5,pady=2)
     searchTerm = ctk.CTkEntry(top); searchTerm.grid(column=1,row=2,padx=5,pady=2)
-    btn=ctk.CTkButton(top, text="Search for data",text_color='black',command=SearchBtn,font=('Arial',12, 'bold'),border_width=1)
+    btn=ctk.CTkButton(top, text="Search for data",text_color='black', command=SearchBtn, font=('Arial',12, 'bold'), border_width=1)
     btn.grid(column=2,row=2,padx=5,pady=2)
     #btn_hover = Utilities.HoverInfo(btn, text = "Search through the BEA data \ntables in the current DATASET.")
-    flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',12,'bold')) ; flabel.grid(column=4,row=1)
-    freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq); freqs.grid(column=4,row=2,padx=30,pady=2)
+    flabel = ctk.CTkLabel(top,text='Data frequency',font=('Arial',12,'bold')) ; flabel.grid(column=4,row=1, sticky='w', padx=50, pady=2)
+    freqs = ctk.CTkOptionMenu(top,values=[""],variable=freq, width=80); freqs.grid(column=4,row=2, sticky='w', padx=50, pady=2)
+    load_table = ctk.CTkButton(top, text="Load Table", command=load_excel_table, font=('Arial',12, 'bold'), width=80); load_table.grid(column=4,row=2, sticky='e', padx=5,pady=2)
 
     # Create a text box to display the results
     result_box = tk.Listbox(middle,listvariable=SearchResults, font = default_font, height=round(250/defCharH), width=round(win_widChars*0.93), background="white", foreground="black")

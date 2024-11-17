@@ -176,7 +176,8 @@ def plotly_multiline(df: pd.DataFrame,
                   y=df.columns,
                   title=title,
                   height=height,
-                  width=width)
+                  width=width,
+                  )
     
     # Update layout
     fig.update_layout(
@@ -226,6 +227,62 @@ def dual_axis_plot(left_traces: dict, right_traces: dict,
     fig.update_yaxes(title_text=right_yaxis_title, secondary_y=True, showgrid=False)
     
     return fig
+
+def px_bar(data: pd.DataFrame, title: str = "Bar chart", barmode: str = "group", 
+           columns: list = None, yax_label: str = "value") -> go.Figure: 
+    """
+    Create bar chart using plotly express
+    
+    Args:
+        data (pd.DataFrame): Input DataFrame
+        title (str): Chart title
+        barmode (str): Bar mode - 'group' or 'stack' 
+        columns (list): Columns to plot, defaults to all
+        yax_label (str): Y-axis label
+    """
+    
+    if isinstance(data, pd.Series):
+        print("Input data is a series, converting to 1D dataframe...")
+        data = data.copy().to_frame()
+    # Use all columns if none specified
+    if columns is None:
+        columns = data.columns.tolist()
+        print(f"Using all columns: {columns}")
+        
+    # Create figure using go.Figure instead of px
+    fig = go.Figure()
+    
+    # Add bars for each column
+    for col in columns:
+        fig.add_trace(
+            go.Bar(
+                x=data.index,
+                y=data[col],
+                name=col
+            )
+        )
+
+    # Update layout
+    fig.update_layout(
+        title=title,
+        barmode=barmode,
+        margin=dict(l=20, r=20, t=40, b=20),
+        font={"family": "Arial, sans-serif", "size": 14, "color": "black"},
+        legend=dict(
+            orientation="h", 
+            yanchor="bottom",
+            y=-0.3, 
+            xanchor="center",
+            x=0.5, 
+            bgcolor='rgba(255, 255, 255, 0)',
+            bordercolor='rgba(255, 255, 255, 0)',
+            font=dict(size=14)  # Add font size here
+        ),
+        yaxis_title=yax_label
+    )
+
+    return fig
+
 
 if __name__ == '__main__':
     # Load the data
