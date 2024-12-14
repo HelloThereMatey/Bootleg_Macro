@@ -83,7 +83,6 @@ def identify_peaks_and_troughs(data: pd.Series, x_range: datetime.timedelta):
 
     return ThePeaks, Troffz, ThePeaksRaw, TroffzRaw
 
-
 def normality_tests(data: pd.Series):
     """
     Perform normality tests on the dataset. These tests include the Shapiro-Wilk test, the Anderson-Darling test, and the Kolmogorov-Smirnov test.
@@ -282,7 +281,6 @@ class stat_models_fit(object):
             ax.set_ylim(10**(-2), self.hist.max())
 
         self.hist_fig = fig
-        plt.show()
 
     def qq_plots(self, data: pd.Series = None):
         """
@@ -388,6 +386,25 @@ class stat_models_fit(object):
         dataout["Data_filtered"] = self.data_filtered
 
         return dataout
+
+#### Distibution fits and plot convenience function..........
+def fit_dists_plot(series: pd.Series, log: bool = False):
+    """_summary_
+
+    Args:
+        series (pd.Series): Your data series to fit dists to and plot.
+        log (bool, optional): Log axis on dists plot. Defaults to False.
+
+    Returns:
+        Fitting.stat_models_fit: Object defined above. 
+    """
+    fitobj = stat_models_fit(series)
+    fitobj.fit_gaussian()
+    fitobj.fit_gamma()
+    fitobj.fit_lorentzian()
+    fitobj.fit_student_t()
+    fitobj.plot_histogram_with_fits(log=False)
+    return fitobj
         
 #### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
 def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\

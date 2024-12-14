@@ -12,10 +12,17 @@ import matplotlib.colors as mcolors
 from matplotlib.patches import Rectangle
 ### These are standard python packages included in the latest python distributions. No need to install them. 
 import datetime
-from datetime import timedelta
-from . import Utilities, Fitting
+#from datetime import timedelta
 from typing import Union
 import math
+
+import sys
+import os
+#######  Add the parent directory to the path so that the MacroBackend module can be imported.  #######
+wd = os.path.dirname(__file__); parent = os.path.dirname(wd)
+fdel = os.path.sep
+sys.path.append(parent)
+from MacroBackend import Utilities, Fitting
 
 ###### Global matplotlib parameters that I want always set ###################################
 try:

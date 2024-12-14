@@ -7,5 +7,6 @@ from . import PriceImporter
 from . import Pull_Data 
 from . import search_symbol_gui 
 from . import Utilities 
+from . import stats 
 from .BEA_Data import bea_data_mate
 from .Glassnode import GN_Control

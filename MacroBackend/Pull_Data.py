@@ -49,8 +49,9 @@ class dataset(object):
                                     'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
                                     'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                     'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
-                                    'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'saveddata']
-        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs', 'bea', 'rba_tables', 'saveddata']
+                                    'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'saveddata',
+                                    "hdfstores"]
+        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs', 'bea', 'rba_tables', 'saveddata', "hdfstores"]
 
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
         self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
@@ -243,10 +244,10 @@ class dataset(object):
             self.data = pd.read_excel(path+fdel+self.data_code+".xlsx", sheet_name = "Closing_Price", index_col=0)
             self.SeriesInfo = pd.read_excel(path+fdel+self.data_code+".xlsx", sheet_name = "SeriesInfo", index_col=0)
         
-        elif self.source == "saveddata":
-            path = parent + fdel + "User_Data" + fdel + "SavedData"
-            self.data = pd.read_excel(path+fdel+self.data_code+".xlsx", sheet_name = "Closing_Price", index_col=0)
-            self.SeriesInfo = pd.read_excel(path+fdel+self.data_code+".xlsx", sheet_name = "SeriesInfo", index_col=0)
+        elif self.source == "hdfstores":
+            path = parent + fdel + "User_Data" + fdel + "hd5s"
+            self.data = pd.read_hdf(path+fdel+self.data_code+".hd5", key = "data")
+            self.SeriesInfo = pd.read_hdf(path+fdel+self.data_code+".hd5", key = "metadata")
 
         else:
             if self.source in self.supported_sources:

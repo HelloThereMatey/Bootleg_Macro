@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
-#import numpy as np
+import numpy as np
 if __name__ == '__main__':
     import Utilities
 else:
@@ -55,6 +55,7 @@ def plotly_twoPart_fig(plot_dict: dict, recessions: str = "us"):
     include_lower_plot=True
 
     startdate = min(plot_dict["upper"][0].index.min(), plot_dict["upper"][1].index.min())
+    rec_periods = None
     if recessions == "us":
         import PriceImporter
         keys = Utilities.api_keys()
@@ -86,12 +87,13 @@ def plotly_twoPart_fig(plot_dict: dict, recessions: str = "us"):
         fig.add_trace(
             go.Bar(x=bot_data[0].index, y=bot_data[0], name=bot_data[0].name, marker=dict(color='blue', line=dict(color='blue')), opacity=1),
             row=2, col=1)
-        fig.add_trace(
-            go.Scatter(x=bot_data[1].index, y=bot_data[1], mode='lines', name=bot_data[1].name, line=dict(color='red', width=1)),
-            row=2, col=1)
+        if len(bot_data) > 1:
+            fig.add_trace(
+                go.Scatter(x=bot_data[1].index, y=bot_data[1], mode='lines', name=bot_data[1].name, line=dict(color='red', width=1)),
+                row=2, col=1)
     
-    yrange_top = [min(top_data[0].min(), top_data[1].min()), max(top_data[0].max(), top_data[1].max())]
-    yrange_bot = [min(bot_data[0].min(), bot_data[1].min()), max(bot_data[0].max(), bot_data[1].max())] if include_lower_plot else None
+    yrange_top = [min(top_data[0].min(), top_data[0].min()), max(top_data[0].max(), top_data[0].max())]
+    yrange_bot = [min(bot_data[0].min(), bot_data[0].min()), max(bot_data[0].max(), bot_data[0].max())] if include_lower_plot else None
     y0, y1 = yrange_margin(yrange_top)
     yb0, yb1 = yrange_margin(yrange_bot) if include_lower_plot else None
 
@@ -112,24 +114,25 @@ def plotly_twoPart_fig(plot_dict: dict, recessions: str = "us"):
     if include_lower_plot:
         fig.update_yaxes(title=dict(text=plot_dict['titles']['lower'], standoff=1), showgrid=True, row=2, col=1, gridcolor='black', gridwidth=0.5,
                          showline=True, linewidth=2, linecolor='black', ticks='outside', zeroline=False, griddash='dot')
-        
-    # Add recession periods as vertical spans to the top panel
-    for start_date, end_date in rec_periods:
-        # Add a vertical colored span
-        fig.add_vrect(
-            x0=start_date, x1=end_date,  # start and end points on x-axis
-            fillcolor="grey", opacity=0.5,
-            layer="below", line_width=0,
-        )  
-        
-    if include_lower_plot:
-        # Add recession periods as vertical spans to the bottom panel
+
+    if rec_periods is not None:    
+        # Add recession periods as vertical spans to the top panel
         for start_date, end_date in rec_periods:
+            # Add a vertical colored span
             fig.add_vrect(
                 x0=start_date, x1=end_date,  # start and end points on x-axis
                 fillcolor="grey", opacity=0.5,
                 layer="below", line_width=0,
             )  
+            
+        if include_lower_plot:
+            # Add recession periods as vertical spans to the bottom panel
+            for start_date, end_date in rec_periods:
+                fig.add_vrect(
+                    x0=start_date, x1=end_date,  # start and end points on x-axis
+                    fillcolor="grey", opacity=0.5,
+                    layer="below", line_width=0,
+                )  
 
     fig.add_trace( # Add a trace to the top panel to show the recession periods, keep it hidden, show in legend only.
             go.Bar(x=[top_data[0].index[0], top_data[0].index[1]], y=[top_data[0].median(), top_data[0].median()], name="US recession periods (NBER)",
@@ -228,61 +231,145 @@ def dual_axis_plot(left_traces: dict, right_traces: dict,
     
     return fig
 
-def px_bar(data: pd.DataFrame, title: str = "Bar chart", barmode: str = "group", 
-           columns: list = None, yax_label: str = "value") -> go.Figure: 
-    """
-    Create bar chart using plotly express
-    
-    Args:
-        data (pd.DataFrame): Input DataFrame
-        title (str): Chart title
-        barmode (str): Bar mode - 'group' or 'stack' 
-        columns (list): Columns to plot, defaults to all
-        yax_label (str): Y-axis label
-    """
+def px_bar(data: pd.DataFrame, title: str = "Bar chart", barmode: str = 'group',
+           columns: list = None, yax_label: str = "value", right_axis: list = None,
+           right_yax_label: str = "value (right)") -> go.Figure:
+    """Create bar chart with dual axes using blank series for grouping"""
     
     if isinstance(data, pd.Series):
-        print("Input data is a series, converting to 1D dataframe...")
         data = data.copy().to_frame()
+        
     # Use all columns if none specified
+    if columns is None and right_axis is None:
+        columns = data.columns.tolist()
+    elif columns is not None and right_axis is None:
+        pass
+    elif columns is None and right_axis is not None:
+        columns = [col for col in data.columns.tolist() if col not in right_axis]
+    else:
+        columns = [col for col in columns if col not in right_axis]
+        right_axis = [col for col in columns if col not in columns]
+
+    #print("Data columns: ", data.columns, "\n", "Left axis: ", columns, "\n", "Right axis: ", right_axis)
+    if right_axis is not None:
+        numTraces = len(columns) + len(right_axis)
+        if len(columns) > 0 and len(right_axis) > 0:
+            for i in range(numTraces -1):
+                columns.insert(i+1, "_")
+                right_axis.insert(i, "_")
+
+    print("Data columns: ", data.columns, "\n", "Left axis: ", columns, "\n", "Right axis: ", right_axis)
+    
+    if right_axis is not None and len(right_axis) > 0:
+        # Create figure with secondary y-axis
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+    else:
+        fig = make_subplots()
+    
+    # Add left axis bars
+    for col in columns:
+        if col == '_':
+            blank = pd.Series(np.nan, index = data.index, name = "_blank")
+            fig.add_trace(go.Bar(x=data.index, y=blank, name=""), secondary_y=False)
+        else:
+            fig.add_trace(go.Bar(x=data.index, y=data[col], name=col), secondary_y=False)
+    if right_axis is not None:
+        # Add right axis bars
+        for col in right_axis:
+            if col == '_':
+                fig.add_trace(go.Bar(x=data.index, y=blank, name=""), secondary_y=True)
+            else:
+                fig.add_trace(go.Bar(x=data.index, y=data[col], name=col), secondary_y=True)
+
+    # Update layout
+    fig.update_layout(
+        barmode=barmode,
+        title=title,
+        margin=dict(l=20, r=20, t=45, b=10),
+        font={"family": "Arial, sans-serif", "size": 14, "color": "black"},
+        legend=dict(
+            orientation="h",
+            yanchor="bottom", 
+            y=-0.3,
+            xanchor="center",
+            x=0.5,
+            bgcolor='rgba(255, 255, 255, 0)',
+            bordercolor='rgba(255, 255, 255, 0)',
+            font=dict(size=14)
+        ),
+        showlegend=True
+    )
+    
+    # Update axes
+    fig.update_yaxes(title_text=yax_label, secondary_y=False, showgrid=True)
+    fig.update_xaxes(title_text="Date", showgrid=True)
+    fig.update_yaxes(title_text=right_yax_label, secondary_y=True, showgrid=False)
+
+    return fig
+
+def bar_subplots(data: pd.DataFrame, columns: list = None, 
+                 title: str = "", height: int = None) -> go.Figure:
+    
+    """Create bar chart plots, one subplot per series. Using the columns from the supplied dataframe.
+    **Parameters: **
+    columns: list[str] - the names of the columns that you want to plot in subplots."""
+
+    if isinstance(data, pd.Series):
+        data = data.copy().to_frame()
+
     if columns is None:
         columns = data.columns.tolist()
-        print(f"Using all columns: {columns}")
         
-    # Create figure using go.Figure instead of px
-    fig = go.Figure()
-    
-    # Add bars for each column
-    for col in columns:
+    # Calculate default height based on number of subplots
+    if height is None:
+        height = 200 * len(columns)  # 200px per subplot
+        
+    # Create subplots with minimal spacing
+    fig = make_subplots(
+        rows=len(columns), 
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.1,  # Minimal gap between subplots
+        subplot_titles=columns
+    )
+
+    # Add traces
+    for i, col in enumerate(columns, 1):
         fig.add_trace(
-            go.Bar(
-                x=data.index,
-                y=data[col],
-                name=col
-            )
+            go.Bar(x=data.index, y=data[col], name=col),
+            row=i, 
+            col=1
         )
 
     # Update layout
     fig.update_layout(
-        title=title,
-        barmode=barmode,
-        margin=dict(l=20, r=20, t=40, b=20),
-        font={"family": "Arial, sans-serif", "size": 14, "color": "black"},
-        legend=dict(
-            orientation="h", 
-            yanchor="bottom",
-            y=-0.3, 
-            xanchor="center",
-            x=0.5, 
-            bgcolor='rgba(255, 255, 255, 0)',
-            bordercolor='rgba(255, 255, 255, 0)',
-            font=dict(size=14)  # Add font size here
-        ),
-        yaxis_title=yax_label
+        height=height,
+        title=dict(text=title, x=0.5, y=0.98),
+        margin=dict(l=50, r=20, t=30, b=30),  # Minimal margins
+        showlegend = False,
+        font=dict(family="Arial, sans-serif", size=12)
+    )
+    
+   # Update x-axis visibility with more ticks
+    fig.update_xaxes(
+        showticklabels=False, 
+        showgrid=True, 
+        dtick='M24',
+    )
+    # Show x labels on bottom plot only with more ticks
+    fig.update_xaxes(
+        showticklabels=True, 
+        row=len(columns),
+        dtick='M24',  # Set tick interval to 2 year
     )
 
+    fig.update_yaxes(
+        nticks=10,  # Increase number of y-axis ticks
+        # minor=dict(ticks="inside", ticklen=3, showgrid=True),  # Add minor ticks
+        #tickmode="linear"  # Force linear tick spacing
+    )
+    
     return fig
-
 
 if __name__ == '__main__':
     # Load the data
