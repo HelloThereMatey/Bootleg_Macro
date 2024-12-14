@@ -596,9 +596,9 @@ class CustomIndexWindow(ctk.CTkToplevel):
 
         if len(opString) > 0:
             smo = Utilities.StringMathOp(data, comps, indx)
-            smo.func(opString)
+            result = smo.func(opString)
             print('Custom index made using math indicated in the operationString: ', opString)
-            Cindex = pd.Series(smo.ComputedIndex.copy().to_list(), name = 'Custom_Index', index = self.data.index)
+            Cindex = pd.Series(result, name = 'Custom_Index', index = self.data.index)
             print('Custom index...:',Cindex)
         else:
             print('Adding the index components to produce custom index as no custom operation string provided.')

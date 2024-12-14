@@ -209,8 +209,10 @@ class Watchlist(dict):
     def update_metadata(self):
         # Update the metadata with the new data
         if self["watchlist_datasets"]:
+            print("Running watchlist update_metadata method.....")
             for key in self["watchlist_datasets"].keys():
                 series = self["watchlist_datasets"][key]
+                #print("Looking at dataset ", key)
                 #first reduce dataframes to series if the df has only a single column
                 if isinstance(series, pd.DataFrame):
                     if len(series.columns) == 1:
@@ -226,10 +228,13 @@ class Watchlist(dict):
                 self["watchlist_datasets"][key] = series
 
                 if key in self["metadata"].columns and pd.notna(self["metadata"].loc["observation_start", key]):
-                    pass
-                else:
                     self["metadata"].loc["observation_start", key] = start_date
                     self["metadata"].loc["observation_end", key] = end_date
+                else:
+                    #print("Setting metadata end and start dates, end: ", end_date, ", start: ", start_date)
+                    self["metadata"].loc["observation_start", key] = start_date
+                    self["metadata"].loc["observation_end", key] = end_date
+
                 if key in self["metadata"].columns and pd.notna(self["metadata"].loc["frequency", key]):
                     pass
                 else:
@@ -246,7 +251,7 @@ class Watchlist(dict):
             print("Download datasets for the watchlist first using get_watchlist_data() or load_watchlist_data() methods.....")
             return
 
-    def load_watchlist_data(self):
+    def load_watchlist_data(self, ask_input: bool = False):
         """load_watchlist_data method.
         This function loads the watchlist data from a .h5s database file. The data is stored in the 'watchlist_datasets' dictionary.
         This can be run as an alternative to get_wtaclist_data, if the data has already been pulled and saved to a .h5s file."""
@@ -260,12 +265,14 @@ class Watchlist(dict):
             self.update_metadata()
         else:
             print("No .h5s database found for this watchlist. Get and save data first....")
-            if input("Do you want to attempt pulling the data for the watchlist now? y/n?") == "y":
-                self.get_watchlist_data()
-                self.save_watchlist()
-                self.update_metadata()
-            else:
-                return
+            if ask_input:
+                if input("Do you want to attempt pulling the data for the watchlist now? y/n?") == "y":
+                    self.get_watchlist_data()
+                    self.save_watchlist()
+                    self.update_metadata()
+                else:
+                    return
+            return
         
         print("Loaded database from .h5s file, keys: ", self["watchlist_datasets"].keys())
 
