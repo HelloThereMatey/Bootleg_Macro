@@ -430,12 +430,19 @@ class Pair_stats(object):
         for ax in axes:
             ax.set_ylabel('Correlation', fontweight='bold', fontsize=10)
 
-        fullCorrs = [self.full_RetCorr, self.full_corr, self.full_PctRetCorr, self.full_qdCorr, self.full_YoYRetCorr]
+        plotTypeinfo = {
+                    'RetCorr': {"title": f"Correlation: {self.ser1_title} vs {self.ser2_title}: Log returns correlation.", "full_corr": self.full_RetCorr},
+                    'retYoY': {"title": f"Correlation: {self.ser1_title} vs {self.ser2_title}: YoY returns correlation.", "full_corr": self.full_YoYRetCorr},
+                    'Corr': {"title": f"Correlation: {self.ser1_title} vs {self.ser2_title} (wrong way)", "full_corr": self.full_corr},
+                    'PctRetCorr': {"title": "Percentage returns correlation.", "full_corr": self.full_PctRetCorr},
+                    'qdCorr': {"title": "QuantDare returns correlation.", "full_corr": self.full_qdCorr}
+                }
+        
         current_ax = 0
         for plot_type, should_plot in plot_types:
             if should_plot:
                 ax = axes[current_ax]
-                ax.axhline(fullCorrs[current_ax], color="r", linestyle="--", lw=1)
+                ax.axhline(plotTypeinfo[plot_type]["full_corr"], color="r", linestyle="--", lw=1)
                 ax.tick_params(axis='x', labelsize=0, length=0, width=0)
                 if current_ax == len(axes) - 1:
                     ax.tick_params(axis='x', labelsize=11, length=3)
@@ -446,13 +453,7 @@ class Pair_stats(object):
         current_ax = 0
         for plot_type, should_plot in plot_types:
             if should_plot:
-                title = {
-                    'RetCorr': f"Correlation: {self.ser1_title} vs {self.ser2_title}: Log returns correlation.",
-                    'retYoY': f"Correlation: {self.ser1_title} vs {self.ser2_title}: YoY returns correlation.",
-                    'Corr': f"Correlation: {self.ser1_title} vs {self.ser2_title} (wrong way)",
-                    'PctRetCorr': "Percentage returns correlation.",
-                    'qdCorr': "QuantDare returns correlation."
-                }[plot_type]
+                title = plotTypeinfo[plot_type]["title"]
                 axes[current_ax].set_title(title, fontsize=11, pad=3.5)
                 current_ax += 1
  
@@ -466,7 +467,7 @@ class Pair_stats(object):
 
         self.corr_plot = fig
         
-    def plot_lin_reg(self, yoy: bool = False):
+    def plot_lin_reg(self, yoy: bool = False, y_lim: tuple = None, x_lim: tuple = None):
         """ Plot a scatter plot of the returns of the two series, along with a linear regression line.
         The plot will also display the R² value.
         """
@@ -493,6 +494,11 @@ class Pair_stats(object):
         props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
         ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=12,
                 verticalalignment='top', bbox=props)
+        
+        if y_lim:
+            ax.set_ylim(y_lim)
+        if x_lim:
+            ax.set_xlim(x_lim)
         self.lineRegPlot = ax.get_figure()
 
     def find_optimal_lag(self, n):
@@ -518,13 +524,13 @@ class Pair_stats(object):
         
         return optimal_lag, highest_correlation
     
-    def find_optimal_ret_lag(self, n, yoy: bool = False):
+    def find_optimal_ret_lag(self, n, yoy: bool = False, increment: int = 1):
         """ Find the optimal lag-time that yields the highest correlation between the returns of the two series. 
         parameter n: int, the maximum number of lags to test. The function will test lags from 0 to n and -n to 0.
         concatenating the results into a series. The lags are periods of the datetime index of the series."""
 
         if yoy:
-            print("Using YoY log returns for the cross-crrelation analysis, periods in a year, ", self.per_in_year)
+            print("Using YoY log returns for the cross-correlation analysis, periods in a year, ", self.per_in_year)
             ser1 = self.data["retYoY_"+self.ser1_title]
         else:
             ser1 = self.data["ret_"+self.ser1_title]
@@ -534,7 +540,7 @@ class Pair_stats(object):
         shifted = {}; correlations = {}
         output_data = pd.DataFrame([ser1])
         # Shift series 1 forward, corresponding to series 2 being shifted back...
-        for i in range(-n, n+1, 1): 
+        for i in range(-n, n+1, increment): 
             shifted_series2 = ser2.shift(i)
             if yoy:
                 shifted_series2_rets = np.log(shifted_series2/shifted_series2.shift(self.per_in_year))
@@ -548,7 +554,7 @@ class Pair_stats(object):
         ### Plot the shifted series for inspection, normalize plotted series to between 0 & 1 and offset in Y for easy viewing.
         fig1, ax1 = plt.subplots(1, 1, figsize=(12, 5))
         ax1.set_title("Full period correlation for "+self.ser1_title+" (static) and "+self.ser2_title+" (shifted over range: -"+str(n)+" to "+str(n)+")")
-        for i in range(-n, n+1, 10):
+        for i in range(-n, n+1, increment*5):
             norm_series = (shifted[i]-shifted[i].min())/shifted[i].max()
             ax1.plot(norm_series+(0.05*i), label=f"Shifted series {i}",lw=0.5)
         norm_ser1 = (ser1-ser1.min())/ser1.max()
