@@ -250,7 +250,7 @@ class stat_models_fit(object):
             print(f"Gamma fit failed bruh: {e}")
             return None
 
-    def plot_histogram_with_fits(self, log: bool = False):
+    def plot_histogram_with_fits(self, log: bool = False, title: str = 'Histogram with Gaussian, Lorentzian, Student\'s t and Gamma dist. fits'):
         """
         Plot a histogram of your data and show how it compares to fitted distributions...
         """
@@ -275,7 +275,7 @@ class stat_models_fit(object):
         ax.legend(loc="upper left", fontsize=10)
         ax.set_xlabel('Value')
         ax.set_ylabel('Density')
-        ax.set_title('Histogram with Gaussian, Lorentzian, Student\'s t and Gamma dist. fits', fontsize = 12)
+        ax.set_title(title, fontsize = 11)
         if log:
             ax.set_yscale('log')
             ax.set_ylim(10**(-2), self.hist.max())
@@ -388,7 +388,7 @@ class stat_models_fit(object):
         return dataout
 
 #### Distibution fits and plot convenience function..........
-def fit_dists_plot(series: pd.Series, log: bool = False):
+def fit_dists_plot(series: pd.Series, log: bool = False, figsize: tuple = (6, 5)):
     """_summary_
 
     Args:
@@ -403,7 +403,8 @@ def fit_dists_plot(series: pd.Series, log: bool = False):
     fitobj.fit_gamma()
     fitobj.fit_lorentzian()
     fitobj.fit_student_t()
-    fitobj.plot_histogram_with_fits(log=False)
+    fitobj.plot_histogram_with_fits(log=log, title = f"{series.name}: Histogram with fitted distributions")
+    fitobj.hist_fig.set_size_inches(figsize[0], figsize[1])
     return fitobj
         
 #### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
