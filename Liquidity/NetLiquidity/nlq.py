@@ -463,7 +463,15 @@ if __name__ == "__main__":
         ########  Export_Series to macro_chartist as well
         savePath_2 = grampa+fdel+'User_Data'+fdel+'SavedData'+fdel+outName+'.xlsx'
         print('Saving aggregated NLQ as: ',savePath)
+
+        # Output main NLQ series to macro_chartist hdf5 file
+        # Only svae the data to update....
+        store = pd.HDFStore(grampa+fdel+'User_Data'+fdel+"hd5s"+fdel+"nlq.hd5")
+        store["NLQ"] = NetLiquidity3
+        store["metadata"] = pd.Series(NLQ_Info, name = "Net Liquidity metadata")
+
         NetLiquidity3.to_excel(savePath_2,sheet_name='Closing_Price')
+        
         with pd.ExcelWriter(savePath_2, engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:  
             pd.Series(NLQ_Info).to_excel(writer, sheet_name='SeriesInfo')
 

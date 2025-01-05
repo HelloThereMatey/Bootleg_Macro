@@ -18,3 +18,5 @@ streamlit
 fuzzywuzzy
 levenshtein
 ipywidgets
+beautifulsoup4
+selenium
