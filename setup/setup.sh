@@ -23,6 +23,8 @@ install.packages('tidyverse')
 install.packages('dplyr')
 install.packages('readabs')
 install.packages('ggplot2')
+install.packages("readrba")
+install.packages("jsonlite")
 
 # Check installed packages and print session info for verification
 print(installed.packages()[,c("Package", "Version")])
