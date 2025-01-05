@@ -83,7 +83,12 @@ def browse_rba_tables_r(searchterm: str = "rate") -> pd.DataFrame:
                              capture_output=True, text=True)
 
     output = str(process.stdout).strip()
-    json_data = json.loads(output)
+    print("\nOutput from R browse RBA tables:\n", output, "\n\n")
+
+    try:
+        json_data = json.loads(output)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to decode JSON: {e}")
     df = pd.DataFrame(json_data)
     return df
 
@@ -99,7 +104,11 @@ def browse_rba_series_r(searchterm: str = "rate") -> pd.DataFrame:
                              capture_output=True, text=True)
 
     output = str(process.stdout).strip()
-    json_data = json.loads(output)
+    print("\nOutput from R browse RBA series:\n", output, "\n\n")
+    try:
+        json_data = json.loads(output)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to decode JSON: {e}")
     df = pd.DataFrame(json_data)
     return df
 

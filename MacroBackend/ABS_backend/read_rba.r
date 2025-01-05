@@ -1,10 +1,10 @@
 library(readrba)
 library(jsonlite)
 
-# args <- commandArgs(trailingOnly = TRUE)
-# input_json <- args[1]
-input_json <- '{"func": "get_series", "searchterm": "rate", "series_id": "FIRMMCRTD",
-"rba_path": "/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/RBA"}'
+args <- commandArgs(trailingOnly = TRUE)
+input_json <- args[1]
+# input_json <- '{"func": "get_series", "searchterm": "rate", "series_id": "FIRMMCRTD",
+# "rba_path": "/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/RBA"}'
 input_list <- fromJSON(input_json)
 #print(input_list)
 
