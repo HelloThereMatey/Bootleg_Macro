@@ -90,6 +90,7 @@ def browse_rba_tables_r(searchterm: str = "rate") -> pd.DataFrame:
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to decode JSON: {e}")
     df = pd.DataFrame(json_data)
+    print("Columns in the dataframe search result: ", df.columns)
     return df
 
 def browse_rba_series_r(searchterm: str = "rate") -> pd.DataFrame:
@@ -104,12 +105,13 @@ def browse_rba_series_r(searchterm: str = "rate") -> pd.DataFrame:
                              capture_output=True, text=True)
 
     output = str(process.stdout).strip()
-    print("\nOutput from R browse RBA series:\n", output, "\n\n")
+    #print("\nOutput from R browse RBA series:\n", output, "\n\n")
     try:
         json_data = json.loads(output)
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to decode JSON: {e}")
-    df = pd.DataFrame(json_data)
+    df = pd.DataFrame(json_data).rename(columns={"series_id": "id", "table_title": "title"})
+    print("Columns in the dataframe search result: ", df.columns)
     return df
 
 def get_rba_series_r(series_id: str = "FIRMMCRTD", rba_path: str = grampa+fdel+"User_Data"+fdel+"RBA") -> pd.DataFrame:
