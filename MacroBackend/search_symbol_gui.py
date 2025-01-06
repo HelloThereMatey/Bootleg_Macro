@@ -5,6 +5,7 @@ import openpyxl
 import os
 import sys
 import re
+import gc
 wd = os.path.dirname(__file__); parent = os.path.dirname(wd); grampa = os.path.dirname(parent)
 fdel = os.path.sep
 sys.path.append(parent)
@@ -36,6 +37,19 @@ def drop_duplicate_columns(df):
     df = df.drop(columns=columns_to_drop)
     
     return df, columns_to_drop
+    
+def close_open_stores(target_path: str) -> None:
+    """Find and close any open HDFStore objects pointing to target_path"""
+    # Force garbage collection to ensure we catch everything
+    unreached = gc.collect()
+    print(f"Garbage collection: {unreached} objects unreachable.")
+
+    for obj in gc.get_objects():
+        if isinstance(obj, pd.HDFStore):
+            if obj._path == target_path and obj.is_open:
+                print(f"Closing open store: {obj._path}")
+                obj.close()
+                time.sleep(1)
 
 ######## Custom classess ##################
 
@@ -146,13 +160,18 @@ class Watchlist(dict):
             pass 
         else:
             os.makedirs(save_directory, exist_ok=True)
-        try:
-            with pd.ExcelWriter(path+fdel+saveName+fdel+saveName+".xlsx") as writer:
-                self['watchlist'].to_excel(writer, sheet_name='watchlist')
-                self['metadata'].to_excel(writer, sheet_name='all_metadata')
-            if self['watchlist_datasets']:
-                self.storepath = save_directory+fdel+saveName+".h5s"
-                watchstore = pd.HDFStore(self.storepath, mode='w')
+        # try:
+        with pd.ExcelWriter(path+fdel+saveName+fdel+saveName+".xlsx") as writer:
+            self['watchlist'].to_excel(writer, sheet_name='watchlist')
+            self['metadata'].to_excel(writer, sheet_name='all_metadata')
+
+        if self['watchlist_datasets']:
+            self.storepath = save_directory+fdel+saveName+".h5s"
+            close_open_stores(self.storepath)  #Close any open hdf5 stores pointing to this path
+
+            try:    
+                watchstore = pd.HDFStore(self.storepath, mode='a')
+            
                 for key in self["watchlist_datasets"].keys():
                     series = self["watchlist_datasets"][key]
                     if isinstance(series, pd.DataFrame):
@@ -162,8 +181,11 @@ class Watchlist(dict):
                     watchstore[key] = series
                 watchstore.close()
                 print("Saved watchlist datasets to .h5s database... save name: ", saveName)
-        except Exception as e:
-            print("Error saving watchlist data to file. Exception: ", e)
+
+            except Exception as e:
+                print("Error saving watchlist data to file. Exception: ", e)
+                watchstore.close()
+
         return saveName, save_path
 
     def get_watchlist_data(self, start_date: str = "1600-01-01"):
@@ -215,8 +237,12 @@ class Watchlist(dict):
                 #print("Looking at dataset ", key)
                 #first reduce dataframes to series if the df has only a single column
                 if isinstance(series, pd.DataFrame):
+                    print("Your metadata series is a DataFrame, reducing to a Series.... Have a look at it first: \n", series)
                     if len(series.columns) == 1:
                         series = series.squeeze()
+                    else:
+                        print("Skipping this series, it is a DataFrame with more than one column, should be a series with metadata,", series.columns)
+                        continue
                 try:   #Rename the series to have the title in the metadata rather than id. 
                     if series.name != self["metadata"].loc["title", key]:
                         series.rename(self["metadata"].loc["title", key], inplace=True)
@@ -258,7 +284,7 @@ class Watchlist(dict):
 
         print("Database filepath: ", self.storepath)
         if self.storepath is not None and os.path.isfile(self.storepath):
-            with pd.HDFStore(self.storepath, mode='r') as data:
+            with pd.HDFStore(self.storepath, mode='a') as data:
                 print("Databse keys: ", data.keys())
                 self['watchlist_datasets'] = {key.lstrip('/'): data[key] for key in data.keys()}
                 data.close()
@@ -728,7 +754,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.results.setObjectName("results")
 
         self.numres = QtWidgets.QLabel("Number of results: ", parent=self.centralwidget)
-        self.numres.setGeometry(QtCore.QRect(730, 10, 110, 30))
+        self.numres.setGeometry(QtCore.QRect(730, 10, 170, 30))
 
         self.clear_button = QtWidgets.QPushButton("Clear results", parent=self.centralwidget)
         self.clear_button.setGeometry(QtCore.QRect(960, 8, 100, 40))

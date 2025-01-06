@@ -49,9 +49,10 @@ class dataset(object):
                                     'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
                                     'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                     'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
-                                    'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'saveddata',
-                                    "hdfstores"]
-        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs', 'bea', 'rba_tables', 'saveddata', "hdfstores"]
+                                    'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'rba_series', 
+                                    'saveddata', "hdfstores"]
+        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs', 'bea', 'rba_tables', 'rba_series', 
+                              'saveddata', "hdfstores"]
 
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
         self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
@@ -236,6 +237,9 @@ class dataset(object):
             print("Currently working on BEA data source, not yet implemented.")
 
         elif self.source.lower() == 'rba_tables':
+            print("Currently working on RBA tables data source, not yet implemented.")
+
+        elif self.source.lower() == 'rba_series':
             out_df = abs_series_by_r.get_rba_series_r(series_id = self.data_code)
             self.data = out_df
 
