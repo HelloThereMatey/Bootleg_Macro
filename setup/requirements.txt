@@ -20,3 +20,4 @@ levenshtein
 ipywidgets
 beautifulsoup4
 selenium
+tedata
