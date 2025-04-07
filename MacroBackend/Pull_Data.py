@@ -26,6 +26,12 @@ def yf_get_data(ticker: str, start_date: str, end_date: str, data_freq: str = "d
     data = pd.DataFrame(data[ticker]["prices"]).set_index("formatted_date", drop=True).drop("date", axis=1)
     return data
 
+def tedata_search(searchstr: str = "gdp", wait_time: int = 5):
+    ted.find_active_drivers()
+    search = ted.search_TE(use_existing_driver=True)
+    search.search_trading_economics(searchstr, wait_time=wait_time)
+    return search.result_table
+
 ####### CLASSES ######################################################
 class get_data_failure(Exception):
     pass

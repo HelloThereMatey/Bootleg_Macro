@@ -1151,7 +1151,8 @@ def run_app():
             'abs_series': abs_index_path,
             'bea': bea_data_mate.BEA_API_backend.bea_search_metadata,
             "rba_tables": abs_series_by_r.browse_rba_tables_r,
-            "rba_series": abs_series_by_r.browse_rba_series_r}
+            "rba_series": abs_series_by_r.browse_rba_series_r,
+            "tedata": Pull_Data.tedata_search}
     
     app = QtWidgets.QApplication.instance()
     if app is None:
