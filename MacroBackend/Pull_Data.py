@@ -17,6 +17,7 @@ import numpy as np
 import pandas_datareader as pdr
 import quandl
 from yahoofinancials import YahooFinancials as yf
+import tedata as ted ##This is my package that scrapes data from Trading Economics
 import json
 
 def yf_get_data(ticker: str, start_date: str, end_date: str, data_freq: str = "daily"):
@@ -50,9 +51,9 @@ class dataset(object):
                                     'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                     'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
                                     'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'rba_series', 
-                                    'saveddata', "hdfstores"]
+                                    'saveddata', "hdfstores", "tedata"]
         self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs', 'bea', 'rba_tables', 'rba_series', 
-                              'saveddata', "hdfstores"]
+                              'saveddata', "hdfstores", "tedata"]
 
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
         self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
@@ -242,6 +243,11 @@ class dataset(object):
         elif self.source.lower() == 'rba_series':
             out_df = abs_series_by_r.get_rba_series_r(series_id = self.data_code)
             self.data = out_df
+
+        elif self.source.lower() == 'tedata':
+            scraped = ted.scrape_chart(id = self.data_code, use_existing_driver=True)
+            self.data = scraped.series
+            self.SeriesInfo = scraped.series_metadata
 
         elif self.source == "saveddata":
             path = parent + fdel + "User_Data" + fdel + "SavedData"
