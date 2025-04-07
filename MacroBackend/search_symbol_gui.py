@@ -891,6 +891,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                         #results.rename(columns = {'id': 'name', "title": "title", "source": "source"}, inplace=True)    
                     elif self.selected_source == 'rba_series':
                         results =  self.source_function(term)
+                    elif self.selected_source == 'tedata':
+                        results = pd.DataFrame(self.source_function(searchstr = term))
+                        results["id"] = results['url'].str.split('/').apply(lambda x: '/'.join(x[-2:]))
+                        results["title"] = results['id'].str.split('/').apply(lambda x: '-'.join(x[-2:]))
+                        #results.rename(columns = {'id': 'name', "title": "title", "source": "source"}, inplace=True)
                     else:
                         print("No source table selected or something like this..... uhhhh...")
                         return    
