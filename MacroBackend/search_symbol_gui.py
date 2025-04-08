@@ -151,22 +151,23 @@ class Watchlist(dict):
         """
 
         # Example method to save watchlist data to an Excel file
-        saveName = self.name.replace(" ", "_")
-        save_path = path+fdel+saveName+fdel+saveName+".xlsx"
-        save_directory = path+fdel+saveName
+        saveName = os.path.basename(self.name)  # Get just the name part, not the full path
+        saveName = saveName.replace(" ", "_")   # Replace spaces with underscores in the name only
+        save_directory = os.path.join(path, saveName)
+        save_path = os.path.join(save_directory, saveName + ".xlsx")
+        
         print("Saving watchlist data to Excel file... save name: ", saveName, " to path: ", path, "watchlist name: ", self.name, 
               "save path: ", save_path, "save directory: ", save_directory)
-        if os.path.exists(save_path):
-            pass 
-        else:
+        
+        if not os.path.exists(save_directory):
             os.makedirs(save_directory, exist_ok=True)
-        # try:
-        with pd.ExcelWriter(path+fdel+saveName+fdel+saveName+".xlsx") as writer:
+            
+        with pd.ExcelWriter(save_path) as writer:
             self['watchlist'].to_excel(writer, sheet_name='watchlist')
             self['metadata'].to_excel(writer, sheet_name='all_metadata')
 
         if self['watchlist_datasets']:
-            self.storepath = save_directory+fdel+saveName+".h5s"
+            self.storepath = os.path.join(save_directory, saveName + ".h5s")
             close_open_stores(self.storepath)  #Close any open hdf5 stores pointing to this path
 
             try:    
