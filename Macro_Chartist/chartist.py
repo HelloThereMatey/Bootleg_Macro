@@ -359,7 +359,7 @@ def run_chartist(InputsPath: str = "", sheet_name: str = "", use_def_control: bo
         
         ########################## SAVE DATA ####################################################################################
         if Source.lower() != loadStr.lower() and Source.lower() != SpreadStr.lower() and Source.lower() != GNstr.lower():
-            savePath = DataPath+fdel+ticker+'.xlsx'
+            savePath = DataPath+fdel+ticker.replace("/", "-")+'.xlsx'
             print('Saving new data set: ',ticker,'to: ',savePath)
             TheData2.to_excel(savePath,sheet_name='Closing_Price')
             with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  

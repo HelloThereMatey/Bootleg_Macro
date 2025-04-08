@@ -634,11 +634,15 @@ class WatchListView(QtWidgets.QMainWindow):
                 colname = "title"
             elif colum == y_axis_col:
                 print("Watchlist metadata, index: ", watchlist_metadata.index)
-                metadata_index_pos = watchlist_metadata.index.get_loc("units")
-                print("Y-axis label column....", watchlist_metadata.iloc[metadata_index_pos])
+                try:
+                    metadata_index_pos = watchlist_metadata.index.get_loc("units")
+                    ylabby = watchlist_metadata.iloc[metadata_index_pos, i]
+                    print("Y-axis label column....", watchlist_metadata.iloc[metadata_index_pos])
+                except:
+                    ylabby = "Units"
                 for cell in col:
-                    print("Set cell, ", cell, "value to: ", watchlist_metadata.iloc[metadata_index_pos, i])
-                    cell.value = watchlist_metadata.iloc[metadata_index_pos, i]
+                    print("Set cell, ", cell, "value to: ", ylabby)
+                    cell.value = ylabby
                     i += 1
                 continue
             else:
