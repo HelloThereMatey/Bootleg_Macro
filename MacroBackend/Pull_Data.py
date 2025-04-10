@@ -52,13 +52,13 @@ class dataset(object):
         - data (None): Placeholder for the pulled data.
         """
         self.supported_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko','glassnode',
-                                    'abs', 'bea', 'yahoo','iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
+                                    'abs_series', 'abs_tables', 'bea', 'yahoo','iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
                                     'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
                                     'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                     'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
                                     'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'rba_series', 
                                     'saveddata', "hdfstores", "tedata"]
-        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs', 'bea', 'rba_tables', 'rba_series', 
+        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs_series', 'abs_tables', 'bea', 'rba_tables', 'rba_series', 
                               'saveddata', "hdfstores", "tedata"]
 
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
@@ -233,7 +233,7 @@ class dataset(object):
             data = pdr.DataReader(self.data_code, self.source, start = self.start_date, end = self.end_date)
             print(data)
 
-        elif self.source.lower() == 'abs'.lower():  
+        elif self.source.lower() == 'abs_series'.lower():  
 
             series, SeriesInfo = abs_series_by_r.get_abs_series_r(series_id = self.data_code)
             self.data = series
