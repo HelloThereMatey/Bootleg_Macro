@@ -371,6 +371,30 @@ def bar_subplots(data: pd.DataFrame, columns: list = None,
     
     return fig
 
+def basic_plot(data: pd.Series, metadata: dict = None, title: str = "", yaxis_label: str = "", log_y: bool = False) -> go.Figure:
+    """Create a basic plot with a single series"""
+    if metadata is not None:
+        try:
+            title = metadata['title']
+        except:
+            title = data.name
+        try:
+            yaxis_label = metadata['Unit']
+        except:
+            yaxis_label = data.name
+
+    fig = px.line(data, y=data.name, title=title)
+    fig.update_layout(
+        yaxis_title=yaxis_label, 
+        yaxis_type='log' if log_y else 'linear',
+        legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        #y=-0.1,  # Position below x-axis
+        xanchor="center",
+        x=0.5))
+    return fig
+
 if __name__ == '__main__':
     # Load the data
     import search_symbol_gui

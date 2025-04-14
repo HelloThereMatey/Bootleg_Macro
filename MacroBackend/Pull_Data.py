@@ -233,22 +233,33 @@ class dataset(object):
             data = pdr.DataReader(self.data_code, self.source, start = self.start_date, end = self.end_date)
             print(data)
 
-        elif self.source.lower() == 'abs_series'.lower():  
+        elif self.source.lower() == 'abs_tables':
+            print("This source will return a pandas dataframe, not a series. It is therefore not suitable for this method. Use 'abs_series' instead.")
+            return None
 
+        elif self.source.lower() == 'abs_series'.lower():  
             series, SeriesInfo = abs_series_by_r.get_abs_series_r(series_id = self.data_code)
             self.data = series
             self.SeriesInfo = SeriesInfo
             self.dataName = series.name
         
         elif self.source.lower() == 'bea':
-            print("Currently working on BEA data source, not yet implemented.")
+            print("Currently working on BEA data source, not yet implemented into this method. You can use 'bea_data_mate' module instead.")
+            return None
 
         elif self.source.lower() == 'rba_tables':
-            print("Currently working on RBA tables data source, not yet implemented.")
+            print("This source will return a pandas dataframe, not a series. It is therefore not suitable for this method. Use 'rba_series' instead.")
+            return None
 
         elif self.source.lower() == 'rba_series':
             out_df = abs_series_by_r.get_rba_series_r(series_id = self.data_code)
-            self.data = out_df
+            print(out_df)
+            series = out_df.set_index("date",  drop=True)["value"].rename(self.data_code)
+            self.data = series
+            series_info = out_df.drop(columns = ["value"]).rename(columns = {"date":"start_date"}).head(1).squeeze()
+            self.SeriesInfo = series_info
+            if "series" in self.SeriesInfo.index:
+                self.data = self.data.rename(self.SeriesInfo["series"])
 
         elif self.source.lower() == 'tedata':
             scraped = ted.scrape_chart(id = self.data_code, use_existing_driver=True)
