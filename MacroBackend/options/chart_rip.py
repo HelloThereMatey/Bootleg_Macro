@@ -18,6 +18,16 @@ def qt_load_file_dialog(dialog_title: str = "Choose a file", initial_dir: str = 
 
     return file_path
 
+def qt_save_file_dialog(dialog_title: str = "Save file as", initial_dir: str = wd, 
+                       file_types: str = "All Files (*);;Text Files (*.txt);;Excel Files (*.xlsx)"):
+    app = QtWidgets.QApplication.instance()  # Check if an instance already exists
+    if not app:  # If not, create a new instance
+        app = QtWidgets.QApplication(sys.argv)
+
+    file_path, _ = QtWidgets.QFileDialog.getSaveFileName(None, dialog_title, initial_dir, file_types, options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+
+    return file_path
+
 class plot_rippa(object): 
     def __init__(self, imagePath: str = "", x0: float = 0, x1: float = 1, y0: float = 1, 
                  y1: float = 1, xscale: str = "linear", yscale: str = "linear", title: str = "Chart image",
@@ -46,46 +56,76 @@ class plot_rippa(object):
         self.trace_colors = {"left": {}, "right": {}}   #Dictionary to store the RGB values of the traces. One key for left axis traces, one for right.
         self.data_series = None
 
-    def active_chart(self, provide_trace_colors: dict = {}):
-        """ **Parameter**: provide_trace_colors must in format {"trace_name": {"RGB": [R, G, B, A]}}, 
-        where R,G,B,A are the red, blue, green & alpha values that define the color for that trace (float between 0 and 1). 
+    def active_chart(self, provide_trace_colors: dict = {}, color_tolerance: float = 0.1):
+        """ **Parameter**: provide_trace_colors must in format {"trace_name": {"RGB": [R, G, B, A]}},
+        where R,G,B,A are the red, blue, green & alpha values that define the color for that trace (float between 0 and 1).
         Double-click on a pixel that is within a trace to select that color as the trace color. Hold shift and dbl-click to
-        specify that the trace is plotted vs right axis rather than left.."""
+        specify that the trace is plotted vs right axis rather than left..
+        **Parameter**: color_tolerance: Maximum allowed distance (Euclidean in RGB) for a pixel color to be considered a match.
+                       Adjust based on image compression/artifacts. Value is relative to max distance (sqrt(3) for normalized RGB).
+        """
 
         def onclick(event):
-            if event.dblclick:  
+            if event.dblclick:
                 if event.xdata is not None and event.ydata is not None:
                     x, y = int(event.xdata), int(event.ydata)
-                    rgb_values = self.image[y, x]
-                    # Find all pixels with the same RGB values
-                    matching_pixels = np.where((self.image[:, :, 0] == rgb_values[0]) & 
-                                            (self.image[:, :, 1] == rgb_values[1]) & 
-                                            (self.image[:, :, 2] == rgb_values[2]))
-                    # Convert indices to pixel locations
+                    clicked_rgb = self.image[y, x, :3] # Get RGB, ignore alpha if present
+
+                    # Calculate the squared Euclidean distance between the clicked color and all pixel colors
+                    # We use RGB channels (0, 1, 2). Assuming image values are floats [0, 1].
+                    # If they are uint8 [0, 255], divide by 255.0 first or adjust tolerance.
+                    # Ensure image is float for calculation
+                    img_float = self.image[:, :, :3].astype(np.float32)
+                    if np.max(img_float) > 1.0: # Check if image is likely 0-255
+                        img_float /= 255.0
+                        clicked_rgb = clicked_rgb.astype(np.float32) / 255.0
+
+
+                    # Calculate squared distance (faster than sqrt)
+                    distances_sq = np.sum((img_float - clicked_rgb)**2, axis=2)
+
+                    # Define squared tolerance (avoids sqrt calculation)
+                    tolerance_sq = color_tolerance**2 # Adjust this tolerance value as needed
+
+                    # Find pixels within the squared tolerance
+                    matching_pixels = np.where(distances_sq <= tolerance_sq)
+
+                    # Convert indices to pixel locations (y, x)
                     pixel_locations = list(zip(matching_pixels[0], matching_pixels[1]))
+
                     # Generate the next trace key
                     trace_key = f"Trace{len(self.trace_colors['left']) + len(self.trace_colors['right']) + 1}"
-                    # Store the RGB values and pixel locations in the dictionary
-                    if event.key == 'shift':  # Check if Shift key is pressed
-                        # Perform the alternative action for Shift+Double-Click
+
+                    # Store the RGB values (use the originally clicked color) and pixel locations
+                    if event.key == 'shift':
                         print("Shift+Double-Click detected at position:", event.xdata, event.ydata)
-                        self.trace_colors["right"][trace_key] = {'RGB': rgb_values, 'Locations': pixel_locations}
+                        self.trace_colors["right"][trace_key] = {'RGB': self.image[y, x], 'Locations': pixel_locations} # Store original clicked RGBA
                     else:
-                        self.trace_colors["left"][trace_key] = {'RGB': rgb_values, 'Locations': pixel_locations}
-                    print(f"{trace_key}: RGB values at ({x}, {y}): {rgb_values}, Number of matching pixels: {len(pixel_locations)}")
+                        self.trace_colors["left"][trace_key] = {'RGB': self.image[y, x], 'Locations': pixel_locations} # Store original clicked RGBA
+
+                    print(f"{trace_key}: Clicked RGB at ({x}, {y}): {self.image[y, x]}, Number of matching pixels: {len(pixel_locations)}")
                     print("Trace data added, data thus far: ", self.trace_colors)
 
         if provide_trace_colors:
             self.trace_colors = provide_trace_colors
             for axis in self.trace_colors.keys():
                 for trace_name in self.trace_colors[axis].keys():
-                    rgb_values = self.trace_colors[axis][trace_name]["RGB"]
-                    matching_pixels = np.where((self.image[:, :, 0] == rgb_values[0]) & 
-                                                    (self.image[:, :, 1] == rgb_values[1]) & 
-                                                    (self.image[:, :, 2] == rgb_values[2]))
-                            # Convert indices to pixel locations
+                    target_rgb = np.array(self.trace_colors[axis][trace_name]["RGB"][:3]) # Use provided RGB
+
+                    # --- Repeat the distance calculation logic from onclick ---
+                    img_float = self.image[:, :, :3].astype(np.float32)
+                    if np.max(img_float) > 1.0:
+                        img_float /= 255.0
+                        target_rgb = target_rgb.astype(np.float32) / 255.0
+
+                    distances_sq = np.sum((img_float - target_rgb)**2, axis=2)
+                    tolerance_sq = color_tolerance**2
+                    matching_pixels = np.where(distances_sq <= tolerance_sq)
+                    # ----------------------------------------------------------
+
                     pixel_locations = list(zip(matching_pixels[0], matching_pixels[1]))
                     self.trace_colors[axis][trace_name]["Locations"] = pixel_locations
+                    print(f"Provided {trace_name}: Target RGB: {self.trace_colors[axis][trace_name]['RGB']}, Found {len(pixel_locations)} matching pixels.")
         else:
             self.fig.canvas.mpl_connect('button_press_event', onclick)
             plt.show()
@@ -211,7 +251,15 @@ def rip_chart(imagePath: str = "", trace_colors: dict = {} , x0: float = 0, x1: 
     
 
 if __name__ == "__main__":
-    image_path = '/Users/jamesbishop/Downloads/fknScamercnt.png'
+    #image_path = ''
+
+    ripped = rip_chart(y0 = 1000, y1 = 3500, yr0 = 80, yr1 = 220, title = "CapWars Global Liquidity Index & Gold Price",
+                       start_date = "2010-01-01", end_date = "2025-04-03", resample_to_freq = "W")
+    export = pd.HDFStore(qt_save_file_dialog(file_types = "HDF5 Files (*.h5s)"))
+    export['cwgli'] = ripped.data_series['right']['Trace2'].rename('Global_Liquidity_Index_CW')
+    export['gold'] = ripped.data_series['left']['Trace1'].rename('Gold_Price')
+    export.close()
+
     # trace_colors_given = {"left": {"Trace1": {"RGB": np.array([0, 0, 0, 1])}},
     #                       "right": {"Trace2": {"RGB": np.array([0.92941177, 0.49019608, 0.19215687, 1.0])}}}
     # ##Will want to modify the above to add te axis for the trace and change the modification that the trace_colors flag does...
@@ -228,8 +276,8 @@ if __name__ == "__main__":
     # print(plot.data_series, pd.Series(plot.data_series["left"]["Trace1"]).index.has_duplicates,
     #        pd.Series(plot.data_series["right"]["Trace2"]).index.has_duplicates)
 
-    plot = rip_chart(imagePath='/Users/jamesbishop/Downloads/cw_gli.png', y0 = 1000, y1 = 2600,
-                             yr0=80, yr1=220, start_date="2010-01-01", end_date="2024-08-20", resample_to_freq="W")
-    export = pd.HDFStore('/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/SavedData/gli_cw.h5s')
-    export['cwgli'] = plot.data_series['right']['Trace2'].rename('Global_Liquidity_Index_CW')
-    export.close()
+    # plot = rip_chart(imagePath='/Users/jamesbishop/Downloads/cw_gli.png', y0 = 1000, y1 = 2600,
+    #                          yr0=80, yr1=220, start_date="2010-01-01", end_date="2024-08-20", resample_to_freq="W")
+    # export = pd.HDFStore('/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/SavedData/gli_cw.h5s')
+    # export['cwgli'] = plot.data_series['right']['Trace2'].rename('Global_Liquidity_Index_CW')
+    # export.close()
