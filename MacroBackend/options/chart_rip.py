@@ -5,6 +5,8 @@ plt.rcParams["backend"] = "QtAgg"
 from PyQt6 import QtWidgets
 import sys
 import os
+import json
+import pickle
 wd = os.path.abspath(os.path.dirname(__file__))
 fdel = os.path.sep
 
@@ -18,6 +20,16 @@ def qt_load_file_dialog(dialog_title: str = "Choose a file", initial_dir: str = 
 
     return file_path
 
+def qt_save_file_dialog(dialog_title: str = "Choose a file", initial_dir: str = wd, 
+                        file_types: str = "All Files (*);;Text Files (*.txt);;json files (*.json))"):
+    app = QtWidgets.QApplication.instance()  # Check if an instance already exists
+    if not app:  # If not, create a new instance
+        app = QtWidgets.QApplication(sys.argv)
+
+    file_path, _ = QtWidgets.QFileDialog.getSaveFileName(None, dialog_title, initial_dir, file_types, options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
+
+    return file_path
+
 class plot_rippa(object): 
     def __init__(self, imagePath: str = "", x0: float = 0, x1: float = 1, y0: float = 1, 
                  y1: float = 1, xscale: str = "linear", yscale: str = "linear", title: str = "Chart image",
@@ -27,11 +39,12 @@ class plot_rippa(object):
         self.x0 = x0; self.x1 = x1; self.y0 = y0; self.y1 = y1
         self.xscale = xscale; self.yscale = yscale; self.title = title
         self.frequency = chart_data_frequency
+        self.imdir = os.path.dirname(image_path); print("Directory image loaded from: ", self.imdir)
 
         if len(imagePath) > 0:
             self.imagePath = imagePath
         else:
-            self.imagePath = qt_load_file_dialog(file_types = "Image Files (*.png *.jpeg *.jpg *.bmp *.tiff *.tif *.gif *.svg *.webp *.heic *.pdf *.ico)")
+            self.imagePath = qt_load_file_dialog(initial_dir=wd, file_types = "Image Files (*.png *.jpeg *.jpg *.bmp *.tiff *.tif *.gif *.svg *.webp *.heic *.pdf *.ico)")
         self.image = plt.imread(self.imagePath)
         print("Loaded self.image of shape (R, G, B, A)", self.image.shape)
         
@@ -73,7 +86,7 @@ class plot_rippa(object):
                     else:
                         self.trace_colors["left"][trace_key] = {'RGB': rgb_values, 'Locations': pixel_locations}
                     print(f"{trace_key}: RGB values at ({x}, {y}): {rgb_values}, Number of matching pixels: {len(pixel_locations)}")
-                    print("Trace data added, data thus far: ", self.trace_colors)
+                    #print("Trace data added, data thus far: ", self.trace_colors)
 
         if provide_trace_colors:
             self.trace_colors = provide_trace_colors
@@ -192,6 +205,16 @@ class plot_rippa(object):
         axb.set_ylabel(ylabel_right)
         ax.legend(fontsize = "small", loc = 2); axb.legend(fontsize = "small", loc = 1)
 
+    def export_raw_pixlocs(self, savepath: str = None):
+        if savepath is None:
+            savepath = qt_save_file_dialog(dialog_title="Choose name & location to save your .pkl", initial_dir=self.imdir, file_types="pickle files (*.pkl)")
+
+        # json_for = json.dumps(self.trace_colors)
+        # with open(savepath, 'w') as file:
+        #     file.write(json_for)
+        with open(savepath, 'wb') as file:
+            pickle.dump(self.trace_colors, file)
+
 ##### Convenience function to run a rip..........
 
 def rip_chart(imagePath: str = "", trace_colors: dict = {} , x0: float = 0, x1: float = 1, y0: float = 0, y1: float = 1, yr0: float = None, yr1: float = None,
@@ -211,7 +234,7 @@ def rip_chart(imagePath: str = "", trace_colors: dict = {} , x0: float = 0, x1: 
     
 
 if __name__ == "__main__":
-    image_path = '/Users/jamesbishop/Downloads/fknScamercnt.png'
+    image_path = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/CapWars_GLI/vams_btc_mar5.png'
     # trace_colors_given = {"left": {"Trace1": {"RGB": np.array([0, 0, 0, 1])}},
     #                       "right": {"Trace2": {"RGB": np.array([0.92941177, 0.49019608, 0.19215687, 1.0])}}}
     # ##Will want to modify the above to add te axis for the trace and change the modification that the trace_colors flag does...
@@ -228,8 +251,11 @@ if __name__ == "__main__":
     # print(plot.data_series, pd.Series(plot.data_series["left"]["Trace1"]).index.has_duplicates,
     #        pd.Series(plot.data_series["right"]["Trace2"]).index.has_duplicates)
 
-    plot = rip_chart(imagePath='/Users/jamesbishop/Downloads/cw_gli.png', y0 = 1000, y1 = 2600,
-                             yr0=80, yr1=220, start_date="2010-01-01", end_date="2024-08-20", resample_to_freq="W")
-    export = pd.HDFStore('/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/SavedData/gli_cw.h5s')
-    export['cwgli'] = plot.data_series['right']['Trace2'].rename('Global_Liquidity_Index_CW')
-    export.close()
+    # plot = rip_chart(imagePath='/Users/jamesbishop/Downloads/cw_gli.png', y0 = 1000, y1 = 2600,
+    #                          yr0=80, yr1=220, start_date="2010-01-01", end_date="2024-08-20", resample_to_freq="W")
+    # export = pd.HDFStore('/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/SavedData/gli_cw.h5s')
+    # export['cwgli'] = plot.data_series['right']['Trace2'].rename('Global_Liquidity_Index_CW')
+    # export.close()
+    plot = plot_rippa(imagePath=image_path)
+    plot.active_chart()
+    plot.export_raw_pixlocs()
