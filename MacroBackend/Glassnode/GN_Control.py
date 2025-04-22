@@ -24,12 +24,13 @@ try:
     system_set = json.loads(system_set); print(system_set)
     print('Settings for result box dimensions loaded from: ',wd+fdel+'ScreenData.json')
 except Exception as e:
-    print(e, "No settings file found. Using measured values. No problemo.")
+    #print(e, "No settings file found. Using measured values. No problemo.")
     system_set = {'os': 'undetermined', 'res_width': 58, 'res_height': 16}
 
 print('System information: ',platform,', directory delimiter: ', fdel, ', working directory: ', wd)
 # Insert your glassnode API key here
 API_KEY = GlassNode_API.API_KEY
+
 defPath = wd+fdel+'Saved_Data'+fdel+'GN_MetricsList.csv'
 defPath = defPath.replace('\\','/')
 savePath = wd+fdel+'Saved_Data'; savePath = savePath.replace('\\','/')
