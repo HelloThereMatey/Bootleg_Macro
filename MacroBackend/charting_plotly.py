@@ -201,18 +201,52 @@ def dual_axis_plot(left_traces: dict, right_traces: dict,
                    title: str = "", width: int = 1600, height: int = 500,
                    left_yaxis_title: str = "", right_yaxis_title: str = "") -> go.Figure:
     """
-    Create plotly figure with dual y-axes from trace dicts
-    left_traces = {'trace1': {'x': x1, 'y': y1, 'name': 'name1', 'line': {'color': 'blue'}}}
+    Create plotly figure with dual y-axes
+    
+    Parameters:
+        left_traces (dict): Dictionary of traces for left y-axis
+            Can be either:
+            - {'name': pd.Series} pairs
+            - {'name': {'x': x_values, 'y': y_values, 'name': 'trace_name', ...}} pairs
+        right_traces (dict): Dictionary of traces for right y-axis (same format as left_traces)
+        title (str): Plot title
+        width (int): Plot width in pixels
+        height (int): Plot height in pixels
+        left_yaxis_title (str): Title for left y-axis
+        right_yaxis_title (str): Title for right y-axis
+        
+    Returns:
+        go.Figure: Plotly figure with dual y-axes
     """
+    
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     
+    # Helper function to process traces
+    def process_trace(trace_name, trace_data, secondary_y=False):
+        if isinstance(trace_data, pd.Series):
+            # If trace_data is a pandas Series, convert to proper format
+            fig.add_trace(
+                go.Scatter(
+                    x=trace_data.index,
+                    y=trace_data.values,
+                    name=trace_name
+                ),
+                secondary_y=secondary_y
+            )
+        else:
+            # If trace_data is already a dict with x, y, etc.
+            # Ensure 'name' is set if not already in the dict
+            if 'name' not in trace_data:
+                trace_data['name'] = trace_name
+            fig.add_trace(go.Scatter(**trace_data), secondary_y=secondary_y)
+    
     # Add left axis traces
-    for trace in left_traces.values():
-        fig.add_trace(go.Scatter(**trace), secondary_y=False)
+    for name, trace in left_traces.items():
+        process_trace(name, trace, secondary_y=False)
         
     # Add right axis traces  
-    for trace in right_traces.values():
-        fig.add_trace(go.Scatter(**trace), secondary_y=True)
+    for name, trace in right_traces.items():
+        process_trace(name, trace, secondary_y=True)
 
     fig.update_layout(
         title=title,
