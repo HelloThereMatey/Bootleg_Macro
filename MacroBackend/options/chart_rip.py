@@ -39,7 +39,7 @@ class plot_rippa(object):
         self.x0 = x0; self.x1 = x1; self.y0 = y0; self.y1 = y1
         self.xscale = xscale; self.yscale = yscale; self.title = title
         self.frequency = chart_data_frequency
-        self.imdir = os.path.dirname(image_path); print("Directory image loaded from: ", self.imdir)
+        self.imdir = os.path.dirname(imagePath); print("Directory image loaded from: ", self.imdir)
 
         if len(imagePath) > 0:
             self.imagePath = imagePath
@@ -58,6 +58,19 @@ class plot_rippa(object):
         # Initialize an empty dictionary to store RGB values
         self.trace_colors = {"left": {}, "right": {}}   #Dictionary to store the RGB values of the traces. One key for left axis traces, one for right.
         self.data_series = None
+
+    def load_image(self, imagePath: str = ""):
+        """Load a new image into the plot. This will replace the current image."""
+        if len(imagePath) > 0:
+            self.imagePath = imagePath
+        else:
+            self.imagePath = qt_load_file_dialog(initial_dir=wd, file_types = "Image Files (*.png *.jpeg *.jpg *.bmp *.tiff *.tif *.gif *.svg *.webp *.heic *.pdf *.ico)")
+        self.image = plt.imread(self.imagePath)
+        print("Loaded self.image of shape (R, G, B, A)", self.image.shape)
+        
+        sl = self.image[:,:,0:0]
+        self.image_ar = sl.shape[1]/sl.shape[0]
+        print("Image aspect ratio: ", self.image_ar, "width, height (pixels): ", sl.shape[1], sl.shape[0])    
 
     def active_chart(self, provide_trace_colors: dict = {}, color_tolerance: float = 0.1):
         """ **Parameter**: provide_trace_colors must in format {"trace_name": {"RGB": [R, G, B, A]}},
@@ -107,7 +120,7 @@ class plot_rippa(object):
                         self.trace_colors["left"][trace_key] = {'RGB': self.image[y, x], 'Locations': pixel_locations} # Store original clicked RGBA
 
                     print(f"{trace_key}: Clicked RGB at ({x}, {y}): {self.image[y, x]}, Number of matching pixels: {len(pixel_locations)}")
-                    print("Trace data added, data thus far: ", self.trace_colors)
+                    #print("Trace data added, data thus far: ", self.trace_colors)
 
         if provide_trace_colors:
             self.trace_colors = provide_trace_colors
@@ -209,6 +222,114 @@ class plot_rippa(object):
                 for trace in self.data_series["right"].keys():
                     self.rescale_trace(trace, yr0, yr1)
 
+    def display_colored_traces(self, color_map=None):
+        """
+        Display each trace in a different color on a blank image with same dimensions as original.
+        
+        Parameters:
+        -----------
+        color_map : dict, optional
+            Dictionary mapping trace names to RGB color values. 
+            Format: {'Trace1': [R, G, B], 'Trace2': [R, G, B], ...}
+            If not provided, default colors will be assigned.
+        """
+        # Create a blank RGB image with same dimensions as original - initialize with white (255) pixels
+        blank_image = np.ones((self.image.shape[0], self.image.shape[1], 3), dtype=np.uint8) * 255
+        
+        # Default colors if not provided (RGB format)
+        default_colors = {
+            'Trace1': [0, 255, 0],    # Green
+            'Trace2': [255, 255, 0],  # Yellow
+            'Trace3': [255, 0, 0],    # Red
+            'Trace4': [0, 0, 255],    # Blue
+            'Trace5': [255, 0, 255],  # Magenta
+            'Trace6': [0, 255, 255],  # Cyan
+        }
+        
+        # Use provided color map or default
+        colors = color_map if color_map else default_colors
+        
+        # Iterate through each trace in left and right axes
+        for axis in self.trace_colors.keys():
+            for trace_key, trace_info in self.trace_colors[axis].items():
+                if 'Locations' in trace_info:
+                    # Get color for this trace
+                    trace_color = colors.get(trace_key, [255, 255, 255])  # Default to white if not in map
+                    
+                    # Plot each pixel from the trace
+                    for (y, x) in trace_info['Locations']:
+                        blank_image[y, x] = trace_color
+        
+        # Display the marked image
+        plt.figure(figsize=(10, 10*self.image.shape[0]/self.image.shape[1]))  # Maintain aspect ratio
+        plt.imshow(blank_image)
+        
+        # Add a legend
+        legend_handles = []
+        for axis in self.trace_colors.keys():
+            for trace_key in self.trace_colors[axis].keys():
+                if trace_key in colors:
+                    color = np.array(colors[trace_key]) / 255.0  # Normalize to 0-1 for matplotlib
+                    legend_handles.append(plt.Line2D([0], [0], color=color, lw=4, label=f"{axis}: {trace_key}"))
+        
+        if legend_handles:
+            plt.legend(handles=legend_handles, loc='best')
+        
+        plt.title('Colored Traces')
+        plt.axis('off')  # Hide axes
+        plt.tight_layout()
+        plt.show()
+
+    def create_x_indexes(self, y: int = 50, start_date: str = None, end_date: str = None, frequency: str = "D"):
+        """Create x indexes for the data found in the trace_colors dict. These will aply for when one is extracting
+        colored regions from an image of a chart that specify different regimes/ active buy/sell signals. 
+
+        **Parameters:**
+        -----------
+        - y : int - The y-coordinate of the line of pixels to be used for the x-axis.
+        - start_date : str - Start date for the x-axis in 'YYYY-MM-DD' format.
+        - end_date : str - End date for the x-axis in 'YYYY-MM-DD' format.
+        frequency : str - Frequency for resampling the x-axis data. Default is 'D' (daily).
+        """
+        if start_date is None or end_date is None:
+            print("Please provide both start_date and end_date.")
+            return
+        
+        # Dictionary to store boolean series
+        self.boolean_series = {"left": {}, "right": {}}
+
+        # Create a date range based on the provided start and end dates
+        for axis in self.trace_colors.keys():
+            for trace_name in self.trace_colors[axis].keys():
+                trace_info = self.trace_colors[axis][trace_name]
+                if "Locations" not in trace_info.keys():
+                    print(f"No location data found for {axis}:{trace_name}")
+                    continue
+                pixlocs = trace_info["Locations"]
+                # Create a date range based on the provided start and end dates
+                date_range = pd.date_range(start=start_date, end=end_date, periods=self.image.shape[1])
+                # Create a new DataFrame with the date range as the index
+                ser = pd.Series()
+                 # Initialize boolean array with False for all x positions
+                bool_array = np.zeros(self.image.shape[1], dtype=bool)
+                
+                # Set True for x coordinates where this trace color is found
+                x_coords = [x for y, x in trace_info["Locations"]]
+                bool_array[x_coords] = True
+                
+                # Create a pandas Series with the date range as index
+                bool_series = pd.Series(bool_array, index=date_range, name=f"{axis}_{trace_name}")
+                
+                # Resample if frequency is provided and different from the date range frequency
+                if frequency:
+                    # Resample and fill with method that makes sense for boolean data
+                    # For boolean data, we'll consider it True if any value in the period is True
+                    bool_series = bool_series.resample(frequency).last()
+            
+                # Store the series
+                self.boolean_series[axis][trace_name] = bool_series
+                print(f"Created boolean series for {axis}:{trace_name} with {bool_series.sum()} True values")
+
 
     def rescale_trace(self, trace_name, y0, y1):
         for axis in self.data_series.keys():
@@ -266,12 +387,10 @@ def rip_chart(imagePath: str = "", trace_colors: dict = {} , x0: float = 0, x1: 
 if __name__ == "__main__":
     #image_path = ''
 
-    ripped = rip_chart(y0 = 1000, y1 = 3500, yr0 = 80, yr1 = 220, title = "CapWars Global Liquidity Index & Gold Price",
-                       start_date = "2010-01-01", end_date = "2025-04-03", resample_to_freq = "W")
-    export = pd.HDFStore(qt_save_file_dialog(file_types = "HDF5 Files (*.h5s)"))
-    export['cwgli'] = ripped.data_series['right']['Trace2'].rename('Global_Liquidity_Index_CW')
-    export['gold'] = ripped.data_series['left']['Trace1'].rename('Gold_Price')
-    export.close()
+    miplot = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/CapWars_GLI/vams_btc2_mar5.png'
+    plot = plot_rippa(imagePath=miplot)
+    plot.active_chart()
+    plot.export_raw_pixlocs()
 
     # trace_colors_given = {"left": {"Trace1": {"RGB": np.array([0, 0, 0, 1])}},
     #                       "right": {"Trace2": {"RGB": np.array([0.92941177, 0.49019608, 0.19215687, 1.0])}}}
