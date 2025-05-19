@@ -387,7 +387,7 @@ def rip_chart(imagePath: str = "", trace_colors: dict = {} , x0: float = 0, x1: 
 if __name__ == "__main__":
     #image_path = ''
 
-    miplot = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/CapWars_GLI/vams_btc2_mar5.png'
+    miplot = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/CapWars_GLI/macroweatherraw.png'
     plot = plot_rippa(imagePath=miplot)
     plot.active_chart()
     plot.export_raw_pixlocs()
