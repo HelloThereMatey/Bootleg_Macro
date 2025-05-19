@@ -93,7 +93,8 @@ def pull_comp_asset_data(Inputs: pd.DataFrame) -> dict:
         AssetName = Inputs.loc[i].at['Comp. Asset Name']
         Color = Inputs.loc[i].at['TraceColor']
         if source == "tv":
-            spli = ComparisonAsset.strip().split(","); ComparisonAsset = spli[0]; exchange = split[1]
+            spli = ComparisonAsset.strip().split(","); print(spli)
+            ComparisonAsset = spli[0]; exchange = spli[1]
         else:
             exchange = None    
         
