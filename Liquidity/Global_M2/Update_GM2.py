@@ -8,16 +8,12 @@ grampa = os.path.dirname(wd); grampa = os.path.dirname(grampa)
 sys.path.append(grampa) #This makes sure script can find tvdatafeedz module. 
 
 import pandas as pd
-from matplotlib import colors as mcolors
-import matplotlib.pylab as pl
-import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 from MacroBackend import tvDatafeedz
 import numpy as np
 
 ################################################### CODE FOR UPDATING EXISTING M2 & FX DATA FOR COUNTRIES SUPPLIED IN A LIST TAKEN FROM EXCEL FILE #############
-def PullData(FullInfo:pd.DataFrame,username=None,password=None,Rank:list=None): #Use the full dataframe with M2 and FX ticker infos to pull the data for them from TV.  
-    name="NoobTrade181"; pw="4Frst6^YuiT!" #Use username, password to access some data that may be restricted for free TV tiers. 
+def PullData(FullInfo:pd.DataFrame,Rank:list=None): #Use the full dataframe with M2 and FX ticker infos to pull the data for them from TV.  
+    #Use username, password to access some data that may be restricted for free TV tiers. 
     tv = tvDatafeedz.TvDatafeed()
     DataDict = {}
 
