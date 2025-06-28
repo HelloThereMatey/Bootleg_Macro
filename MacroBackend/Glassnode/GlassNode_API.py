@@ -96,7 +96,7 @@ def GetMetric(path:str,APIKey:str = None, params:dict=None, format: str='json'):
         print("If you have an error code in the 400's, the error is probably due to an invalid API key.\n\
         Glassnode makes you recycle API keys every few weeks or so. Login to your account on Glassnode & check your current API key.\n\
         If a different API key is shown, copy that new key to the API_KEY variable at top of 'Glassnode_API.py'.")
-        quit()
+        return (r.status_code, r.reason, r.text)
     else:
         print('Success with getting data from GlassNode API.')    
 

@@ -8,7 +8,7 @@ import sys
 sys.path.append(parent)
 
 ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
-from MacroBackend import PriceImporter, Utilities
+from MacroBackend import PriceImporter, Utilities, js_funcs
 from MacroBackend.ABS_backend import abs_series_by_r
 from MacroBackend.Glassnode import GlassNode_API
 import datetime
@@ -51,14 +51,14 @@ class dataset(object):
         - api_keys (dict): A dictionary containing API keys.
         - data (None): Placeholder for the pulled data.
         """
-        self.supported_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko','glassnode',
+        self.supported_sources = ['fred', 'yfinance', 'yfinance2', "yahoo_financials", 'tv', 'coingecko','glassnode',
                                     'abs_series', 'abs_tables', 'bea', 'yahoo','iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
                                     'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
                                     'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                     'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
                                     'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'rba_series', 
                                     'saveddata', "hdfstores", "tedata"]
-        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'quandl', 'glassnode', 'abs_series', 'abs_tables', 'bea', 'rba_tables', 'rba_series', 
+        self.added_sources = ['fred', 'yfinance', 'yfinance2', "yahoo_financials", 'tv', 'coingecko', 'quandl', 'glassnode', 'abs_series', 'abs_tables', 'bea', 'rba_tables', 'rba_series', 
                               'saveddata', "hdfstores", "tedata"]
 
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
@@ -128,7 +128,7 @@ class dataset(object):
                 self.keyz.add_key(self.source)
             else:
                 print("You need an API key to get data from ", self.source)    
-            quit()
+            return None
         else:
             return    
         
@@ -160,7 +160,38 @@ class dataset(object):
                 self.filterData(TheData)
 
         elif self.source == 'yfinance2':
-            print("Trying yahoo financials package to get historical data..")  
+            print("Using yahoo-finance2 JS package to get historical data..")  
+            result = js_funcs.js_get_historical_data(
+                self.data_code, 
+                self.start_date.strftime('%Y-%m-%d'), 
+                self.end_date.strftime('%Y-%m-%d'), 
+                self.data_freq
+            )
+            
+            if result.get('success', False):
+                # Convert the JSON data to pandas DataFrame
+                TheData = js_funcs.convert_js_data_to_pandas(result)
+                print(f"Data fetched successfully for {self.data_code} from yfinance2")
+
+                if not TheData.empty:
+                    # Create series info
+                    self.SeriesInfo = pd.Series({
+                        'id': self.data_code,
+                        'source': 'yfinance2',
+                        'start_date': result.get('start_date'),
+                        'end_date': result.get('end_date'),
+                        'interval': result.get('interval'),
+                        'title': self.data_code
+                    })
+                    self.filterData(TheData)
+                else:
+                    print(f"No data returned for {self.data_code}")
+                    self.data = pd.DataFrame()
+            else:
+                print(f"Failed to fetch data: {result.get('error', 'Unknown error')}")
+                self.data = pd.DataFrame()
+
+        elif self.source == 'yahoo_financials':
             TheData = yf_get_data(self.data_code, self.start_date.strftime('%Y-%m-%d'), self.end_date.strftime('%Y-%m-%d'))
             self.filterData(TheData)
 
@@ -171,10 +202,10 @@ class dataset(object):
                     self.data_code = split[0]; self.exchange_code = split[1]
                 except:
                     print("You need to provide the exchange code for the data code you want to pull from TV. Try again.")
-                    quit()
+                    return None
                 if self.exchange_code is None:
                     print("You need to provide the exchange code for the data code you want to pull from TV. Try again.")
-                    quit()
+                    return None
             if self.data_freq == '1d':
                 self.data_freq = 'D'
             TheData, info = PriceImporter.DataFromTVGen(self.data_code, self.exchange_code, start_date = self.start_date, 
@@ -277,12 +308,12 @@ class dataset(object):
             self.SeriesInfo = pd.read_hdf(path+fdel+self.data_code+".hd5", key = "metadata")
 
         else:
-            if self.source in self.supported_sources:
+            if self.source in self.supported_sources and self.source not in self.added_sources:
                 print("Your specified source will be supported but the coding has not been done yet, sorry sucker..") 
-                quit()
+                return "Sorry sucker."
             else:
                 print("Your specified source is not supported, get the fuck out of town you cunt.") 
-                quit()
+                return "A kick in the nutz"
 
     def filterData(self, TheData: pd.DataFrame):
         TheData.columns = TheData.columns.str.capitalize()
@@ -364,8 +395,8 @@ if __name__ == "__main__":
     # print(me_data.data, me_data.SeriesInfo, me_data.dataName)
 
 
-    
 
 
 
-                    
+
+

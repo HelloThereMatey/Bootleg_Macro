@@ -209,17 +209,26 @@ class Watchlist(dict):
 
         data = {}
         for i in watchlist.index:
-            print("Attempting data pull for series id: ", watchlist.loc[i,"id"], ", from source: ",watchlist.loc[i,"source"])
+            sauce = watchlist.loc[i, "source"].strip(); eyed = watchlist.loc[i, "id"].strip()
+            try:
+                exchag = meta.loc["exchange", i].strip()
+            except:
+                exchag = None
+            print(f"Attempting data pull for series id: {eyed}, from source: {sauce},\n start_date: {start_date}), exchange_code: {exchag}")
             try:
                 ds = Pull_Data.dataset()
-                ds.get_data(watchlist.loc[i,"source"], watchlist.loc[i,"id"], start_date, exchange_code = meta.loc["exchange", i])
+                ds.get_data(sauce, eyed, start_date, exchange_code = exchag)
                 data[watchlist.loc[i,"id"]] = ds.data
+                series_meta = ds.SeriesInfo
+                meta[eyed] = series_meta.reindex(meta.index).squeeze()  # Add metadata to the metadata DataFrame
+
             except Exception as e:
                 print(f"Error pulling data for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Exception: {e}")
                 data[watchlist.loc[i,"id"]] = pd.Series(["Data pull failed for this series.", "Devo bro....",
                                                          "Error messsage: "+str(e)], name="Error_"+watchlist.loc[i,"id"], index = [0, 1, 2])
                 pass
-        self["watchlist_datasets"] = data
+
+        self["watchlist_datasets"] = data #Bang it into the watchlist_datasets dictionary
 
         try:
             self.update_metadata()
@@ -882,8 +891,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                         results = self.source_function(term, keys['fred'], save_output=False)
                     elif self.selected_source == 'tv':    
                         resdict = self.source_function(searchstr = term)
-                        results = pd.DataFrame(resdict).T
-                        results.rename(columns = {'id': 'name', "symbol": "id", "description": "title"}, inplace=True)
+                        print("Results from tv source: ", resdict)
+                        results = js_funcs.convert_js_data_to_pandas(resdict).T
+                        #results = results.T
+                        results.rename(columns = {"description": "title"}, inplace=True)
+                        #results.index.rename("exchange_symbol", inplace=True)
                     elif self.selected_source == 'yfinance':
                         resdict = self.source_function(searchstr = term)
                         results = resdict['tickers_df']
@@ -934,12 +946,33 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         return
     
     def select_row(self, index):
-        self.selected_row = self.search_results.iloc[index.row()]
-        ser = pd.Series(self.selected_row["id"], name="name", index = ["name"])
-        self.selected_row = pd.concat([ser, self.selected_row], axis = 0)  
+        self.selected_row = self.search_results.iloc[index.row()].copy()
+        
+        # Check if 'id' column exists and handle the case where it might be missing
+        if 'id' not in self.selected_row.index:
+            print("Warning: 'id' column not found in selected row. Available columns:", self.selected_row.index.tolist())
+            # Try to use alternative column names
+            if 'symbol' in self.selected_row.index:
+                self.selected_row['id'] = self.selected_row['symbol']
+            else:
+                print("Error: Cannot find suitable ID column")
+                return
+        
+        # Add name field directly without creating a separate Series
+        self.selected_row["name"] = self.selected_row["id"]
+        
+        # Remove any duplicate index values
         self.selected_row = self.selected_row[~self.selected_row.index.duplicated(keep='first')]
-        self.selected_row.rename(self.selected_row["id"], inplace=True)
-        print("Row selected: ", self.selected_row.name)
+        
+        # Rename the series
+        try:
+            self.selected_row.rename(self.selected_row["id"], inplace=True)
+            print("Row selected: ", self.selected_row.name)
+        except Exception as e:
+            print(f"Error renaming series: {e}")
+            print("Selected row:", self.selected_row)
+            return
+            
         if not "exchange" in self.selected_row.index:
             print("No exchange column found in selected row, adding 'N/A' to exchange column")
             self.selected_row["exchange"] = "N/A"
@@ -950,9 +983,12 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             self.return_dict[self.series_added_count] = self.selected_row
             print("Series added to return dict: ", self.selected_row.name)
             
+            # Use the "name" field we set earlier, but ensure it's a string
+            series_name = str(self.selected_row["name"]) if "name" in self.selected_row.index else str(self.selected_row["id"])
+            
             ser = pd.Series(
                 self.selected_row[["id", "title", "source"]],
-                name=self.selected_row["name"]
+                name=series_name
             ).to_frame().T
             
             self.return_df = pd.concat([self.return_df, ser], axis=0)
@@ -1145,8 +1181,9 @@ def org_metadata(series_meta: dict) -> pd.DataFrame:
     for key in series_meta.keys():
         ser = series_meta[key]
         if ser["source"] == "glassnode":
-            ser = pd.Series(json.dumps(pd.Series(ser).to_dict()), index = ["glassnode"])
+            ser = pd.Series(json.dumps(pd.Series(ser).to_dict()), index = ["glassnode"], name = ser["id"])
         meta_df = pd.concat([meta_df,ser],axis=1)
+    meta_df = meta_df.reindex(index)
     meta_df.index.rename("property", inplace=True)
     return meta_df
 
@@ -1193,4 +1230,3 @@ if __name__ == "__main__":
     # wl.load_watchlist()
     # path = qt_load_file_dialog()
     # print("Path: ", path)
- 
