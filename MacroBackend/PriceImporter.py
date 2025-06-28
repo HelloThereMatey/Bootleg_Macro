@@ -224,14 +224,49 @@ def ReSampleToRefIndex(data,index,freq:str):   #This function will resample and 
     #print('Data after reindexing function, ',data.head(54))    
     return data
 
-def pullyfseries(ticker,start:str="2020-01-01",interval="1d"):
-    asset = yf.ticker.Ticker(ticker=ticker)
-    PriceData = asset.history(period="1d",start=start,interval=interval)
-    PriceData = pd.DataFrame(PriceData)
-    if (interval == "1d"):
-        ind = pd.DatetimeIndex(PriceData.index)
-        PriceData.set_index(ind.date,inplace=True)   
-    return PriceData, ticker 
+def pullyfseries(ticker, start: str = "2020-01-01", end: str = None, interval="1d"):
+    """
+    Pull price data using yfinance package
+    
+    Parameters:
+    - ticker: str - Stock ticker symbol (e.g., "^GSPC", "AAPL")
+    - start: str - Start date in "YYYY-MM-DD" format
+    - end: str - End date in "YYYY-MM-DD" format (default: today)
+    - interval: str - Data interval ("1d", "1wk", "1mo", etc.)
+    
+    Returns:
+    - tuple: (PriceData DataFrame, ticker string)
+    """
+    
+    try:
+        # Create ticker object
+        ticker_obj = yf.Ticker(ticker)
+        
+        # Get historical data
+        if end is None:
+            PriceData = ticker_obj.history(start=start, interval=interval)
+        else:
+            PriceData = ticker_obj.history(start=start, end=end, interval=interval)
+        
+        # Convert to DataFrame (it should already be one)
+        PriceData = pd.DataFrame(PriceData)
+        
+        # Check if we got any data
+        if len(PriceData) == 0:
+            print(f"No data returned for ticker: {ticker}")
+            return pd.DataFrame(), ticker
+            
+        # For daily data, convert index to date only
+        if interval == "1d":
+            ind = pd.DatetimeIndex(PriceData.index)
+            PriceData.set_index(ind.date, inplace=True)
+            
+        print(f"Successfully pulled {len(PriceData)} rows of data for {ticker}")
+        return PriceData, ticker
+        
+    except Exception as e:
+        print(f"Error pulling data for {ticker}: {e}")
+        return pd.DataFrame(), ticker
 
 # def Yahoo_Fin_PullData(Ticker, start_date = None, end_date = None): #Pull daily data for an asset using yahoo_fin web scraper
 #     data = si.get_data(Ticker,start_date = start_date, end_date = end_date) #Start date end date in YYYY-MM-DD str format. 
@@ -745,8 +780,6 @@ def treasury_api_paginated(endpoint: str = '/v1/accounting/mts/mts_table_1',
 
 def parse_fiscal_months(series):
     """Convert fiscal year and month series to datetime index"""
-    import pandas as pd
-    from datetime import datetime
     
     # Initialize variables
     current_fy = None

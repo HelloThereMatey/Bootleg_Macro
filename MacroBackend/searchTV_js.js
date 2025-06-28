@@ -22,18 +22,23 @@ let data = '';
 process.stdin.on('data', chunk => {
     data += chunk;
 });
-    
-console.log(data);
-process.stdin.on('end', () => {
-    // Parse the JSON data
-    const searchstr = JSON.parse(data);
 
-    // Suppose you're using a library to process this data
-    const processedData = TradingView.searchMarket(search = searchstr).then((rs) => {
-        const limitedResults = rs.slice(0, 30); // Adjust the number as needed
-        console.log(limitedResults);
-      });
-
-    // Output the result
-    process.stdout.write(JSON.stringify(processedData));
+process.stdin.on('end', async () => {
+    try {
+        // Parse the JSON data
+        const searchstr = JSON.parse(data.trim());
+        
+        // Use the TradingView library to search market
+        const results = await TradingView.searchMarket(searchstr);
+        const limitedResults = results.slice(0, 30);
+        
+        // Output the result as JSON
+        console.log(JSON.stringify(limitedResults));
+    } catch (error) {
+        console.error(JSON.stringify({
+            error: error.message,
+            success: false
+        }));
+        process.exit(1);
+    }
 });

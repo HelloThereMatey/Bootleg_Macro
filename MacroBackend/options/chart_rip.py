@@ -7,6 +7,7 @@ import sys
 import os
 import json
 import pickle
+
 wd = os.path.abspath(os.path.dirname(__file__))
 fdel = os.path.sep
 
@@ -72,13 +73,16 @@ class plot_rippa(object):
         self.image_ar = sl.shape[1]/sl.shape[0]
         print("Image aspect ratio: ", self.image_ar, "width, height (pixels): ", sl.shape[1], sl.shape[0])    
 
-    def active_chart(self, provide_trace_colors: dict = {}, color_tolerance: float = 0.1):
+    def active_chart(self, provide_trace_colors: dict = {}, color_tolerance: float = 0.1, message: str = "Double-click on a pixel to select its color as a trace.\
+                Hold shift and double-click to specify that the trace is plotted vs right axis rather than left."):
         """ **Parameter**: provide_trace_colors must in format {"trace_name": {"RGB": [R, G, B, A]}},
         where R,G,B,A are the red, blue, green & alpha values that define the color for that trace (float between 0 and 1).
         Double-click on a pixel that is within a trace to select that color as the trace color. Hold shift and dbl-click to
         specify that the trace is plotted vs right axis rather than left..
         **Parameter**: color_tolerance: Maximum allowed distance (Euclidean in RGB) for a pixel color to be considered a match.
                        Adjust based on image compression/artifacts. Value is relative to max distance (sqrt(3) for normalized RGB).
+        **Parameter**: message: A message to display on the chart, e.g. "Click on a pixel to select its color as a trace.".
+        This method will display the chart image and allow the user to double-click on pixels to select
         """
 
         def onclick(event):
@@ -144,6 +148,11 @@ class plot_rippa(object):
                     print(f"Provided {trace_name}: Target RGB: {self.trace_colors[axis][trace_name]['RGB']}, Found {len(pixel_locations)} matching pixels.")
         else:
             self.fig.canvas.mpl_connect('button_press_event', onclick)
+            # Display message if provided
+            if message:
+                self.ax.text(0.02, 0.98, message, transform=self.ax.transAxes, 
+                            fontsize=12, verticalalignment='top', horizontalalignment='left',
+                            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
             plt.show()
         
     def display_trace_locations(self):
@@ -382,15 +391,60 @@ def rip_chart(imagePath: str = "", trace_colors: dict = {} , x0: float = 0, x1: 
     plot.display_trace_locations()
     plot.trace_locs_to_values(yr0=yr0, yr1=yr1, start_date = start_date, end_date = end_date)
     return plot
+
+def vams_42_macro_chart_rip(start_date: str, end_date: str, frequency: str = "D", image_path: str = None, export_pixlocs:bool = False,
+                            color_names: dict = {'left_Trace1': "green", 'left_Trace2': 'yellow', 'left_Trace3': 'red'}, chart_message:str = None) -> tuple[pd.DataFrame, plot_rippa]:
+    """Function to rip a 42 macro VAMS chart as screenshotted from a 42Macro slidedeck. ill extract green, orange & red regions and 
+    return a pandas datetime index Dataframe with main column "signal" with the signal color as a function of date.
+    """
+
+    if image_path is None:
+        image_path = qt_load_file_dialog(dialog_title="Choose a chart image that you have cropped to chart area only.", 
+                                     initial_dir=wd, file_types="Image Files (*.png *.jpeg *.jpg *.bmp *.tiff *.tif *.gif *.svg *.webp *.heic *.pdf *.ico)")
+        
+
+    plot = plot_rippa(imagePath=image_path)
+    if chart_message is not None:
+        plot.active_chart(message=chart_message)
+    else:
+        plot.active_chart()
+    if export_pixlocs:
+        plot.export_raw_pixlocs()
+    
+    plot.create_x_indexes(start_date = start_date, end_date = end_date, frequency = frequency)
+    df = pd.concat([plot.boolean_series['left'][key] for key in plot.boolean_series['left'].keys()], axis=1).ffill(axis=0).rename(columns = color_names)
+
+    # Create a signal column that identifies the active trace
+    df['signal'] = pd.NA  # Start with NA values
+
+    # Use boolean indexing
+    df.loc[df[color_names["left_Trace3"]] == 1, 'signal'] = color_names["left_Trace3"]     # Apply Red first (highest priority)
+    df.loc[df[color_names["left_Trace2"]] == 1, 'signal'] = color_names["left_Trace2"]  # Then Yellow
+    df.loc[df[color_names["left_Trace1"]] == 1, 'signal'] = color_names["left_Trace1"]  # Then Green
+
+    # Fill any remaining NAs with "None" or another default value
+    df['signal'] = df['signal'].fillna('None')
+
+    return df, plot # Return the signal series
+
     
 
 if __name__ == "__main__":
     #image_path = ''
 
-    miplot = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/CapWars_GLI/macroweatherraw.png'
-    plot = plot_rippa(imagePath=miplot)
-    plot.active_chart()
-    plot.export_raw_pixlocs()
+    # miplot = None
+    # if miplot is None:
+    #     miplot = qt_load_file_dialog(dialog_title="Choose a chart image that you have cropped to chart area only.", 
+    #                                  initial_dir=wd, file_types="Image Files (*.png *.jpeg *.jpg *.bmp *.tiff *.tif *.gif *.svg *.webp *.heic *.pdf *.ico)")
+    # plot = plot_rippa(imagePath=miplot)
+    # plot.active_chart()
+    # plot.export_raw_pixlocs()
+    path = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/Proper_Studies/42Macro/SPX_Gold_Bondz/figs/spx_jun20_jun25_MEfreq.png'
+
+    signal, plot = vams_42_macro_chart_rip(start_date="2020-06-30", end_date="2025-06-30", frequency="W", image_path=path, chart_message="Double click on green, yellow and then red regions in that order.")
+    signal.to_excel(qt_save_file_dialog(dialog_title="Save the signal series as an Excel file", initial_dir=plot.imdir, file_types="Excel Files (*.xlsx)"))
+    print("Signal series saved to Excel file.")
+    print(signal)
 
     # trace_colors_given = {"left": {"Trace1": {"RGB": np.array([0, 0, 0, 1])}},
     #                       "right": {"Trace2": {"RGB": np.array([0.92941177, 0.49019608, 0.19215687, 1.0])}}}
