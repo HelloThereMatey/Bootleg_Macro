@@ -80,7 +80,11 @@ def CoinGeckoPriceHistory(CoinID: str, TimeLength: int = 365, api_key: str = Non
 # PriceData = CoinGeckoPriceHistory('bitcoin',721)
 # print(PriceData)
 
-def GetFullListofCoinsCG():
+def GetFullListofCoinsCG() -> pd.DataFrame:
+    """Get the full list of coins tracked by CoinGecko.
+    Returns:
+        pd.DataFrame: DataFrame containing the list of coins with their IDs and symbols.
+    """
     url = 'https://api.coingecko.com/api/v3/coins/list'
     r = requests.get(url)   #Requests calls the coin gecko API. I'll have to figure out how to add trading view too. 
     df = pd.read_csv(io.StringIO(r.text))
@@ -104,9 +108,24 @@ def check_pd_inputDatas(inputs: dict):
 # CG_CoinList = GetFullListofCoinsCG()
 # CG_CoinList.to_excel('......Path to save file at.......')
 
+def update_coin_gecko_list(storepath: str = wd+fdel+"AllCG.csv"):
+    """ Update the list of coins from CoinGecko and save it to a CSV file."""
+    full_list = GetFullListofCoinsCG()
+    full_list.to_csv(storepath, index=True)
+    print(f"Updated CoinGecko list saved to {storepath}")
+
 def getCoinID(Coin:str,InputTablePath = None):   #This will get the ticker and coin gecko coin ID for a given coin,
     if InputTablePath is not None:                    #'Coin'here is basically a search string. Beware coin gecko can match others with same ticker. 
-        df = pd.read_excel(InputTablePath)        #Best to put in the name of a coin rather than search using ticker. 
+        if not os.path.exists(InputTablePath):
+            print('Input table path does not exist, please check the path and try again.')
+            return ('Failed_Search', 'Failed_Search')
+        elif InputTablePath.endswith('.xlsx'):
+            df = pd.read_excel(InputTablePath)
+        elif InputTablePath.endswith('.csv'):
+            df = pd.read_csv(InputTablePath)        #Best to put in the name of a coin rather than search using ticker. 
+        else:
+            print('Input table path must be a csv or excel file.')
+            return ('Failed_Search', 'Failed_Search')
     else:
         df = GetFullListofCoinsCG()
 

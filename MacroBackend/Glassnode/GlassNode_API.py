@@ -51,9 +51,9 @@ def search_series(search_string, series:pd.Series):  ##This unction will be used
 def UpdateGNMetrics(APIKey:str) -> pd.DataFrame: #Use this to occaisonally update the excel file containing the list of all GN metrics. 
     print('Updating excel file that has the list of all GlassNode metrics/endpoints.....')
     #make API request
-    res = requests.get('https://api.glassnode.com/v2/metrics/endpoints', params={'a': 'BTC', 'api_key': APIKey})
+    res = requests.get("https://api.glassnode.com/v1/metadata/metrics", params={'a': 'BTC', 'api_key': APIKey})
     #convert to pandas dataframe
-    df = pd.read_json(res.text, convert_dates=['t'])
+    df = pd.read_json(io.StringIO(res.text), convert_dates=['t'])
     print('File updated, here is a preview:', df)
     return df
 
