@@ -189,7 +189,7 @@ class Watchlist(dict):
 
         return saveName, save_path
 
-    def get_watchlist_data(self, start_date: str = "1600-01-01"):
+    def get_watchlist_data(self, start_date: str = "1600-01-01", id_list: list = None):
         """
         get_watchlist_data method.
 
@@ -202,13 +202,20 @@ class Watchlist(dict):
 
         - Watchlist: search_symbol_gui.Watchlist object
         - start_date: str, default "1900-01-01"
+        - id_list: list, default None - a list of asset/ticker/macrodata codes to pull data for. If None, all assets in the watchlist will be pulled.
         """
 
         watchlist = pd.DataFrame(self["watchlist"]); meta = pd.DataFrame(self["metadata"])
         #print("Watchlist: \n", watchlist, "\n\nMetadata: \n", meta)
 
         data = {}
-        for i in watchlist.index:
+        if id_list is None:
+            # If no id_list is provided, use all ids in the watchlist
+            ids = watchlist.index.to_list()
+        else:
+            ids = id_list
+      
+        for i in ids:
             sauce = watchlist.loc[i, "source"].strip(); eyed = watchlist.loc[i, "id"].strip()
             try:
                 exchag = meta.loc["exchange", i].strip()
@@ -228,7 +235,13 @@ class Watchlist(dict):
                                                          "Error messsage: "+str(e)], name="Error_"+watchlist.loc[i,"id"], index = [0, 1, 2])
                 pass
 
-        self["watchlist_datasets"] = data #Bang it into the watchlist_datasets dictionary
+        # Check if 'watchlist_datasets' key already exists
+        if "watchlist_datasets" in self:
+            # Append new data to the existing dictionary
+            self["watchlist_datasets"].update(data)
+        else:
+            # Create the dictionary if it doesn't exist
+            self["watchlist_datasets"] = data
 
         try:
             self.update_metadata()
