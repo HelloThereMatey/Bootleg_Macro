@@ -421,7 +421,7 @@ def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_d
     timeFrames = ['1H', '4H', 'D', 'W', 'M']
 
     tv = TvDatafeed()
-    for i in range(6):
+    for i in range(3):
         if barTarget < 0.041 and BarTimeFrame is None or BarTimeFrame == '1H':
             TimeFrame = 'Hourly'; BarTimeFrame = '1H'; numBars = round(numDays*24)
             if numBars > 5000:
@@ -472,27 +472,31 @@ def DataFromTVGen(symbol,exchange='NSE',start_date=datetime.date(2020,1,1),end_d
         if data is None:
             print('Fucked out cunt, try next higher timeFrame.')
             if index == len(timeFrames)-1:
-                return
+                # Create empty DataFrame with error message
+                print("Pulling out, returning tuple of empty dataframes.")
+                return None, None #Return emptyy dfs if getting data doesn't work
             else:
+                print("Bangin on....")
                 BarTimeFrame = timeFrames[index+1]
                 continue
-        print('Data received length: ', len(data), 'start date: ', data.index[0], 'end date: ', data.index[len(data)-1], data.index[len(data)-1] - data.index[0])
-        
-        start_date = data.index[0] #Overwrite your start date with the actual first datapoint received....
-        data = data[start_date::].copy().drop('symbol', axis = 1)
-        if index > 1:
-            dateIndex = pd.Series(pd.DatetimeIndex(pd.DatetimeIndex(data.index).date), name = 'Date')
-            data.reset_index(inplace = True, drop=True)
-            data = pd.concat([dateIndex,data], axis = 1)
-            data.set_index('Date', drop = True, inplace = True)
-            data.name = symbol
+       
         else:
-            data.name = symbol    
+            print('Data received length: ', len(data), 'start date: ', data.index[0], 'end date: ', data.index[len(data)-1], data.index[len(data)-1] - data.index[0])
+            start_date = data.index[0] #Overwrite your start date with the actual first datapoint received....
+            data = data[start_date::].copy().drop('symbol', axis = 1)
+            if index > 1:
+                dateIndex = pd.Series(pd.DatetimeIndex(pd.DatetimeIndex(data.index).date), name = 'Date')
+                data.reset_index(inplace = True, drop=True)
+                data = pd.concat([dateIndex,data], axis = 1)
+                data.set_index('Date', drop = True, inplace = True)
+                data.name = symbol
+            else:
+                data.name = symbol    
 
-        info = {'Source': 'trading view', 'Ticker': symbol, 'Exchange': exchange, 'Ticker': symbol, 'Start date': start_date.strftime('%Y-%m-%d'),
-                'End date': end_date.strftime('%Y-%m-%d'), 'Data frequency': BarTimeFrame, 'Data time frame': TimeFrame}
-        seriesInfo = pd.Series(info.values(), index = info.keys(), name = 'Series info')
-        return data, seriesInfo
+            info = {'Source': 'trading view', 'Ticker': symbol, 'Exchange': exchange, 'Ticker': symbol, 'Start date': start_date.strftime('%Y-%m-%d'),
+                    'End date': end_date.strftime('%Y-%m-%d'), 'Data frequency': BarTimeFrame, 'Data time frame': TimeFrame}
+            seriesInfo = pd.Series(info.values(), index = info.keys(), name = 'Series info')
+            return data, seriesInfo
 
 def Search_TV(tv: TvDatafeed = None, searchstr: str = "", exchange: str = ''):
     if tv is None: 

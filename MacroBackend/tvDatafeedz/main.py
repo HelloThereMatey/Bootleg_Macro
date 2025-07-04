@@ -10,6 +10,7 @@ from websocket import create_connection
 import requests
 import json
 import os
+import signal
 
 wd = os.path.dirname(os.path.realpath(__file__))
 fdel = os.path.sep
@@ -31,6 +32,9 @@ custom_headers = {
     "Upgrade": "websocket",
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
+
+def timeout_handler(signum, frame):
+    raise TimeoutError("Data pull timed out")
 
 class Interval(enum.Enum):
     in_1_minute = "1"
@@ -406,45 +410,52 @@ class TvDatafeed:
     
     def multi_attempt_pull(self, symbol: str, exchange: str = "NSE",interval: Interval = Interval.in_daily,
         n_bars: int = 10, fut_contract: int = None, extended_session: bool = False, time_zone: str = 'Australia/Sydney',
-        collection_method: int = 0, attempts: int = 5):
-        print(symbol, exchange, collection_method)
+        collection_method: int = 0, attempts: int = 2, timeout: int = 60):
+        print(f"multi_attempt_pull function: symbol: {symbol}, exchange: {exchange}, collection_method: {collection_method}, attempts: {attempts}, timeout: {timeout}")
         data = None; tries = 0
-        while tries <= attempts:
+        while tries < attempts:  # Changed from <= to <
+            tries += 1  # Increment at start of loop
+            
+            # Set up timeout for this data pull attempt
+            signal.signal(signal.SIGALRM, timeout_handler)
+            signal.alarm(timeout)
+            
             try:
                 data = self.exp_ws(symbol, exchange = exchange, interval = interval, n_bars = n_bars, fut_contract = fut_contract, 
                                    collection_method = collection_method, extended_session = extended_session, time_zone = time_zone)
+                signal.alarm(0)  # Cancel the alarm if successful
+                print(f"data pull timed out after {timeout} seconds for {symbol}")
+                if data is not None:
+                    break  # Exit loop on successful data retrieval
+        
+            except TimeoutError:
+                print(f"TV data pull timed out after {timeout} seconds for {symbol}")
+                signal.alarm(0)  # Cancel the alarmo
+                return None
+                    
             except Exception as ahshit:
-                print(ahshit)
-                tries += 1
-            if data is not None:
-                break      
+                signal.alarm(0)  # Cancel the alarm
+                print("TV data pull failed, error: ", ahshit)
+                if "Connection timed out" in str(ahshit) or "no data, please check the exchange and symbol" in str(ahshit):
+                    print("Connection timed out. Either internet not connected or there's no data for this symbol Please check the exchange and symbol and network connection.")
+                    return None   
         return data
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    tv = TvDatafeed()
-    attempts = 0; data = None
-
-    while attempts <= 5:
-        try:
-            data = tv.multi_attempt_pull("BTCUSD", exchange= "INDEX",interval=Interval.in_4_hour, n_bars=6770)
-        except Exception as cunt:
-            print(cunt)    
-            attempts += 1   
-        if data is not None:
-            break     
-    print(data)
+    tv = TvDatafeed()(level=logging.DEBUG)
     
     # print(tv.get_hist("NIFTY", "NSE", fut_contract=1))
-    # print(
+    # print(tv.get_hist("NIFTY", "NSE", fut_contract=1))
     #     tv.get_hist(
     #         "EICHERMOT",
-    #         "NSE",
+    #         "NSE",RMOT",
     #         interval=Interval.in_1_hour,
-    #         n_bars=500,
+    #         n_bars=500,terval.in_1_hour,
     #         extended_session=False,
-    #     )
+    #     )   extended_session=False,
+    # )   )
     # )
     
-
+"wss://data.tradingview.com/socket.io/websocket?from=chart%2FPUfaTXYt%2F&date=2024_02_02-15_12&type=chart"
 "wss://data.tradingview.com/socket.io/websocket?from=chart%2FPUfaTXYt%2F&date=2024_02_02-15_12&type=chart"

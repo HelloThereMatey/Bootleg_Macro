@@ -19,6 +19,8 @@ import quandl
 from yahoofinancials import YahooFinancials as yf
 import tedata as ted ##This is my package that scrapes data from Trading Economics
 import json
+import signal
+import time
 
 def yf_get_data(ticker: str, start_date: str, end_date: str, data_freq: str = "daily"):
     yfobj = yf(ticker)
@@ -31,6 +33,10 @@ def tedata_search(searchstr: str = "gdp", wait_time: int = 5):
     search = ted.search_TE(use_existing_driver=True)
     search.search_trading_economics(searchstr, wait_time=wait_time)
     return search.result_table
+
+
+def timeout_handler(signum, frame):
+    raise TimeoutError("Data pull timed out")
 
 ####### CLASSES ######################################################
 class get_data_failure(Exception):
@@ -67,58 +73,6 @@ class dataset(object):
         self.keyz = Utilities.api_keys(JSONpath=parent + fdel + 'MacroBackend' + fdel + 'SystemInfo')
         self.api_keys = dict(self.keyz.keys)
         self.data = None
-
-    def get_data(self, source: str, data_code: str, start_date: str = "1800-01-01", exchange_code: str = None, 
-                 end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close",
-                 capitalize_column_names: bool = False, asset: str = "BTC", resolution: str = '24h', format: str = 'json'):  ## To do make GlassNode params a single dict parameter...
-        """
-        The get_data method is responsible for pulling data from various sources. Pulled data will be stored in 3 important 
-        attributes: 
-        
-        - self.data -> Contains the data as a pandas DataFrame or Series.
-        - self.SeriesInfo -> contains metdata about the data series pulled, as a series.
-        - self.dataName -> contains the name of the data series pulled, string. 
-
-        Parameters:
-        - source: str, the source to pull data from, source options can be listed by printing self.added_sources attribute
-        - data_code: str, the data code/ticker/id for the asset or data series you want to pull.
-        - start_date: str YYYY-MM-DD format, the start date for the data series you want to pull.
-        - exchange_code: str, the exchange code for the asset you want to pull data for, default is None. This applies to tv source only atm. 
-        - end_date: str YYYY-MM-DD format, the end date for the data series you want to pull, default is to use today's date.
-        - data_freq: str, the frequency of the data you want to pull, default is daily, formats of the string vary by source. Try "1w" for weekly maybe.
-        - dtype: str, the type of data you want to pull, default is "close", other options are "OHLCV" for open, high, low, close, volume data.
-        - capitalize_column_names: bool, default is False, if True, the column names of the data will be capitalized.
-        """
-        
-        self.data_freq = data_freq
-        self.source = source.lower()
-        self.asset = asset
-        self.resolution = resolution    
-        self.format = format
-        self.check_key()
-
-        if self.source not in self.supported_sources:
-            print('The data source: ', "\n", source, "\n", 'is not supported. You must choose from the following sources: \n', self.supported_sources)
-            print("Your specified source is not supported, get the fuck out of town you cunt.") 
-            return
-
-        self.data_code = data_code
-        if exchange_code is not None:
-            self.exchange_code = exchange_code
-        else:
-            self.exchange_code = "N/A"
-
-        self.start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
-        self.end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d') 
-        self.SeriesInfo = pd.Series([],dtype=str)
-        self.dataName = data_code
-        self.d_type = dtype 
-
-        print("Looking for data from source: ", self.source, "data code: ", self.data_code)
-        self.pull_data()
-
-        if capitalize_column_names and dtype != "close":
-            self.data.columns = self.data.columns.str.capitalize()
 
     def check_key(self):
         # print("Checking API keys: ", self.api_keys)
@@ -210,19 +164,25 @@ class dataset(object):
                 self.data_freq = 'D'
             TheData, info = PriceImporter.DataFromTVGen(self.data_code, self.exchange_code, start_date = self.start_date, 
                                                         end_date = self.end_date, BarTimeFrame = self.data_freq)
-            dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(TheData.index).date)
-            TheData.columns = TheData.columns.str.capitalize()
-            if 'Symbol' in TheData.columns:
-                TheData.drop('Symbol',axis=1,inplace=True)
+            if TheData is None:
+                print("No data returned from TV for the data code: ", self.data_code, " and exchange code: ", self.exchange_code)
+                print("Check the symbol and exchange code you provided, or try a different data source.")
+                self.data = pd.Series(); self.SeriesInfo = pd.Series()
+            
+            else:
+                dtIndex = pd.DatetimeIndex(pd.DatetimeIndex(TheData.index).date)
+                TheData.columns = TheData.columns.str.capitalize()
+                if 'Symbol' in TheData.columns:
+                    TheData.drop('Symbol',axis=1,inplace=True)
 
-            self.SeriesInfo = info
-            TheData.set_index(dtIndex,inplace=True)
-            print('Data pulled from TV for ticker: ', self.data_code)  
-              
-            # Overwrite the start and end dates to match the data pulled from TV.
-            self.start_date = TheData.index[0]; self.end_date = TheData.index[-1]
-            self.data = TheData[self.start_date:self.end_date]      
-            self.filterData(self.data)
+                self.SeriesInfo = info
+                TheData.set_index(dtIndex,inplace=True)
+                print('Data pulled from TV for ticker: ', self.data_code)  
+                
+                # Overwrite the start and end dates to match the data pulled from TV.
+                self.start_date = TheData.index[0]; self.end_date = TheData.index[-1]
+                self.data = TheData[self.start_date:self.end_date]      
+                self.filterData(self.data)
         
         elif self.source == 'coingecko':
             CoinID = PriceImporter.getCoinID(self.data_code, InputTablePath=parent+fdel+'MacroBackend'+fdel+'AllCG.csv')
@@ -315,6 +275,76 @@ class dataset(object):
                 print("Your specified source is not supported, get the fuck out of town you cunt.") 
                 return "A kick in the nutz"
 
+    def get_data(self, source: str, data_code: str, start_date: str = "1800-01-01", exchange_code: str = None, 
+                 end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close",
+                 capitalize_column_names: bool = False, asset: str = "BTC", resolution: str = '24h', format: str = 'json', timeout: int = 60):
+        """
+        The get_data method is responsible for pulling data from various sources. Pulled data will be stored in 3 important 
+        attributes: 
+        
+        - self.data -> Contains the data as a pandas DataFrame or Series.
+        - self.SeriesInfo -> contains metdata about the data series pulled, as a series.
+        - self.dataName -> contains the name of the data series pulled, string. 
+
+        Parameters:
+        - source: str, the source to pull data from, source options can be listed by printing self.added_sources attribute
+        - data_code: str, the data code/ticker/id for the asset or data series you want to pull.
+        - start_date: str YYYY-MM-DD format, the start date for the data series you want to pull.
+        - exchange_code: str, the exchange code for the asset you want to pull data for, default is None. This applies to tv source only atm. 
+        - end_date: str YYYY-MM-DD format, the end date for the data series you want to pull, default is to use today's date.
+        - data_freq: str, the frequency of the data you want to pull, default is daily, formats of the string vary by source. Try "1w" for weekly maybe.
+        - dtype: str, the type of data you want to pull, default is "close", other options are "OHLCV" for open, high, low, close, volume data.
+        - capitalize_column_names: bool, default is False, if True, the column names of the data will be capitalized.
+        - timeout: int, default 60 - timeout in seconds for the data pull operation
+        """
+        
+        self.data_freq = data_freq
+        self.source = source.lower()
+        self.asset = asset
+        self.resolution = resolution    
+        self.format = format
+        self.timeout = timeout
+        self.check_key()
+
+        if self.source not in self.supported_sources:
+            print('The data source: ', "\n", source, "\n", 'is not supported. You must choose from the following sources: \n', self.supported_sources)
+            print("Your specified source is not supported, get the fuck out of town you cunt.") 
+            return
+
+        self.data_code = data_code
+        if exchange_code is not None:
+            self.exchange_code = exchange_code
+        else:
+            self.exchange_code = "N/A"
+
+        self.start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+        self.end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d') 
+        self.SeriesInfo = pd.Series([],dtype=str)
+        self.dataName = data_code
+        self.d_type = dtype 
+
+        print("Looking for data from source: ", self.source, "data code: ", self.data_code)
+        
+        # Set up timeout for the pull_data operation
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(self.timeout)
+        
+        try:
+            self.pull_data()
+            signal.alarm(0)  # Cancel the alarm if successful
+        except TimeoutError:
+            print(f"Data pull timed out after {self.timeout} seconds for {self.data_code} from {self.source}")
+            self.data = pd.Series([f"Data pull timed out after {self.timeout} seconds"], 
+                                 name=f"Timeout_{self.data_code}", index=[0])
+            signal.alarm(0)  # Cancel the alarm
+            return
+        except Exception as e:
+            signal.alarm(0)  # Cancel the alarm
+            raise e
+
+        if capitalize_column_names and dtype != "close" and len(self.data.columns) > 0:
+            self.data.columns = self.data.columns.str.capitalize()
+
     def filterData(self, TheData: pd.DataFrame):
         TheData.columns = TheData.columns.str.capitalize()
         columns_to_keep = ['Open', 'High', 'Low', 'Close', 'Volume']
@@ -330,6 +360,7 @@ class dataset(object):
             self.data = TheData        
 
 class glassnode_data(object):   ## One can use this class to get data from Glassnode without using dataset class. 
+    """ A class for getting data from Glassnode API."""
 
     def __init__(self):
         self.metric_df = pd.read_csv(wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv", index_col=0)
@@ -356,9 +387,9 @@ class glassnode_data(object):   ## One can use this class to get data from Glass
                
 if __name__ == "__main__":
     
-    me_data = dataset()
-    me_data.get_data(source = 'yfinance', data_code = 'BTC-USD',start_date="2011-01-01", dtype="OHLCV")
-    print(me_data.data, me_data.SeriesInfo, me_data.dataName, me_data.data.index, type(me_data.data.index))
+    # me_data = dataset()
+    # me_data.get_data('yfinance', 'BTC-USD',"2011-01-01", dtype="OHLCV")
+    # print(me_data.data, me_data.SeriesInfo, me_data.dataName, me_data.data.index, type(me_data.data.index))
     # me_data = dataset(source = 'abs', data_code = 'A3605929A',start_date="2011-01-01")
     # print(me_data.data, me_data.SeriesInfo, me_data.dataName)
     # me_data = dataset()
@@ -384,15 +415,20 @@ if __name__ == "__main__":
     # datas = tvd.tv.exp_ws("NQ", exchange = 'CME', interval=PriceImporter.TimeInterval("4H"),n_bars=5000)
     # print(datas)
      
-    gn = glassnode_data()
-    gn.chosen_met("price_usd_ohlc")
-    print(gn.met_assets, gn.met_resolutions, gn.met_formats, gn.met_currs, gn.met_domain)
-    gn.get_data(asset = "BTC", resolution = '24h', format = 'json', paramsDomain = "a")
-    print(gn.data)
+    # gn = glassnode_data()
+    # gn.chosen_met("price_usd_ohlc")
+    # print(gn.met_assets, gn.met_resolutions, gn.met_formats, gn.met_currs, gn.met_domain)
+    # gn.get_data(asset = "BTC", resolution = '24h', format = 'json', paramsDomain = "a")
+    # print(gn.data)
 
     # me_data = dataset()
     # me_data.get_data(source = 'glassnode', data_code = 'price_usd_ohlc,BTC,24h',start_date="2011-01-01", dtype="OHLCV")
     # print(me_data.data, me_data.SeriesInfo, me_data.dataName)
+
+    tv_data = dataset()
+    tv_data.get_data("tv", "ES1!", "1998-01-01", exchange_code="CME")
+    print(tv_data.data, tv_data.SeriesInfo, tv_data.dataName)
+
 
 
 

@@ -12,6 +12,7 @@ sys.path.append(parent)
 from typing import Union
 import json
 import time
+import signal
 
 from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data
 from MacroBackend.BEA_Data import bea_data_mate
@@ -188,8 +189,14 @@ class Watchlist(dict):
                 watchstore.close()
 
         return saveName, save_path
+    
+    class TimeoutError(Exception):
+        pass
 
-    def get_watchlist_data(self, start_date: str = "1600-01-01", id_list: list = None):
+    def timeout_handler(signum, frame):
+        raise TimeoutError("Data pull timed out")
+
+    def get_watchlist_data(self, start_date: str = "1600-01-01", id_list: list = None, timeout: int = 60):
         """
         get_watchlist_data method.
 
@@ -203,6 +210,7 @@ class Watchlist(dict):
         - Watchlist: search_symbol_gui.Watchlist object
         - start_date: str, default "1900-01-01"
         - id_list: list, default None - a list of asset/ticker/macrodata codes to pull data for. If None, all assets in the watchlist will be pulled.
+        - timeout: int, default 60 - timeout in seconds for each individual data pull
         """
 
         watchlist = pd.DataFrame(self["watchlist"]); meta = pd.DataFrame(self["metadata"])
@@ -222,17 +230,30 @@ class Watchlist(dict):
             except:
                 exchag = None
             print(f"Attempting data pull for series id: {eyed}, from source: {sauce},\n start_date: {start_date}), exchange_code: {exchag}")
+            
+            # Set up timeout for this data pull
+            signal.signal(signal.SIGALRM, self.timeout_handler)
+            signal.alarm(timeout)
+            
             try:
                 ds = Pull_Data.dataset()
-                ds.get_data(sauce, eyed, start_date, exchange_code = exchag)
+                ds.get_data(sauce, eyed, start_date, exchange_code = exchag, timeout=timeout)
                 data[watchlist.loc[i,"id"]] = ds.data
                 series_meta = ds.SeriesInfo
-                meta[eyed] = series_meta.reindex(meta.index).squeeze()  # Add metadata to the metadata DataFrame
+                meta[eyed] = series_meta.reindex(meta.index).squeeze()
+                signal.alarm(0)  # Cancel the alarm
 
+            except TimeoutError:
+                print(f"Timeout ({timeout}s) exceeded for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Skipping...")
+                data[watchlist.loc[i,"id"]] = pd.Series([f"Data pull timed out after {timeout} seconds.", "Timeout exceeded", 
+                                                         f"Source: {sauce}"], name="Timeout_"+watchlist.loc[i,"id"], index = [0, 1, 2])
+                signal.alarm(0)  # Cancel the alarm
+                
             except Exception as e:
                 print(f"Error pulling data for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Exception: {e}")
                 data[watchlist.loc[i,"id"]] = pd.Series(["Data pull failed for this series.", "Devo bro....",
                                                          "Error messsage: "+str(e)], name="Error_"+watchlist.loc[i,"id"], index = [0, 1, 2])
+                signal.alarm(0)  # Cancel the alarm
                 pass
 
         # Check if 'watchlist_datasets' key already exists
