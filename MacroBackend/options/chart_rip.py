@@ -393,14 +393,29 @@ def rip_chart(imagePath: str = "", trace_colors: dict = {} , x0: float = 0, x1: 
     return plot
 
 def vams_42_macro_chart_rip(start_date: str, end_date: str, frequency: str = "D", image_path: str = None, export_pixlocs:bool = False,
-                            color_names: dict = {'left_Trace1': "green", 'left_Trace2': 'yellow', 'left_Trace3': 'red'}, chart_message:str = None) -> tuple[pd.DataFrame, plot_rippa]:
+                            color_names: dict = {'left_Trace1': "green", 'left_Trace2': 'yellow', 'left_Trace3': 'red'}, chart_message:str = None,
+                            initial_dir: str = None) -> tuple[pd.DataFrame, plot_rippa]:
     """Function to rip a 42 macro VAMS chart as screenshotted from a 42Macro slidedeck. ill extract green, orange & red regions and 
     return a pandas datetime index Dataframe with main column "signal" with the signal color as a function of date.
+
+    **Parameters:**
+    -----------
+    - start_date : str - Start date for the x-axis in 'YYYY-MM-DD' format.
+    - end_date : str - End date for the x-axis in 'YYYY-MM-DD' format.
+    - frequency : str - Frequency for resampling the x-axis data. Default is 'D' (daily).
+    - image_path : str - Path to the chart image. If not provided, a file dialog will open to choose an image.
+    - export_pixlocs : bool - If True, export the raw pixel locations of the traces to a .pkl file.
+    - color_names : dict - Dictionary mapping trace names to their colors. Default is {'left_Trace1': "green", 'left_Trace2': 'yellow', 'left_Trace3': 'red'}.
+    - chart_message : str - Message to display on the chart, e.g. "Double click on green, yellow and then red regions in that order.".
+    - initial_dir : str - Initial directory for the file dialog to choose the chart image.  
     """
+
+    if initial_dir is None:
+        initial_dir = wd  # Use the current working directory if not provided
 
     if image_path is None:
         image_path = qt_load_file_dialog(dialog_title="Choose a chart image that you have cropped to chart area only.", 
-                                     initial_dir=wd, file_types="Image Files (*.png *.jpeg *.jpg *.bmp *.tiff *.tif *.gif *.svg *.webp *.heic *.pdf *.ico)")
+                                     initial_dir=initial_dir, file_types="Image Files (*.png *.jpeg *.jpg *.bmp *.tiff *.tif *.gif *.svg *.webp *.heic *.pdf *.ico)")
         
 
     plot = plot_rippa(imagePath=image_path)
@@ -427,7 +442,155 @@ def vams_42_macro_chart_rip(start_date: str, end_date: str, frequency: str = "D"
 
     return df, plot # Return the signal series
 
+def plot_signal_colored_timeseries(
+    data: pd.DataFrame,
+    price_col: str,
+    signal_col: str,
+    signal_colors=None,
+    figsize=(12, 6),
+    title="Signal Colored Time Series",
+    use_log_scale=True,
+    date_format='%Y-%m',
+    date_interval=None,
+    legend_loc='upper left'
+):
+    """
+    Create a time series plot with colored backgrounds based on signal values.
     
+    Parameters:
+    -----------
+    data : pd.DataFrame
+        DataFrame with DatetimeIndex containing price and signal data
+    price_col : str
+        Column name for the price data to be plotted
+    signal_col : str
+        Column name for the signal data that determines background colors
+    signal_colors : dict, optional
+        Dictionary mapping signal values to colors (RGBA or color names)
+        Default: {'green': (0, 0.5, 0, 0.5), 'yellow': (1, 0.84, 0, 0.5), 'red': (1, 0, 0, 0.5)}
+    figsize : tuple, optional
+        Figure size as (width, height) in inches
+    title : str, optional
+        Plot title
+    use_log_scale : bool, optional
+        Whether to use logarithmic scale for price axis
+    date_format : str, optional
+        Format string for date labels on x-axis
+    date_interval : int, optional
+        Interval in months between date ticks
+    legend_loc : str, optional
+        Location of the legend
+        
+    Returns:
+    --------
+    fig, ax : matplotlib figure and axes objects
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    from matplotlib.colors import to_rgba
+    from matplotlib.patches import Patch
+    import pandas as pd
+    import numpy as np
+    
+    # Make a copy of the data to avoid modifying the original
+    data_copy = data.copy()
+    
+    # Fill NaN values with 'None' string
+    data_copy[signal_col] = data_copy[signal_col].fillna('None')
+    
+    # Default signal colors if none provided
+    if signal_colors is None:
+        signal_colors = {
+            'green': to_rgba('green', 0.5),
+            'yellow': to_rgba('gold', 0.5),
+            'red': to_rgba('red', 0.5),
+            'None': to_rgba('white', 1)  # Transparent for "None"
+        }
+    else:
+        # Convert any string colors to rgba
+        for key, value in signal_colors.items():
+            if isinstance(value, str):
+                signal_colors[key] = to_rgba(value, 0.5)
+    
+    # Create the figure and axis
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    # Find where the signal changes
+    signal_changes = data_copy[signal_col] != data_copy[signal_col].shift(1)
+    change_indices = data_copy.index[signal_changes].tolist()
+    
+    # Ensure the first and last dates are included
+    if data_copy.index[0] not in change_indices:
+        change_indices.insert(0, data_copy.index[0])
+    if data_copy.index[-1] not in change_indices:
+        change_indices.append(data_copy.index[-1])
+    
+    # Add colored vertical spans (backgrounds)
+    used_signals = set()
+    
+    for i in range(len(change_indices) - 1):
+        start_date = change_indices[i]
+        end_date = change_indices[i+1]
+        
+        # Get signal value for this period and convert to string
+        signal_value = data_copy.loc[start_date, signal_col]
+        signal_key = str(signal_value)
+        
+        # Get color (default to white if not found)
+        color = signal_colors.get(signal_key, to_rgba('white', 0.5))
+        
+        # Add the vertical span
+        ax.axvspan(start_date, end_date, facecolor=color, alpha=0.5, zorder=0)
+        
+        # Track used signals for legend
+        used_signals.add(signal_key)
+    
+    # Convert the index to datetime64 and the price column to numeric values
+    x_values = data_copy.index.to_numpy()
+    y_values = pd.to_numeric(data_copy[price_col], errors='coerce').to_numpy()
+    
+    # Plot the price data directly with numpy arrays to avoid category converter issues
+    price_line, = ax.plot(
+        x_values,
+        y_values,
+        color='black',
+        label=price_col,
+        linewidth=1.5,
+        zorder=5  # Ensure line is above background
+    )
+    
+    # Set up logarithmic scale if requested
+    if use_log_scale:
+        ax.set_yscale('log')
+    
+    # Format the x-axis dates
+    ax.xaxis.set_major_formatter(mdates.DateFormatter(date_format))
+    if date_interval is None:
+        date_interval = round(((data.index[-1] - data.index[0])).days // 30) // 20 # Default to approximately 20 ticks
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=date_interval))
+    
+    # Rotate date labels
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
+    # Set labels and title
+    ax.set_ylabel(f'{price_col}', color='black', fontsize=12)
+    ax.set_title(title, fontsize=14)
+    
+    # Create legend elements for used signals
+    legend_elements = [Patch(facecolor=signal_colors[s], label=s) for s in used_signals if s in signal_colors]
+    legend_elements.append(price_line)
+    
+    # Add the legend
+    ax.legend(handles=legend_elements, loc=legend_loc)
+    
+    # Add grid lines
+    ax.grid(True, axis='y', linestyle='--', alpha=0.6)
+    ax.margins(x=0.01, y=0.03)  # Add margins to avoid cutting off data
+    # Adjust layout
+    plt.tight_layout()
+    
+    return fig, ax 
+
 
 if __name__ == "__main__":
     #image_path = ''
@@ -439,9 +602,11 @@ if __name__ == "__main__":
     # plot = plot_rippa(imagePath=miplot)
     # plot.active_chart()
     # plot.export_raw_pixlocs()
-    path = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/Proper_Studies/42Macro/SPX_Gold_Bondz/figs/spx_jun20_jun25_MEfreq.png'
+    path = '/Users/jamesbishop/Documents/Financial/Investment/MACRO_STUDIES/Proper_Studies/42Macro/SPX_Gold_Bondz'
 
-    signal, plot = vams_42_macro_chart_rip(start_date="2020-06-30", end_date="2025-06-30", frequency="W", image_path=path, chart_message="Double click on green, yellow and then red regions in that order.")
+    signal, plot = vams_42_macro_chart_rip(start_date="1998-01-01", end_date="2025-03-05", frequency="W", 
+                                           chart_message="Double click on green, yellow and then red regions in that order.",
+                                           initial_dir= path)
     signal.to_excel(qt_save_file_dialog(dialog_title="Save the signal series as an Excel file", initial_dir=plot.imdir, file_types="Excel Files (*.xlsx)"))
     print("Signal series saved to Excel file.")
     print(signal)
