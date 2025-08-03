@@ -130,6 +130,8 @@ class Watchlist(dict):
         self.drop_data(drop_duplicates=True)
         self.storepath = os.path.splitext(filepath)[0] + ".h5s"
         self.storepath  = self.watchlists_path + fdel + self.name + fdel + self.name + ".h5s"
+        current_index = self['watchlist'].index.tolist()
+        print("Current watchlist index: ", current_index)
 
         # Check if corresponding .h5s file exists and restore original keys if needed
         if os.path.isfile(self.storepath):
@@ -302,7 +304,24 @@ class Watchlist(dict):
                 ds.get_data(sauce, eyed, start_date, exchange_code = exchag, timeout=timeout)
                 data[watchlist.loc[i,"id"]] = ds.data
                 series_meta = ds.SeriesInfo
-                meta = pd.concat([meta, series_meta.squeeze()], axis = 1)
+                
+                # FIX: Ensure series_meta is properly oriented as a column
+                if isinstance(series_meta, pd.DataFrame):
+                    # If it's a DataFrame, squeeze to Series and ensure it's named correctly
+                    series_meta = series_meta.squeeze()
+                
+                if isinstance(series_meta, pd.Series):
+                    # Ensure the Series has the correct name (the series ID)
+                    series_meta.name = eyed
+                    # Convert to DataFrame column format for concatenation
+                    series_meta_df = series_meta.to_frame()
+                else:
+                    print(f"Warning: series_meta for {eyed} is not a Series or DataFrame: {type(series_meta)}")
+                    continue
+                    
+                # Concatenate as columns (axis=1) ensuring proper orientation
+                meta = pd.concat([meta, series_meta_df], axis=1)
+                
                 print(f"Data pull successful for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}.")
                 print(f"This is what we have in the metadata for this series: \n", meta[eyed][meta[eyed].notna()])
                 signal.alarm(0)  # Cancel the alarm
@@ -310,13 +329,13 @@ class Watchlist(dict):
             except TimeoutError:
                 print(f"Timeout ({timeout}s) exceeded for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Skipping...")
                 data[watchlist.loc[i,"id"]] = pd.Series([f"Data pull timed out after {timeout} seconds.", "Timeout exceeded", 
-                                                         f"Source: {sauce}"], name="Timeout_"+watchlist.loc[i,"id"], index = [0, 1, 2])
+                                                        f"Source: {sauce}"], name="Timeout_"+watchlist.loc[i,"id"], index = [0, 1, 2])
                 signal.alarm(0)  # Cancel the alarm
-                
+            
             except Exception as e:
                 print(f"Error pulling data for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Exception: {e}")
                 data[watchlist.loc[i,"id"]] = pd.Series(["Data pull failed for this series.", "Devo bro....",
-                                                         "Error messsage: "+str(e)], name="Error_"+watchlist.loc[i,"id"], index = [0, 1, 2])
+                                                        "Error messsage: "+str(e)], name="Error_"+watchlist.loc[i,"id"], index = [0, 1, 2])
                 signal.alarm(0)  # Cancel the alarm
                 pass
 
@@ -352,62 +371,87 @@ class Watchlist(dict):
                     else:
                         print("Skipping this series, it is a DataFrame with more than one column, should be a series with metadata,", series.columns)
                         continue
-                
-                # Get the title from metadata, use series.name or key as fallback
-                try:
-                    metadata_title = self["metadata"].loc["title", key]
-                    if pd.isna(metadata_title) or metadata_title == "" or metadata_title is None:
-                        # Use series name if available, otherwise use the key
-                        title = series.name if series.name is not None and series.name != "" else key
-                        print(f"Title was NaN/empty for {key}, using fallback title: {title}")
-                    else:
-                        title = metadata_title
-                except (KeyError, IndexError):
-                    # Title not found in metadata, use series name or key as fallback
+            
+            # Get the title from metadata, use series.name or key as fallback
+            try:
+                metadata_title = self["metadata"].loc["title", key]
+                if pd.isna(metadata_title) or metadata_title == "" or metadata_title is None:
+                    # Use series name if available, otherwise use the key
                     title = series.name if series.name is not None and series.name != "" else key
-                    print(f"Title not found in metadata for {key}, using fallback title: {title}")
-                
-                # Rename the series to have the proper title
+                    print(f"Title was NaN/empty for {key}, using fallback title: {title}")
+                else:
+                    title = metadata_title
+            except (KeyError, IndexError):
+                # Title not found in metadata, use series name or key as fallback
+                title = series.name if series.name is not None and series.name != "" else key
+                print(f"Title not found in metadata for {key}, using fallback title: {title}")
+            
+            # Rename the series to have the proper title
+            try:
+                if series.name != title:
+                    series.rename(title, inplace=True)
+                    print(f"Renamed series {key} to: {title}")
+            except Exception as err:
+                print("Failed to rename series, ", series.name, " to title: ", title, ", error: ", err)
+
+            start_date = series.index[0]
+            end_date = series.index[-1]
+            self["watchlist_datasets"][key] = series
+
+            #Update the watchlist with improved metadata as well as the metadata DataFrame
+            self["watchlist"].loc[key, "id"] = key
+            
+            # Fix Warning 1: Ensure title column is object dtype before assignment
+            if "title" not in self["watchlist"].columns:
+                self["watchlist"]["title"] = ""
+            self["watchlist"]["title"] = self["watchlist"]["title"].astype('object')
+            self["watchlist"].loc[key, "title"] = str(title)  # Explicitly convert to string
+            
+            # Update metadata with the title if it was missing or NaN
+            if key in self["metadata"].columns:
+                if pd.isna(self["metadata"].loc["title", key]) or self["metadata"].loc["title", key] == "":
+                    self["metadata"].loc["title", key] = str(title)  # Explicitly convert to string
+
+            if key in self["metadata"].columns and pd.notna(self["metadata"].loc["observation_start", key]):
+                self["metadata"].loc["observation_start", key] = start_date
+                self["metadata"].loc["observation_end", key] = end_date
+            else:
+                #print("Setting metadata end and start dates, end: ", end_date, ", start: ", start_date)
+                self["metadata"].loc["observation_start", key] = start_date
+                self["metadata"].loc["observation_end", key] = end_date
+
+            if key in self["metadata"].columns and pd.notna(self["metadata"].loc["frequency", key]):
+                pass
+            else:
                 try:
-                    if series.name != title:
-                        series.rename(title, inplace=True)
-                        print(f"Renamed series {key} to: {title}")
-                except Exception as err:
-                    print("Failed to rename series, ", series.name, " to title: ", title, ", error: ", err)
-
-                start_date = series.index[0]
-                end_date = series.index[-1]
-                self["watchlist_datasets"][key] = series
-
-                #Update the watchlist with improved metadata as well as the metadata DataFrame
-                self["watchlist"].loc[key, "id"] = key
-                self["watchlist"].loc[key, "title"] = title  # Use the determined title
-                
-                # Update metadata with the title if it was missing or NaN
-                if key in self["metadata"].columns:
-                    if pd.isna(self["metadata"].loc["title", key]) or self["metadata"].loc["title", key] == "":
-                        self["metadata"].loc["title", key] = title
-
-                if key in self["metadata"].columns and pd.notna(self["metadata"].loc["observation_start", key]):
-                    self["metadata"].loc["observation_start", key] = start_date
-                    self["metadata"].loc["observation_end", key] = end_date
-                else:
-                    #print("Setting metadata end and start dates, end: ", end_date, ", start: ", start_date)
-                    self["metadata"].loc["observation_start", key] = start_date
-                    self["metadata"].loc["observation_end", key] = end_date
-
-                if key in self["metadata"].columns and pd.notna(self["metadata"].loc["frequency", key]):
-                    pass
-                else:
-                    try:
-                        freq = Utilities.freqDetermination(series)
-                        freq.DetermineSeries_Frequency()
-                        self["metadata"].loc["frequency", key] = freq.frequency
-                        self["metadata"].loc["frequency_short", key] = freq.frequency[0]
-                    except Exception as e:
-                        print("Error determining frequency for series: ", key, ". Exception: ", e)
-                        self["metadata"].loc["frequency", key] = "Unknown"
-                        self["metadata"].loc["frequency_short", key] = "U"
+                    freq = Utilities.freqDetermination(series)
+                    freq.DetermineSeries_Frequency()
+                    
+                    # Fix Warning 2: Ensure frequency column is object dtype before assignment
+                    if "frequency" not in self["metadata"].index:
+                        self["metadata"].loc["frequency", :] = ""
+                    if "frequency_short" not in self["metadata"].index:
+                        self["metadata"].loc["frequency_short", :] = ""
+                    
+                    # Convert the entire row to object dtype to avoid dtype conflicts
+                    self["metadata"].loc["frequency"] = self["metadata"].loc["frequency"].astype('object')
+                    self["metadata"].loc["frequency_short"] = self["metadata"].loc["frequency_short"].astype('object')
+                    
+                    self["metadata"].loc["frequency", key] = str(freq.frequency)
+                    self["metadata"].loc["frequency_short", key] = str(freq.frequency[0])
+                except Exception as e:
+                    print("Error determining frequency for series: ", key, ". Exception: ", e)
+                    # Ensure these are object dtype before assignment
+                    if "frequency" not in self["metadata"].index:
+                        self["metadata"].loc["frequency", :] = ""
+                    if "frequency_short" not in self["metadata"].index:
+                        self["metadata"].loc["frequency_short", :] = ""
+                    
+                    self["metadata"].loc["frequency"] = self["metadata"].loc["frequency"].astype('object')
+                    self["metadata"].loc["frequency_short"] = self["metadata"].loc["frequency_short"].astype('object')
+                    
+                    self["metadata"].loc["frequency", key] = "Unknown"
+                    self["metadata"].loc["frequency_short", key] = "U"
         else:
             print("Download datasets for the watchlist first using get_watchlist_data() or load_watchlist_data() methods.....")
             return
@@ -530,9 +574,13 @@ class Watchlist(dict):
             self["metadata"] = self["metadata"].loc[:, ~self["metadata"].columns.duplicated(keep='first')]
           
             self["watchlist"].drop_duplicates(inplace=True)
+            tickers_to_remove = []
             for ticker in self["watchlist_datasets"].keys():
                 if ticker not in self["watchlist"]["id"].to_list():
-                    self["watchlist_datasets"].pop(ticker)
+                    tickers_to_remove.append(ticker)
+            
+            for ticker in tickers_to_remove:
+                self["watchlist_datasets"].pop(ticker)
             #print("Final index/columns watchlist/metadata: ", self["watchlist"].index, self["metadata"].columns)
 
 ## Standalone functions ####################
