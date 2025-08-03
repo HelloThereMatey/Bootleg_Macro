@@ -967,7 +967,7 @@ class api_keys():
         self.keyFileName = keyfileName
 
         try: 
-            print('Looking for api keys in SystemInfo folder...', JSONpath+fdel+self.keyFileName)
+            #print('Looking for api keys in SystemInfo folder...', JSONpath+fdel+self.keyFileName)
             keyFile = open(self.path+fdel+self.keyFileName)
             try:
                 default_keyFile = open(JSONpath+fdel+'API_Keys_demo.json')

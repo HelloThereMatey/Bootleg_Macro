@@ -126,9 +126,56 @@ class Watchlist(dict):
                 print("Error loading watchlist data from file, '.xlsx file may have had the wrong format for a watchlist,\
                         you want two sheets named 'watchlist' and 'all_metadata' with tables that can form dataframes in each. Exception:", e)
                 return None
+        
         self.drop_data(drop_duplicates=True)
         self.storepath = os.path.splitext(filepath)[0] + ".h5s"
         self.storepath  = self.watchlists_path + fdel + self.name + fdel + self.name + ".h5s"
+
+        # Check if corresponding .h5s file exists and restore original keys if needed
+        if os.path.isfile(self.storepath):
+            try:
+                with pd.HDFStore(self.storepath, mode='r') as store:
+                    # Load key mapping if it exists
+                    if '_key_mapping' in store.keys():
+                        mapping_series = store['_key_mapping']
+                        key_mapping = mapping_series.to_dict()
+                        
+                        # key_mapping is {sanitized_key: original_key}
+                        # Create reverse mapping {original_key: sanitized_key}
+                        reverse_mapping = {original: sanitized for sanitized, original in key_mapping.items()}
+                        
+                        # Get current index
+                        current_index = self['watchlist'].index.tolist()
+                        sanitized_keys_to_remove = []
+                        
+                        # Find sanitized keys that should be removed because their originals exist
+                        for idx in current_index:
+                            if idx in key_mapping:  # This is a sanitized key
+                                original_key = key_mapping[idx]
+                                # If the original key also exists in the watchlist, remove the sanitized one
+                                if original_key in current_index:
+                                    sanitized_keys_to_remove.append(idx)
+                                    print(f"Found duplicate: sanitized '{idx}' and original '{original_key}' both exist - will remove sanitized")
+                        
+                        # Remove sanitized duplicates
+                        if sanitized_keys_to_remove:
+                            # Remove from watchlist
+                            self['watchlist'] = self['watchlist'].drop(sanitized_keys_to_remove)
+                            print(f"Removed {len(sanitized_keys_to_remove)} sanitized keys from watchlist: {sanitized_keys_to_remove}")
+                            
+                            # Remove from metadata
+                            if not self['metadata'].empty:
+                                existing_sanitized_cols = [col for col in sanitized_keys_to_remove if col in self['metadata'].columns]
+                                if existing_sanitized_cols:
+                                    self['metadata'] = self['metadata'].drop(columns=existing_sanitized_cols)
+                                    print(f"Removed {len(existing_sanitized_cols)} sanitized columns from metadata: {existing_sanitized_cols}")
+                            
+                            print(f"Successfully cleaned up {len(sanitized_keys_to_remove)} duplicate sanitized keys.")
+                        else:
+                            print("No duplicate sanitized keys found to remove.")
+                        
+            except Exception as e:
+                print(f"Could not load key mapping from HDF5 file: {e}")
 
         try:
             self.load_watchlist_data()
@@ -173,6 +220,9 @@ class Watchlist(dict):
 
             try:    
                 watchstore = pd.HDFStore(self.storepath, mode='a')
+                
+                # Create a mapping of original keys to sanitized keys
+                key_mapping = {}
             
                 for key in self["watchlist_datasets"].keys():
                     series = self["watchlist_datasets"][key]
@@ -180,7 +230,19 @@ class Watchlist(dict):
                         if len(series.columns) == 1:
                             series = series.squeeze()
                             self["watchlist_datasets"][key] = series
-                    watchstore[key] = series
+                    
+                    # Sanitize the key for HDF5 storage
+                    sanitized_key = sanitize_hdf_key(key)
+                    key_mapping[sanitized_key] = key
+                    
+                    # Store with sanitized key
+                    watchstore[sanitized_key] = series
+                
+                # Save the key mapping for later retrieval
+                if key_mapping:
+                    mapping_series = pd.Series(key_mapping, name='original_keys')
+                    watchstore['_key_mapping'] = mapping_series
+                    
                 watchstore.close()
                 print("Saved watchlist datasets to .h5s database... save name: ", saveName)
 
@@ -240,7 +302,9 @@ class Watchlist(dict):
                 ds.get_data(sauce, eyed, start_date, exchange_code = exchag, timeout=timeout)
                 data[watchlist.loc[i,"id"]] = ds.data
                 series_meta = ds.SeriesInfo
-                meta[eyed] = series_meta.reindex(meta.index).squeeze()
+                meta = pd.concat([meta, series_meta.squeeze()], axis = 1)
+                print(f"Data pull successful for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}.")
+                print(f"This is what we have in the metadata for this series: \n", meta[eyed][meta[eyed].notna()])
                 signal.alarm(0)  # Cancel the alarm
 
             except TimeoutError:
@@ -264,6 +328,7 @@ class Watchlist(dict):
             # Create the dictionary if it doesn't exist
             self["watchlist_datasets"] = data
 
+        self["metadata"] = meta  # Update the metadata DataFrame with the new data
         try:
             self.update_metadata()
         except Exception as e:
@@ -287,15 +352,41 @@ class Watchlist(dict):
                     else:
                         print("Skipping this series, it is a DataFrame with more than one column, should be a series with metadata,", series.columns)
                         continue
-                try:   #Rename the series to have the title in the metadata rather than id. 
-                    if series.name != self["metadata"].loc["title", key]:
-                        series.rename(self["metadata"].loc["title", key], inplace=True)
+                
+                # Get the title from metadata, use series.name or key as fallback
+                try:
+                    metadata_title = self["metadata"].loc["title", key]
+                    if pd.isna(metadata_title) or metadata_title == "" or metadata_title is None:
+                        # Use series name if available, otherwise use the key
+                        title = series.name if series.name is not None and series.name != "" else key
+                        print(f"Title was NaN/empty for {key}, using fallback title: {title}")
+                    else:
+                        title = metadata_title
+                except (KeyError, IndexError):
+                    # Title not found in metadata, use series name or key as fallback
+                    title = series.name if series.name is not None and series.name != "" else key
+                    print(f"Title not found in metadata for {key}, using fallback title: {title}")
+                
+                # Rename the series to have the proper title
+                try:
+                    if series.name != title:
+                        series.rename(title, inplace=True)
+                        print(f"Renamed series {key} to: {title}")
                 except Exception as err:
-                    print("Failed to rename series, ", series.name, " to title found in metadata, error: ", err)
+                    print("Failed to rename series, ", series.name, " to title: ", title, ", error: ", err)
 
                 start_date = series.index[0]
                 end_date = series.index[-1]
                 self["watchlist_datasets"][key] = series
+
+                #Update the watchlist with improved metadata as well as the metadata DataFrame
+                self["watchlist"].loc[key, "id"] = key
+                self["watchlist"].loc[key, "title"] = title  # Use the determined title
+                
+                # Update metadata with the title if it was missing or NaN
+                if key in self["metadata"].columns:
+                    if pd.isna(self["metadata"].loc["title", key]) or self["metadata"].loc["title", key] == "":
+                        self["metadata"].loc["title", key] = title
 
                 if key in self["metadata"].columns and pd.notna(self["metadata"].loc["observation_start", key]):
                     self["metadata"].loc["observation_start", key] = start_date
@@ -329,8 +420,24 @@ class Watchlist(dict):
         print("Database filepath: ", self.storepath)
         if self.storepath is not None and os.path.isfile(self.storepath):
             with pd.HDFStore(self.storepath, mode='a') as data:
-                print("Databse keys: ", data.keys())
-                self['watchlist_datasets'] = {key.lstrip('/'): data[key] for key in data.keys()}
+                print("Database keys: ", data.keys())
+                
+                # Load key mapping if it exists
+                key_mapping = {}
+                if '_key_mapping' in data.keys():
+                    mapping_series = data['_key_mapping']
+                    key_mapping = mapping_series.to_dict()
+                
+                # Load data with original keys restored
+                self['watchlist_datasets'] = {}
+                for sanitized_key in data.keys():
+                    if sanitized_key.startswith('/_key_mapping'):
+                        continue  # Skip the mapping key
+                    
+                    clean_key = sanitized_key.lstrip('/')
+                    original_key = key_mapping.get(clean_key, clean_key)
+                    self['watchlist_datasets'][original_key] = data[sanitized_key]
+                
                 data.close()
             self.update_metadata()
         else:
@@ -1221,6 +1328,24 @@ def org_metadata(series_meta: dict) -> pd.DataFrame:
     meta_df.index.rename("property", inplace=True)
     return meta_df
 
+def sanitize_hdf_key(key: str) -> str:
+    """
+    Sanitize a key to be valid for HDF5 storage by replacing invalid characters
+    with underscores and ensuring it starts with a letter or underscore.
+    """
+    import re
+    # Replace any non-alphanumeric characters (except underscores) with underscores
+    sanitized = re.sub(r'[^a-zA-Z0-9_]', '_', str(key))
+    
+    # Ensure it starts with a letter or underscore
+    if sanitized and not sanitized[0].isalpha() and sanitized[0] != '_':
+        sanitized = '_' + sanitized
+    
+    # Remove multiple consecutive underscores
+    sanitized = re.sub(r'_+', '_', sanitized)
+    
+    return sanitized
+
 def run_app():
     sources = {'fred': PriceImporter.FREDSearch, 
             'yfinance': js_funcs.search_yf_tickers, 
@@ -1254,6 +1379,16 @@ def run_app():
 
 if __name__ == "__main__":
 
+    watched = run_app()
+    if isinstance(watched, Watchlist):
+        print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
+    else:
+        print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
+
+    # wl = Watchlist()
+    # wl.load_watchlist()
+    # path = qt_load_file_dialog()
+    # print("Path: ", path)
     watched = run_app()
     if isinstance(watched, Watchlist):
         print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
