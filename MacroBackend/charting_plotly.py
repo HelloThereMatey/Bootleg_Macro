@@ -429,6 +429,120 @@ def basic_plot(data: pd.Series, metadata: dict = None, title: str = "", yaxis_la
         x=0.5))
     return fig
 
+def dual_axis_basic_plot(primary_data=None, secondary_data=None, 
+                        title: str = "", 
+                        primary_yaxis_title: str = "Primary Axis",
+                        secondary_yaxis_title: str = "Secondary Axis",
+                        height: int = 600, width: int = 1000,
+                        log_primary: bool = False, log_secondary: bool = False) -> go.Figure:
+    """
+    Create a basic plot with optional secondary y-axis support
+    
+    Parameters:
+        primary_data: pd.Series, pd.DataFrame, or dict of pd.Series for primary (left) y-axis
+        secondary_data: pd.Series, pd.DataFrame, or dict of pd.Series for secondary (right) y-axis  
+        title (str): Plot title
+        primary_yaxis_title (str): Primary y-axis label
+        secondary_yaxis_title (str): Secondary y-axis label
+        height (int): Plot height in pixels
+        width (int): Plot width in pixels
+        log_primary (bool): Use log scale for primary y-axis
+        log_secondary (bool): Use log scale for secondary y-axis
+        
+    Returns:
+        go.Figure: Plotly figure with optional dual y-axes
+    """
+    
+    def process_data(data):
+        """Convert data to dict of series with proper names"""
+        if data is None:
+            return {}
+        elif isinstance(data, pd.Series):
+            return {data.name or 'Series': data}
+        elif isinstance(data, pd.DataFrame):
+            return {col: data[col] for col in data.columns}
+        elif isinstance(data, dict):
+            return data
+        else:
+            raise ValueError("Data must be Series, DataFrame, or dict of Series")
+    
+    # Process input data
+    primary_series = process_data(primary_data)
+    secondary_series = process_data(secondary_data)
+    
+    # Create subplot with secondary y-axis if needed
+    has_secondary = len(secondary_series) > 0
+    if has_secondary:
+        fig = make_subplots(specs=[[{"secondary_y": True}]])
+    else:
+        fig = go.Figure()
+    
+    # Add primary axis traces
+    for name, series in primary_series.items():
+        fig.add_trace(
+            go.Scatter(
+                x=series.index,
+                y=series.values,
+                name=name,
+                mode='lines'
+            ),
+            secondary_y=False if has_secondary else None
+        )
+    
+    # Add secondary axis traces
+    for name, series in secondary_series.items():
+        fig.add_trace(
+            go.Scatter(
+                x=series.index,
+                y=series.values,
+                name=name,
+                mode='lines'
+            ),
+            secondary_y=True
+        )
+    
+    # Update layout
+    fig.update_layout(
+        title=title,
+        template="plotly_white",
+        width=width,
+        height=height,
+        hovermode="x unified",
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.15,  # Position below x-axis
+            xanchor="center",
+            x=0.5,
+            bgcolor='rgba(255, 255, 255, 0)',
+            bordercolor='rgba(255, 255, 255, 0)'
+        ),
+        margin=dict(l=50, r=50, t=40, b=80),  # Extra bottom margin for legend
+        font={"family": "Arial, sans-serif", "size": 14, "color": "black"}
+    )
+    
+    # Update y-axes
+    if has_secondary:
+        fig.update_yaxes(
+            title_text=primary_yaxis_title, 
+            secondary_y=False,
+            type='log' if log_primary else 'linear'
+        )
+        fig.update_yaxes(
+            title_text=secondary_yaxis_title, 
+            secondary_y=True,
+            type='log' if log_secondary else 'linear',
+            showgrid=False
+        )
+    else:
+        fig.update_yaxes(
+            title_text=primary_yaxis_title,
+            type='log' if log_primary else 'linear'
+        )
+    
+    return fig
+
+
 if __name__ == '__main__':
     # Load the data
     import search_symbol_gui
