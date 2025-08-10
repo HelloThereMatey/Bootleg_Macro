@@ -66,8 +66,22 @@ def get_abs_series_r(series_id: str = "A2302476C", abs_path: str = abs_path) -> 
     SeriesInfo = series.iloc[0:9].squeeze()
     series = series.iloc[9:].squeeze()
     index = pd.to_datetime(series.index).date
-    seriesName = column.replace(".", "")
+    
+    # Enhanced series name handling - use the actual column title as the series name
+    seriesName = column.replace(".", "")  # Clean up the name but preserve the descriptive title
     the_series = pd.Series(series.to_list(), index = pd.DatetimeIndex(index), name = seriesName)
+    
+    # Enhanced SeriesInfo to include the proper title and ensure object dtype
+    SeriesInfo = SeriesInfo.copy().astype('object')  # Ensure object dtype
+    SeriesInfo.name = series_id  # Ensure SeriesInfo has the series_id as its name
+    if 'title' not in SeriesInfo.index:
+        SeriesInfo['title'] = seriesName  # Add the descriptive title to SeriesInfo
+    else:
+        # Update existing title if it's less descriptive than the column name
+        if len(str(SeriesInfo['title'])) < len(seriesName):
+            SeriesInfo['title'] = seriesName
+    
+    print(f"ABS series created with name: {seriesName}")
 
     return the_series, SeriesInfo
 

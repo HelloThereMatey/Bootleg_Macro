@@ -828,7 +828,7 @@ class freqDetermination(object):
             "Weekly": ['W'],
             "Monthly": ['WOM', 'LWOM', 'M', 'ME', 'MS', 'BM', 'BMS', 'CBM', 'CBMS', 'SM', 'SMS'],
             "Quarterly": ['Q', 'QS', 'BQ', 'BQS', 'REQ'],
-            "Yearly": ['A', 'AS', 'BYS', 'BA', 'BAS', 'RE', 'YE']}
+            "Yearly": ['A', 'AS', 'YS', 'BYS', 'BA', 'BAS', 'RE', 'YE', 'Y']}  # Added 'YS' and 'Y'
         self.freq_list = pd.Series(list(self.frequency_dict.keys()))
 
         self.periods_in_day = {
@@ -862,7 +862,7 @@ class freqDetermination(object):
         if isinstance(self.series, pd.DataFrame):
             self.series = self.series[self.series.columns[0]]
         
-        print('Frequency determination function for series: ', self.series.name, ' frequency: ', self.freq)
+        #print('Frequency determination function for series: ', self.series.name, ' frequency: ', self.freq)
         if self.freq is not None and len(self.freq.split("-")) > 1:
             self.freq = self.freq.split("-")[0]
         
@@ -882,16 +882,48 @@ class freqDetermination(object):
         for freqName in self.frequency_dict.keys():
             if self.freq in self.frequency_dict[freqName]:
                 self.frequency = freqName
+                break  # Exit loop once found
             elif self.freq.split('-')[0] == 'W':
                 self.frequency = 'Weekly'
+                break
+        
+        # Enhanced fallback handling for unmatched frequencies
         if self.frequency is None:
             print('Could not match the frequency for input series, ', self.series.name,' reported frequency is: ', self.freq,\
-                  ", setting self.frequency to that...")    
-            self.frequency = self.freq
+                  ", attempting to map to known frequency...")
+            
+            # Try to map common frequency codes to known categories
+            freq_mapping = {
+                'YS': 'Yearly',
+                'YE': 'Yearly', 
+                'Y': 'Yearly',
+                'QS': 'Quarterly',
+                'QE': 'Quarterly',
+                'MS': 'Monthly',
+                'ME': 'Monthly',
+                'WS': 'Weekly',
+                'WE': 'Weekly',
+                'DS': 'Daily',
+                'DE': 'Daily'
+            }
+            
+            if self.freq in freq_mapping:
+                self.frequency = freq_mapping[self.freq]
+                print(f"Mapped {self.freq} to {self.frequency}")
+            else:
+                # Final fallback - set to a safe default
+                print(f"Unknown frequency {self.freq}, defaulting to 'Yearly'")
+                self.frequency = 'Yearly'
         
         if self.freq is None:
             self.freq = self.resample_map[self.frequency]
-        self.per_in_d = self.periods_in_day[self.frequency]/ self.multiplier
+        
+        # Safe calculation with error handling
+        try:
+            self.per_in_d = self.periods_in_day[self.frequency] / self.multiplier
+        except KeyError:
+            print(f"Warning: Frequency '{self.frequency}' not found in periods_in_day mapping. Using yearly as default.")
+            self.per_in_d = self.periods_in_day['Yearly'] / self.multiplier
 
 def manual_frequency(series: pd.Series, threshold_multiplier=2.25):
     daysInPeriod = {'1H': 1/24, '4H': 1/6, "D": 1, 'W': 7, 'M': 30, 'Q': 90}

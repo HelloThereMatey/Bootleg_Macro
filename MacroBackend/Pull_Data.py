@@ -231,9 +231,14 @@ class dataset(object):
         elif self.source.lower() == 'abs_series'.lower():  
             series, SeriesInfo = abs_series_by_r.get_abs_series_r(series_id = self.data_code)
             self.data = series
-            self.SeriesInfo = SeriesInfo
+            self.SeriesInfo = SeriesInfo.astype('object')  # Ensure object dtype
             self.dataName = series.name
-        
+            
+            # Enhance SeriesInfo with more detailed information
+            if hasattr(series, 'name') and series.name:
+                self.SeriesInfo['title'] = series.name
+                print(f"ABS series title set to: {series.name}")
+
         elif self.source.lower() == 'bea':
             print("Currently working on BEA data source, not yet implemented into this method. You can use 'bea_data_mate' module instead.")
             return None
