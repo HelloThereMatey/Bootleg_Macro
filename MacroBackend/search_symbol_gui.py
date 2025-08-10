@@ -120,71 +120,142 @@ class Watchlist(dict):
         if len(filepath) > 0:
             try:
                 self['watchlist'] = pd.read_excel(filepath, index_col=0, sheet_name="watchlist")
-                self['metadata'] = pd.read_excel(filepath, index_col=0, sheet_name="all_metadata")
+                # FIX: Ensure metadata is loaded with object dtype to prevent datetime inference
+                self['metadata'] = pd.read_excel(filepath, index_col=0, sheet_name="all_metadata", dtype=str)
+                # Convert back to object dtype to handle mixed types properly
+                self['metadata'] = self['metadata'].astype('object')
                 self.name = filepath.split(fdel)[-1].split(".")[0]
+                
+                # ENHANCED DEBUG: Check the raw loaded data
+                print(f"=== RAW DATA LOADED ===")
+                print(f"Watchlist shape: {self['watchlist'].shape}")
+                print(f"Watchlist columns: {self['watchlist'].columns.tolist()}")
+                print(f"Source column type: {self['watchlist']['source'].dtype}")
+                print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
+                print(f"Source null count: {self['watchlist']['source'].isna().sum()}")
+                
             except Exception as e:
                 print("Error loading watchlist data from file, '.xlsx file may have had the wrong format for a watchlist,\
                         you want two sheets named 'watchlist' and 'all_metadata' with tables that can form dataframes in each. Exception:", e)
                 return None
         
-        self.drop_data(drop_duplicates=True)
         self.storepath = os.path.splitext(filepath)[0] + ".h5s"
         self.storepath  = self.watchlists_path + fdel + self.name + fdel + self.name + ".h5s"
+        
+        # ENHANCED DEBUG: Check before index manipulation
+        print(f"=== BEFORE INDEX MANIPULATION ===")
+        print(f"Index unique count: {len(self['watchlist'].index.unique())}")
+        print(f"ID column unique count: {len(self['watchlist']['id'].unique())}")
+        print(f"Sample of index: {self['watchlist'].index[:5].tolist()}")
+        print(f"Sample of id column: {self['watchlist']['id'][:5].tolist()}")
+        
+        # Set index as the id column. Put ids in the id column and they'll be added.
+        if len(self["watchlist"].index.unique()) < len(self["watchlist"]["id"].unique()):
+            print("CASE 1: Setting index to id column")
+            # New values must have been copied into the id column  not the index, duplicate for index
+            self["watchlist"].set_index("id", inplace=True, drop=False)
+            self["watchlist"].index.rename("index", inplace=True)
+        elif len(self["watchlist"].index.unique()) == len(self["watchlist"]["id"].unique()):
+            print("CASE 2: Renaming existing index")
+            # If the index is already set to the id column, just rename it
+            self["watchlist"].index.rename("index", inplace=True)
+        else:
+            print("CASE 3: Copying index to id column")
+            self["watchlist"]["id"] = self["watchlist"].index.copy()
+
+        # ENHANCED DEBUG: Check after index manipulation
+        print(f"=== AFTER INDEX MANIPULATION ===")
+        print(f"Watchlist shape: {self['watchlist'].shape}")
+        print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
+        print(f"Source null count: {self['watchlist']['source'].isna().sum()}")
+
         current_index = self['watchlist'].index.tolist()
-        print("Current watchlist index: ", current_index)
+        meta_columns = self['metadata'].columns.tolist()
+        print("Current watchlist index before any processing: ", current_index[:10])  # Show first 10
+        print(f"Loaded watchlist shape: {self['watchlist'].shape}")
 
         # Check if corresponding .h5s file exists and restore original keys if needed
         if os.path.isfile(self.storepath):
             try:
                 with pd.HDFStore(self.storepath, mode='r') as store:
                     # Load key mapping if it exists
-                    if '_key_mapping' in store.keys():
+                    if '/_key_mapping' in store.keys():
                         mapping_series = store['_key_mapping']
                         key_mapping = mapping_series.to_dict()
-                        print("Loaded key mapping from HDF5 file: ", key_mapping)
+                        print(f"Loaded key mapping from HDF5 file with {len(key_mapping)} entries")
                         
-                        # key_mapping is {sanitized_key: original_key}
-                        # Create reverse mapping {original_key: sanitized_key}
-                        reverse_mapping = {original: sanitized for sanitized, original in key_mapping.items()}
-                        
-                        # Get current index
-                        current_index = self['watchlist'].index.tolist()
-                        sanitized_keys_to_remove = []
-                        
-                        # Find sanitized keys that should be removed because their originals exist
-                        for idx in current_index:
-                            if idx in key_mapping:  # This is a sanitized key
-                                original_key = key_mapping[idx]
-                                # If the original key also exists in the watchlist, remove the sanitized one
-                                if original_key in current_index:
-                                    sanitized_keys_to_remove.append(idx)
-                                    print(f"Found duplicate: sanitized '{idx}' and original '{original_key}' both exist - will remove sanitized")
-                        
-                        # Remove sanitized duplicates
-                        if sanitized_keys_to_remove:
-                            # Remove from watchlist
-                            self['watchlist'] = self['watchlist'].drop(sanitized_keys_to_remove)
-                            print(f"Removed {len(sanitized_keys_to_remove)} sanitized keys from watchlist: {sanitized_keys_to_remove}")
-                            
-                            # Remove from metadata
-                            if not self['metadata'].empty:
-                                existing_sanitized_cols = [col for col in sanitized_keys_to_remove if col in self['metadata'].columns]
-                                if existing_sanitized_cols:
-                                    self['metadata'] = self['metadata'].drop(columns=existing_sanitized_cols)
-                                    print(f"Removed {len(existing_sanitized_cols)} sanitized columns from metadata: {existing_sanitized_cols}")
-                            
-                            print(f"Successfully cleaned up {len(sanitized_keys_to_remove)} duplicate sanitized keys.")
-                        else:
-                            print("No duplicate sanitized keys found to remove.")
+                        # FIXED: Don't add duplicate rows - the original Excel watchlist is the source of truth
+                        # The HDF5 key mapping should only be used for loading the dataset data, not modifying the watchlist
+                        for idx in key_mapping.keys():  
+                            original_key = key_mapping[idx]
+                            # Only process metadata columns, not watchlist rows
+                            if original_key in meta_columns and idx not in meta_columns:
+                                pass
+                            elif idx in meta_columns and original_key not in meta_columns:
+                                self["metadata"][original_key] = self["metadata"][idx]
+                                self["metadata"].drop(columns=[idx], axis=1, inplace=True)
+                            elif idx in meta_columns and original_key in meta_columns:
+                                # If both keys exist drop the duplicate
+                                self["metadata"].drop(columns=[idx], axis=1, inplace=True)
                         
             except Exception as e:
                 print(f"Could not load key mapping from HDF5 file: {e}")
+
+        # ENHANCED DEBUG: Check after HDF5 processing
+        print(f"=== AFTER HDF5 PROCESSING ===")
+        print(f"Watchlist shape: {self['watchlist'].shape}")
+        print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
 
         try:
             self.load_watchlist_data()
         except Exception as e:
             print("Watchlist and metadata were loaded but error encountered in loading the watchlist datasets from hdfStore file, error: ", e)
-    
+
+        # ENHANCED DEBUG: Check before drop_data
+        print(f"=== BEFORE DROP_DATA ===")
+        print(f"Watchlist shape: {self['watchlist'].shape}")
+        print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
+
+        #Drop dem dupes dog
+        self.drop_data(drop_duplicates=True)
+        
+        # ENHANCED DEBUG: Check after drop_data
+        print(f"=== AFTER DROP_DATA ===")
+        print(f"Watchlist shape: {self['watchlist'].shape}")
+        print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
+        
+        # FIXED: Only drop rows where "source" column has NaN values, not "title" column
+        print(f"Shape before removing rows with NaN source: {self['watchlist'].shape}")
+        print(f"Rows with NaN source values: {self['watchlist']['source'].isna().sum()}")
+        
+        # ENHANCED DEBUG: Show exactly which rows will be dropped
+        rows_to_drop = self["watchlist"][self["watchlist"]["source"].isna()]
+        if len(rows_to_drop) > 0:
+            print("Rows that will be dropped due to NaN source:")
+            print(rows_to_drop[['id', 'title', 'source']])
+        
+        # Only drop rows where source is NaN/null - keep rows where title is NaN but source is valid
+        original_count = len(self["watchlist"])
+        
+        # ENHANCED: Let's see what the source column actually contains
+        print("Source column unique values:")
+        print(self["watchlist"]["source"].value_counts(dropna=False))
+        
+        # More specific filtering - check for actual NaN/None/empty values
+        valid_source_mask = (
+            self["watchlist"]["source"].notna() &  # Not NaN
+            (self["watchlist"]["source"] != "") &   # Not empty string
+            (self["watchlist"]["source"] != "nan") & # Not string "nan"
+            (self["watchlist"]["source"] != "None")  # Not string "None"
+        )
+        
+        self["watchlist"] = self["watchlist"][valid_source_mask]
+        removed_count = original_count - len(self["watchlist"])
+        
+        print(f"Removed {removed_count} rows with missing source values")
+        print(f"Final watchlist shape: {self['watchlist'].shape}")
+        print(f"Remaining rows with NaN titles (which is OK): {self['watchlist']['title'].isna().sum()}")
+
     def append_current_watchlist(self, watchlist_data: pd.DataFrame, metadata_data: pd.DataFrame):
         """append_current_watchlist method.
         Mostly for use with the GUI, this method appends new data to the current watchlist."""
@@ -281,17 +352,20 @@ class Watchlist(dict):
         watchlist = pd.DataFrame(self["watchlist"]); meta = pd.DataFrame(self["metadata"])
         #print("Watchlist: \n", watchlist, "\n\nMetadata: \n", meta)
 
+        #Then get the data....
         data = {}
         if id_list is None:
             # If no id_list is provided, use all ids in the watchlist
-            ids = watchlist.index.to_list()
+            ids = watchlist["id"].to_list() if len(watchlist["id"]) > len(watchlist.index) else watchlist.index.to_list()
+            # can a column have a greater length than the index? Yes, if there are duplicate index values
         else:
             ids = id_list
       
         for i in ids:
-            sauce = watchlist.loc[i, "source"].strip(); eyed = watchlist.loc[i, "id"].strip()
+            sauce = str(watchlist.loc[i, "source"]).strip()
+            eyed = str(watchlist.loc[i, "id"]).strip()
             try:
-                exchag = meta.loc["exchange", i].strip()
+                exchag = str(meta.loc["exchange", i]).strip()
             except:
                 exchag = None
             print(f"Attempting data pull for series id: {eyed}, from source: {sauce},\n start_date: {start_date}), exchange_code: {exchag}")
@@ -349,11 +423,11 @@ class Watchlist(dict):
             self["watchlist_datasets"] = data
 
         self["metadata"] = meta  # Update the metadata DataFrame with the new data
-        try:
-            self.update_metadata()
-        except Exception as e:
-            print("Error updating metadata after data pull. Exception: ", e)
-            pass
+        #try:
+        self.update_metadata()
+        # except Exception as e:
+        #     print("Error updating metadata after data pull. Exception: ", e)
+        #     pass
 
         self.save_watchlist()
 
@@ -363,7 +437,6 @@ class Watchlist(dict):
             print("Running watchlist update_metadata method.....")
             for key in self["watchlist_datasets"].keys():
                 series = self["watchlist_datasets"][key]
-                #print("Looking at dataset ", key)
                 #first reduce dataframes to series if the df has only a single column
                 if isinstance(series, pd.DataFrame):
                     print("Your metadata series is a DataFrame, reducing to a Series.... Have a look at it first: \n", series)
@@ -385,7 +458,7 @@ class Watchlist(dict):
                 except (KeyError, IndexError):
                     # Title not found in metadata, use series name or key as fallback
                     title = series.name if series.name is not None and series.name != "" else key
-                    print(f"Title not found in metadata for {key}, using fallback title: {title}")
+                    #print(f"Title not found in metadata for {key}, using fallback title: {title}")
                 
                 # Rename the series to have the proper title
                 try:
@@ -424,36 +497,72 @@ class Watchlist(dict):
                 # Also set the title in the watchlist 
                 self["watchlist"].loc[key, "title"] = str(title)
                 
-                if key in self["metadata"].columns and pd.notna(self["metadata"].loc["frequency", key]):
+                # FIX: Handle frequency metadata assignment with proper dtype management
+                if key in self["metadata"].columns and "frequency" in self["metadata"].index and pd.notna(self["metadata"].loc["frequency", key]):
                     pass
                 else:
                     try:
                         freq = Utilities.freqDetermination(series)
                         freq.DetermineSeries_Frequency()
-                        
-                        # Fix Warning 2: Ensure frequency column is object dtype before assignment
+                    
+                        # Ensure frequency rows exist and are object dtype
                         if "frequency" not in self["metadata"].index:
-                            self["metadata"].loc["frequency", :] = ""
+                            # Initialize the metadata with proper object dtype if needed
+                            if self["metadata"].empty:
+                                self["metadata"] = pd.DataFrame(dtype=object)
+                            
+                            # Create a new row with object dtype and fill with empty strings
+                            new_row = pd.Series([''] * len(self["metadata"].columns), 
+                                                index=self["metadata"].columns, 
+                                                name="frequency", 
+                                                dtype=object)
+                            # Use pd.concat to add the new row
+                            new_row_df = new_row.to_frame().T
+                            self["metadata"] = pd.concat([self["metadata"], new_row_df], ignore_index=False)
+                        
                         if "frequency_short" not in self["metadata"].index:
-                            self["metadata"].loc["frequency_short", :] = ""
+                            # Create a new row with object dtype and fill with empty strings
+                            new_row = pd.Series([''] * len(self["metadata"].columns), 
+                                                index=self["metadata"].columns, 
+                                                name="frequency_short", 
+                                                dtype=object)
+                            # Use pd.concat to add the new row
+                            new_row_df = new_row.to_frame().T
+                            self["metadata"] = pd.concat([self["metadata"], new_row_df], ignore_index=False)
                         
-                        # Convert the entire row to object dtype to avoid dtype conflicts
-                        self["metadata"].loc["frequency"] = self["metadata"].loc["frequency"].astype('object')
-                        self["metadata"].loc["frequency_short"] = self["metadata"].loc["frequency_short"].astype('object')
+                        # Ensure the entire metadata DataFrame is object dtype
+                        self["metadata"] = self["metadata"].astype('object')
                         
+                        # Now safely assign the frequency values
                         self["metadata"].loc["frequency", key] = str(freq.frequency)
                         self["metadata"].loc["frequency_short", key] = str(freq.frequency[0])
+                        
                     except Exception as e:
                         print("Error determining frequency for series: ", key, ". Exception: ", e)
-                        # Ensure these are object dtype before assignment
+                        
+                        # Ensure frequency rows exist with object dtype before assigning fallback values
                         if "frequency" not in self["metadata"].index:
-                            self["metadata"].loc["frequency", :] = ""
+                            if self["metadata"].empty:
+                                self["metadata"] = pd.DataFrame(dtype=object)
+                            new_row = pd.Series([''] * len(self["metadata"].columns), 
+                                                index=self["metadata"].columns, 
+                                                name="frequency", 
+                                                dtype=object)
+                            new_row_df = new_row.to_frame().T
+                            self["metadata"] = pd.concat([self["metadata"], new_row_df], ignore_index=False)
+                        
                         if "frequency_short" not in self["metadata"].index:
-                            self["metadata"].loc["frequency_short", :] = ""
+                            new_row = pd.Series([''] * len(self["metadata"].columns), 
+                                                index=self["metadata"].columns, 
+                                                name="frequency_short", 
+                                                dtype=object)
+                            new_row_df = new_row.to_frame().T
+                            self["metadata"] = pd.concat([self["metadata"], new_row_df], ignore_index=False)
                         
-                        self["metadata"].loc["frequency"] = self["metadata"].loc["frequency"].astype('object')
-                        self["metadata"].loc["frequency_short"] = self["metadata"].loc["frequency_short"].astype('object')
+                        # Ensure the entire metadata DataFrame is object dtype
+                        self["metadata"] = self["metadata"].astype('object')
                         
+                        # Now safely assign fallback values as strings
                         self["metadata"].loc["frequency", key] = "Unknown"
                         self["metadata"].loc["frequency_short", key] = "U"
         else:
@@ -468,7 +577,7 @@ class Watchlist(dict):
         print("Database filepath: ", self.storepath)
         if self.storepath is not None and os.path.isfile(self.storepath):
             with pd.HDFStore(self.storepath, mode='a') as data:
-                print("Database keys: ", data.keys())
+                #print("Database keys: ", data.keys())
                 
                 # Load key mapping if it exists
                 key_mapping = {}
@@ -569,11 +678,11 @@ class Watchlist(dict):
         
         if drop_duplicates:
             watch = pd.DataFrame(self["watchlist"])
-            print("Checking for duplicates in watchlist... Original index/columns watchlist/metadata: ", watch.index, self["metadata"].columns)
+            #print("Checking for duplicates in watchlist... Original index/columns watchlist/metadata: ", watch.index, self["metadata"].columns)
             offenders = list(watch[watch.index.duplicated()].index)
-            print("Duplicate indexes found in watchlist: ", offenders)
+            print("Duplicate indexes found in watchlist & will be dropped: ", offenders)
             meta , dropped = drop_duplicate_columns(self["metadata"]); self["metadata"] = meta
-            print("Duplicate columns found in metadata: ", dropped)
+            print("Duplicate columns found in metadata & will be dropped: ", dropped)
             # Drop duplicate columns
             self["metadata"] = self["metadata"].loc[:, ~self["metadata"].columns.duplicated(keep='first')]
           
@@ -1320,6 +1429,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         else:
             self.dataframe_viewer.model = PandasModel(self.return_df)
             self.dataframe_viewer.table_view.setModel(self.dataframe_viewer.model)
+       
         self.dataframe_viewer.show()
 
     def run_macro_chartist(self):
@@ -1420,6 +1530,8 @@ def run_app():
     ui.add_sources(sources)
     MainWindow.show()
 
+   
+
     #app.aboutToQuit.connect(ui.cleanup)
     app.exec()
 
@@ -1431,23 +1543,28 @@ def run_app():
 
 if __name__ == "__main__":
 
-    watched = run_app()
-    if isinstance(watched, Watchlist):
-        print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
-    else:
-        print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
+    # watched = run_app()
+    # if isinstance(watched, Watchlist):
+    #     print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
+    # else:
+    #     print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
 
     # wl = Watchlist()
     # wl.load_watchlist()
     # path = qt_load_file_dialog()
     # print("Path: ", path)
-    watched = run_app()
-    if isinstance(watched, Watchlist):
-        print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
-    else:
-        print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
+    # watched = run_app()
+    # if isinstance(watched, Watchlist):
+    #     print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
+    # else:
+    #     print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
 
     # wl = Watchlist()
     # wl.load_watchlist()
     # path = qt_load_file_dialog()
     # print("Path: ", path)
+
+    watchlist = Watchlist()
+    watchlist.load_watchlist(filepath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/Watchlists/housing_aus/housing_aus.xlsx")
+    watchlist.get_watchlist_data(id_list = ["A83728607L","A83728605J","A128478317T","A83728543L","A2422340L","A2422341R","A2422342T","A2326751F","A2326751F"])
+    print("Watchlist datasets: \n", watchlist["watchlist_datasets"])
