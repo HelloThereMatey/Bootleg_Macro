@@ -18,6 +18,7 @@ from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Dat
 from MacroBackend.BEA_Data import bea_data_mate
 from MacroBackend.ABS_backend import abs_series_by_r
 import Macro_Chartist.chartist as mbchart
+from MacroBackend import charting_plotly  # NEW: for dual_axis_basic_plot
 
 keys = Utilities.api_keys().keys
 abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_Index.h5s"
@@ -398,7 +399,7 @@ class Watchlist(dict):
                 meta = pd.concat([meta, series_meta_df], axis=1)
                 
                 print(f"Data pull successful for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}.")
-                print(f"This is what we have in the metadata for this series: \n", meta[eyed][meta[eyed].notna()])
+                #print(f"This is what we have in the metadata for this series: \n", meta[eyed][meta[eyed].notna()])
                 signal.alarm(0)  # Cancel the alarm
 
             except TimeoutError:
@@ -432,6 +433,9 @@ class Watchlist(dict):
         self.save_watchlist()
 
     def update_metadata(self):
+        
+        #Drop any duplicates in the metadata
+        self.drop_data(drop_duplicates=True)
         # Update the metadata with the new data
         if self["watchlist_datasets"]:
             print("Running watchlist update_metadata method.....")
@@ -485,14 +489,31 @@ class Watchlist(dict):
                 if key in self["metadata"].columns:
                     if pd.isna(self["metadata"].loc["title", key]) or self["metadata"].loc["title", key] == "":
                         self["metadata"].loc["title", key] = str(title)  # Explicitly convert to string
-
-                if key in self["metadata"].columns and pd.notna(self["metadata"].loc["observation_start", key]):
-                    self["metadata"].loc["observation_start", key] = start_date
-                    self["metadata"].loc["observation_end", key] = end_date
-                else:
-                    #print("Setting metadata end and start dates, end: ", end_date, ", start: ", start_date)
-                    self["metadata"].loc["observation_start", key] = start_date
-                    self["metadata"].loc["observation_end", key] = end_date
+                        try:
+                            # Ensure observation_start and observation_end rows exist
+                            for row_name in ["observation_start", "observation_end"]:
+                                if row_name not in self["metadata"].index:
+                                    # Create a new row with object dtype and fill with empty strings
+                                    new_row = pd.Series([''] * len(self["metadata"].columns), 
+                                                      index=self["metadata"].columns, 
+                                                      name=row_name, 
+                                                      dtype=object)
+                                    # Use pd.concat to add the new row
+                                    new_row_df = new_row.to_frame().T
+                                    self["metadata"] = pd.concat([self["metadata"], new_row_df], ignore_index=False)
+                            
+                            # Ensure the entire metadata DataFrame is object dtype
+                            self["metadata"] = self["metadata"].astype('object')
+                            
+                            # Now safely assign the date values
+                            if key in self["metadata"].columns and pd.notna(self["metadata"].loc["observation_start", key]):
+                                self["metadata"].loc["observation_start", key] = str(start_date)
+                                self["metadata"].loc["observation_end", key] = str(end_date)
+                            else:
+                                self["metadata"].loc["observation_start", key] = str(start_date)
+                                self["metadata"].loc["observation_end", key] = str(end_date)
+                        except Exception as e:
+                            print(f"Error setting observation dates for {key}: {e}")
 
                 # Also set the title in the watchlist 
                 self["watchlist"].loc[key, "title"] = str(title)
@@ -695,6 +716,62 @@ class Watchlist(dict):
             for ticker in tickers_to_remove:
                 self["watchlist_datasets"].pop(ticker)
             #print("Final index/columns watchlist/metadata: ", self["watchlist"].index, self["metadata"].columns)
+
+    def plot_watchlist(self, left: list, right: list, template: str = "plotly_white"):
+        """
+        Plot selected datasets in this watchlist on a dual-axis chart.
+
+        Parameters:
+        - left: list of ids (strings) to plot on the left axis (primary)
+        - right: list of ids (strings) to plot on the right axis (secondary)
+        """
+        if not self.get("watchlist_datasets"):
+            print("No datasets loaded. Use get_watchlist_data() or load_watchlist_data() first.")
+            return None
+
+        # Helper to build dict[title] -> Series from a list of ids
+        def build_series_map(ids: list) -> dict:
+            out = {}
+            for did in ids or []:
+                if did not in self["watchlist_datasets"]:
+                    print(f"Warning: '{did}' not in watchlist_datasets. Skipping.")
+                    continue
+                ser = self["watchlist_datasets"][did]
+                # Reduce DataFrame to Series where possible
+                if isinstance(ser, pd.DataFrame):
+                    if ser.shape[1] == 1:
+                        ser = ser.squeeze()
+                    else:
+                        first_col = ser.columns[0]
+                        print(f"Info: '{did}' is a DataFrame with multiple columns. Using first column: {first_col}")
+                        ser = ser[first_col]
+                if not isinstance(ser, (pd.Series, pd.Index)):
+                    print(f"Warning: '{did}' is not a pandas Series. Skipping.")
+                    continue
+                # Title from watchlist, fallback to id
+                try:
+                    title = self["watchlist"].loc[did, "title"]
+                    if pd.isna(title) or title is None or title == "":
+                        title = did
+                except Exception:
+                    title = did
+                out[str(title)] = ser
+            return out
+
+        # De-duplicate ids if any appear in both lists (prefer right axis)
+        left_ids = [i for i in (left or []) if i not in (right or [])]
+        right_ids = right or []
+
+        primary_data = build_series_map(left_ids)
+        secondary_data = build_series_map(right_ids)
+
+        if not primary_data and not secondary_data:
+            print("Nothing to plot. Check the ids provided.")
+            return None
+
+        title = self.name if hasattr(self, "name") and self.name else "Watchlist Plot"
+        fig = charting_plotly.dual_axis_basic_plot(primary_data, secondary_data=secondary_data, title=title, template=template)
+        return fig
 
 ## Standalone functions ####################
 
@@ -1567,4 +1644,3 @@ if __name__ == "__main__":
     watchlist = Watchlist()
     watchlist.load_watchlist(filepath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/Watchlists/housing_aus/housing_aus.xlsx")
     watchlist.get_watchlist_data(id_list = ["A83728607L","A83728605J","A128478317T","A83728543L","A2422340L","A2422341R","A2422342T","A2326751F","A2326751F"])
-    print("Watchlist datasets: \n", watchlist["watchlist_datasets"])
