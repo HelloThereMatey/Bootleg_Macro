@@ -434,7 +434,8 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
                         primary_yaxis_title: str = "Primary Axis",
                         secondary_yaxis_title: str = "Secondary Axis",
                         height: int = 600, width: int = 1000,
-                        log_primary: bool = False, log_secondary: bool = False) -> go.Figure:
+                        log_primary: bool = False, log_secondary: bool = False,
+                        template: str = "plotly_white") -> go.Figure:
     """
     Create a basic plot with optional secondary y-axis support
     
@@ -448,7 +449,10 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
         width (int): Plot width in pixels
         log_primary (bool): Use log scale for primary y-axis
         log_secondary (bool): Use log scale for secondary y-axis
-        
+        template (str): Plotly template to use, options include:
+            "plotly", "plotly_white", "plotly_dark", "ggplot2", "seaborn", "simple_white", 
+            "presentation", "xgridoff", "ygridoff", "gridon", "none":
+
     Returns:
         go.Figure: Plotly figure with optional dual y-axes
     """
@@ -540,6 +544,8 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
             type='log' if log_primary else 'linear'
         )
     
+    #select theme/template
+    fig.update_layout(template=template)
     return fig
 
 
