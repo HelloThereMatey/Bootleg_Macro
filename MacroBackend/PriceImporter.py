@@ -21,6 +21,7 @@ fdel = os.path.sep
 sys.path.append(wd)
 
 from tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
+from MacroBackend import Utilities
 
 ## ACCTION BELOW... ######################################################################################################################################
 class TimeInterval(enum.Enum):
@@ -243,7 +244,7 @@ def ReSampleToRefIndex(data,index,freq:str):   #This function will resample and 
     #print('Data after reindexing function, ',data.head(54))    
     return data
 
-def pullyfseries(ticker, start: str = "2020-01-01", end: str = None, interval="1d"):
+def pullyfseries(ticker: str, start: str = "2020-01-01", end: str = None, interval="1d"):
     """
     Pull price data using yfinance package
     
@@ -256,114 +257,85 @@ def pullyfseries(ticker, start: str = "2020-01-01", end: str = None, interval="1
     Returns:
     - tuple: (PriceData DataFrame, ticker string)
     """
+
+    # Create ticker object
+    ticker_obj = yf.Ticker(ticker)
     
+    # Get historical data
+    if end is None:
+        PriceData = ticker_obj.history(start=start, interval=interval)
+    else:
+        PriceData = ticker_obj.history(start=start, end=end, interval=interval)
+    
+    #Also get some metadata
+    
+    # Convert to DataFrame (it should already be one)
+    ser = PriceData["Close"] if "Close" in PriceData.columns else pd.Series(dtype=float)
+
+    #Metadata acquisition
     try:
-        # Create ticker object
-        ticker_obj = yf.Ticker(ticker)
-        
-        # Get historical data
-        if end is None:
-            PriceData = ticker_obj.history(start=start, interval=interval)
-        else:
-            PriceData = ticker_obj.history(start=start, end=end, interval=interval)
-        
-        # Convert to DataFrame (it should already be one)
-        PriceData = pd.DataFrame(PriceData)
-        
-        # Check if we got any data
-        if len(PriceData) == 0:
-            print(f"No data returned for ticker: {ticker}")
-            return pd.DataFrame(), ticker
-            
-        # For daily data, convert index to date only
-        if interval == "1d":
-            ind = pd.DatetimeIndex(PriceData.index)
-            PriceData.set_index(ind.date, inplace=True)
-            
-        print(f"Successfully pulled {len(PriceData)} rows of data for {ticker}")
-        return PriceData, ticker
-        
-    except Exception as e:
-        print(f"Error pulling data for {ticker}: {e}")
+        yf_info = ticker_obj.get_info() if hasattr(ticker_obj, "get_info") else getattr(ticker_obj, "info", {}) or {}
+    except Exception:
+        yf_info = {}
+
+    # Derive fields
+    start_date = pd.to_datetime(ser.index.min()).date() if len(ser.index) else None
+    end_date = pd.to_datetime(ser.index.max()).date() if len(ser.index) else None
+    min_value = float(pd.to_numeric(ser, errors='coerce').min()) if len(ser) else None
+    max_value = float(pd.to_numeric(ser, errors='coerce').max()) if len(ser) else None
+    length = int(len(ser.dropna())) if len(ser) else 0
+
+    # Frequency determination
+    try:
+        freq_det = Utilities.freqDetermination(ser)
+        freq_det.DetermineSeries_Frequency()
+        frequency = str(freq_det.frequency) if getattr(freq_det, "frequency", None) else None
+    except Exception:
+        frequency = None
+
+    # Titles, units, description
+    title = yf_info.get("longName") or yf_info.get("shortName") or ticker
+    currency = yf_info.get("currency")
+    description = yf_info.get("longBusinessSummary") or yf_info.get("description")
+    last_updated = yf_info.get("regularMarketTime") or yf_info.get("firstTradeDateEpochUtc")
+    try:
+        if last_updated is not None and not isinstance(last_updated, (pd.Timestamp, str)):
+            last_updated = pd.to_datetime(last_updated, unit="s")
+    except Exception:
+        last_updated = pd.Timestamp.utcnow()
+
+    meta_dict = {
+        "id": ticker,
+        "title": title,
+        "Unit": currency,              # alias supported by CommonMetadata 
+        "Frequency": frequency,        # display alias
+        "original_source": "yfinance",
+        "source": "yfinance",
+        "description": description,
+        "start_date": start_date,
+        "end_date": end_date,
+        "min_value": min_value,
+        "max_value": max_value,
+        "length": length,
+        "units_short": currency,
+        "last_updated": last_updated
+    }
+
+    # Ensure object dtype series
+    SeriesInfo = pd.Series(meta_dict, dtype="object", name=ticker)
+    
+    # Check if we got any data
+    if len(PriceData) == 0:
+        print(f"No data returned for ticker: {ticker}")
         return pd.DataFrame(), ticker
-
-# def Yahoo_Fin_PullData(Ticker, start_date = None, end_date = None): #Pull daily data for an asset using yahoo_fin web scraper
-#     data = si.get_data(Ticker,start_date = start_date, end_date = end_date) #Start date end date in YYYY-MM-DD str format. 
-#     print(data); data.drop("ticker",axis=1,inplace=True)
-#     data = data.resample('D').mean()
-#     data.fillna(method='pad',inplace=True)
-#     data.rename({"open":"Open","high":"High","low":"Low","close":"Close","adjclose":"AdjClose","volume":"Volume","ticker":"Ticker"},\
-#         axis=1,inplace=True)
-#     print(data)
-#     return data
-
-##PriceAPI choices: "coingecko", "yfinance" or any from the pandas datareader:
-#expected_source = ["yahoo","iex","iex-tops","iex-last","iex-last","bankofcanada","stooq","iex-book","enigma","fred","famafrench","oecd",\
-        #"eurostat","nasdaq","quandl","moex","tiingo","yahoo-actions","yahoo-dividends","av-forex","av-forex-daily","av-daily","av-daily-adjusted",\
-            #"av-weekly","av-weekly-adjusted","av-monthly","av-monthly-adjusted","av-intraday","econdb","naver"]
-## Also tv for tradingview and alpha for alpha vantage. Still being developed.          
-
-# def PullDailyAssetData(ticker:str,PriceAPI:str,startDate:str,endDate:str=None):  ## This is my main data pulling function. 
-#     StartDate = datetime.datetime.strptime(startDate,"%Y-%m-%d").date()
-#     if endDate is not None:
-#         EndDate = datetime.datetime.strptime(endDate,"%Y-%m-%d").date()
-#     else:
-#         EndDate = datetime.date.today()
-#     TimeLength=(EndDate-StartDate).days
-#     print('Looking for data for ticker:',ticker,'using',PriceAPI,'for date range: ',StartDate,' to ',EndDate,type(StartDate),type(EndDate))
-#     AssetData = []
-
-#     if PriceAPI == 'coingecko':
-#         CoinID = getCoinID(ticker,InputTablePath=wd+fdel+'AllCG.csv')
-#         AssetData = CoinGeckoPriceHistory(CoinID[1],TimeLength=TimeLength) 
-#         AssetData.rename({"Price (USD)":"Close"},axis=1,inplace=True)
-#     elif PriceAPI == 'yfinance':
-#         try:
-#             asset = pullyfseries(ticker=ticker,start=StartDate,interval="1d")
-#             AssetData = asset[0]; AssetName = asset[1]
-#             if len(AssetData) < 1:
-#                 print('No data for ',ticker,' scored using yfinance package, now trying yahoo_fin package....')
-#                 AssetData = Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)
-#             else:
-#                 print("Data pulled from yfinance for: "+str(AssetName))    
-#         except:
-#             print("Could not score data for asset: "+ticker," from yfinance. Trying other APIs.") 
-#             print("Trying yahoo_fin web scraper.....")   
-#             AssetData = Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate)
-#         if len(AssetData) < 1: 
-#             AssetData = Yahoo_Fin_PullData(ticker, start_date = StartDate, end_date = EndDate) 
-#         if len(AssetData) < 1:     
-#             AssetData = DataReaderAllSources(ticker,DataStart=StartDate,end_date = EndDate) 
-#     elif  PriceAPI == 'tv': 
-#         split = ticker.split(',')
-#         if len(split) > 1:
-#             ticker = (split[0],split[1]); print(ticker,type(ticker))
-#         else:
-#             pass
-#         if isinstance(ticker,tuple):
-#             symbol = ticker[0]; exchange = ticker[1]
-#             AssetData = DataFromTVDaily(symbol,exchange,start_date=StartDate,end_date=EndDate)
-#             AssetData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
-#             AssetData.drop('Symbol',axis=1,inplace=True)
-#             print('Data pulled from TV for: ',ticker,"\n")
-#         else:
-#             print('You should provide "ticker" as a tuple with (ticker,exchange) when using data from TV. Otherwise exchange will be "NSE" by default.')
-#             AssetData = DataFromTVDaily(ticker,start_date=StartDate,end_date=EndDate)    
-#             AssetData.rename({'symbol':'Symbol','open':'Open','high':'High','low':'Low','close':'Close','volume':'Volume'},axis=1,inplace=True)
-#             AssetData.drop('Symbol',axis=1,inplace=True)
-#             print('Data pulled from TV for: ',ticker,"\n")
-#     else:
-#         try:        
-#             AssetData = pd.DataFrame(web.DataReader(ticker,PriceAPI,start=StartDate)) 
-#         except:
-#             print('Could not score data from '+str(PriceAPI)+', trying DataReader, all sources....')
-#             AssetData = DataReaderAllSources(ticker,DataStart=StartDate)
-#             print("Asset data pulled for "+str(ticker)+": ")   
-#     if len(AssetData) < 1: 
-#         print("Could not score data for asset: ",ticker," from any of the usual sources. Pulling out")  
-#     else:  
-#         AssetData = AssetData[StartDate:EndDate]         
-#         return AssetData     
+        
+    # For daily data, convert index to date only
+    if interval == "1d":
+        ind = pd.DatetimeIndex(PriceData.index)
+        PriceData.set_index(ind.date, inplace=True)
+        
+    #print(f"Successfully pulled {len(PriceData)} rows of data for {ticker}")
+    return PriceData, ticker, SeriesInfo
 
 def YoYCalcFromDaily(series): 
     print('\nYoY calcuation on series: , data frequency: ',pd.infer_freq(series.index))

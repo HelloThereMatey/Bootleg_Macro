@@ -20,7 +20,6 @@ from yahoofinancials import YahooFinancials as yf
 import tedata as ted ##This is my package that scrapes data from Trading Economics
 import json
 import signal
-import time
 
 def yf_get_data(ticker: str, start_date: str, end_date: str, data_freq: str = "daily"):
     yfobj = yf(ticker)
@@ -33,7 +32,6 @@ def tedata_search(searchstr: str = "gdp", wait_time: int = 5):
     search = ted.search_TE(use_existing_driver=True)
     search.search_trading_economics(searchstr, wait_time=wait_time)
     return search.result_table
-
 
 def timeout_handler(signum, frame):
     raise TimeoutError("Data pull timed out")
@@ -99,19 +97,15 @@ class dataset(object):
         elif self.source == 'yfinance':
             try:
                 print("Trying yfinance package to get historical data for ", self.data_code)  
-                TheData, ticker = PriceImporter.pullyfseries(self.data_code, start = self.start_date.strftime('%Y-%m-%d'),
-                                                   interval = self.data_freq)
+                TheData, _, series_info = PriceImporter.pullyfseries(self.data_code, start = self.start_date.strftime('%Y-%m-%d'),
+                                                    interval = self.data_freq)
                 if len(TheData) < 1:
                     raise get_data_failure('Could not get data for the data-code from the source specified.')
                 self.filterData(TheData)
-            
+                self.SeriesInfo = series_info
+
             except Exception as e:
-                print("Could not score data for asset: "+ticker," from yfinance. Error: ", e, "Trying other scraper packages...") 
-                print("Trying yahoo financials.....")   
-                # TheData = PriceImporter.Yahoo_Fin_PullData(self.data_code, self.start_date.strftime('%Y-%m-%d'), 
-                #                                            end_date = self.end_date.strftime('%Y-%m-%d'))   
-                TheData = yf_get_data(self.data_code, self.start_date.strftime('%Y-%m-%d'), self.end_date.strftime('%Y-%m-%d'))
-                self.filterData(TheData)
+                print("Could not score data for asset: "+self.data_code," from yfinance. Error: ", e) 
 
         elif self.source == 'yfinance2':
             print("Using yahoo-finance2 JS package to get historical data..")  
@@ -392,8 +386,10 @@ class glassnode_data(object):   ## One can use this class to get data from Glass
                
 if __name__ == "__main__":
     
-    # me_data = dataset()
-    # me_data.get_data('yfinance', 'BTC-USD',"2011-01-01", dtype="OHLCV")
+    me_data = dataset()
+    me_data.get_data('yfinance', 'AAPL',"2005-01-01", dtype="OHLCV")
+    print(me_data.data)
+    print(me_data.SeriesInfo)
     # print(me_data.data, me_data.SeriesInfo, me_data.dataName, me_data.data.index, type(me_data.data.index))
     # me_data = dataset(source = 'abs', data_code = 'A3605929A',start_date="2011-01-01")
     # print(me_data.data, me_data.SeriesInfo, me_data.dataName)
@@ -430,9 +426,9 @@ if __name__ == "__main__":
     # me_data.get_data(source = 'glassnode', data_code = 'price_usd_ohlc,BTC,24h',start_date="2011-01-01", dtype="OHLCV")
     # print(me_data.data, me_data.SeriesInfo, me_data.dataName)
 
-    tv_data = dataset()
-    tv_data.get_data("tv", "ES1!", "1998-01-01", exchange_code="CME")
-    print(tv_data.data, tv_data.SeriesInfo, tv_data.dataName)
+    # tv_data = dataset()
+    # tv_data.get_data("tv", "ES1!", "1998-01-01", exchange_code="CME")
+    # print(tv_data.data, tv_data.SeriesInfo, tv_data.dataName)
 
 
 
