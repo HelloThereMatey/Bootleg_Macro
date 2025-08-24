@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from PyQt6 import QtCore, QtGui, QtWidgets
 import openpyxl
 import os
@@ -9,16 +8,14 @@ import gc
 wd = os.path.dirname(__file__); parent = os.path.dirname(wd); grampa = os.path.dirname(parent)
 fdel = os.path.sep
 sys.path.append(parent)
-from typing import Union
 import json
 import time
-import signal
 
 from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data
 from MacroBackend.BEA_Data import bea_data_mate
 from MacroBackend.ABS_backend import abs_series_by_r
 import Macro_Chartist.chartist as mbchart
-from MacroBackend import charting_plotly  # NEW: for dual_axis_basic_plot
+from MacroBackend import watchlist
 
 keys = Utilities.api_keys().keys
 abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_Index.h5s"
@@ -53,6 +50,27 @@ def close_open_stores(target_path: str) -> None:
                 obj.close()
                 time.sleep(1)
 
+def ensure_watchlist_workbook(wb_path: str, template_file: str) -> tuple[openpyxl.Workbook, bool]:
+    """
+    Ensure the watchlist workbook exists.
+    Returns (workbook, created_flag). If creation/load fails returns (None, False).
+    """
+    try:
+        directory = os.path.dirname(wb_path)
+        if not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+        if os.path.isfile(wb_path):
+            wb = openpyxl.load_workbook(wb_path, keep_vba=True, keep_links=True, rich_text=True)
+            return wb, False
+        # Create from template
+        wb = openpyxl.load_workbook(template_file, keep_vba=True, keep_links=True, rich_text=True)
+        wb.save(wb_path)
+        print(f"Created new workbook from template at: {wb_path}")
+        return wb, True
+    except Exception as e:
+        print(f"Failed to load or create workbook at {wb_path}. Error: {e}")
+        return None, False
+
 ######## Custom classess ##################
 
 class MyTableView(QtWidgets.QTableView):
@@ -62,728 +80,6 @@ class MyTableView(QtWidgets.QTableView):
         super().keyPressEvent(event)
         if event.key() == QtCore.Qt.Key_Return or event.key() == QtCore.Qt.Key_Enter:
             self.returnPressed.emit()
-
-############ Watchlist object defiition ####################    
-class Watchlist(dict):
-    """
-    **Watchlist class.*
-    A class for watchlists of time-series data, price history data for equities, commodities, macroeconomic series, etc.
-    Stores a list of assets/tickers/macrodata codes to be watched, with metadata for each asset/ticker/macrodata code.
-    The data for each asset/ticker/macrodata code can come from a wide range of sources. 
-    This class is a dictionary of pandas DataFrames, with the following pre-set
-    keys: 
-    - 'watchlist': pd.DataFrame - created on init, contains the list of assets/tickers/macrodata codes to be watched, with columns 'id' and 'source'.
-    tickers/data codes are the index of this DataFrame.
-    - 'metadata': pd.DataFrame - created on init, contains metadata for each asset/ticker/macrodata code. The data codes are the column names of this
-    dataframe and the index contains different metadata categories such as "source", "observation_start", "observation_end", "frequency", "units".
-    - 'watchlist_datasets': dict - contains pandas Series and/or DataFrame objects, with the keys being the asset/ticker/macrodata codes. This is not
-    created until the method "get_watchlist_data" is called, which pulls data from the source listed for each asset/ticker/macrodata code in the watchlist.
-    
-    *** __init__ Parameters :***
-    - watchlist_data: pd.DataFrame, default None - a DataFrame containing the list of assets/tickers/macrodata codes to be watched, with columns 'id' and 'source'.
-    - metadata_data: pd.DataFrame, default None - a DataFrame containing metadata for each asset/ticker/macrodata code. The data codes are the column names of this
-    dataframe and the index contains different metadata categories such as "source", "observation_start", "observation_end", "frequency", "units".
-    - watchlist_name: str, default "base_watchlist" - the name of the watchlist.
-    - watchlists_path: str, default parent+fdel+"User_Data"+fdel+"Watchlists" - the path to the folder where watchlists are saved, relative to this file.
-    
-    The Watchlist  object can be initialized with watchlist and metadata data, that you may have gotten from the search_symbol_gui or created manually
-    or you can just init a blank watchlist and add data to it later, using the GUI or manually.
-
-    *** Methods: ***
-    - load_watchlist: loads a watchlist from an Excel file, with two sheets: 'watchlist' and 'all_metadata'.
-    - append_current_watchlist: appends new data to the current watchlist.
-    - save_watchlist: saves the watchlist data to an Excel file.
-    - get_watchlist_data: pulls data from the source listed for each asset/ticker/macrodata code in the watchlist.
-    - update_metadata: updates the metadata with the new data.
-    - load_watchlist_data: loads the watchlist data from a .h5s database file.
-    - insert_data: inserts data into the watchlist_datasets dictionary.
-    - drop_data: drops data from the watchlist_datasets dictionary.
-    """
-    def __init__(self, watchlist_data=None, metadata_data=None, watchlist_name: str = "base_watchlist", watchlists_path: str = parent+fdel+"User_Data"+fdel+"Watchlists"):
-        super().__init__()
-        # Initialize watchlist and metadata as pandas DataFrames
-        self.name = watchlist_name
-        self.watchlists_path = watchlists_path
-        self['watchlist'] = pd.DataFrame(watchlist_data) if watchlist_data is not None else pd.DataFrame()
-        self['metadata'] = pd.DataFrame(metadata_data) if metadata_data is not None else pd.DataFrame()
-        self['watchlist_datasets'] = {}
-        self.storepath = None
-
-    def load_watchlist(self, filepath: str = ""):
-        """load_watchlist method. Loads a watchlist from an Excel file, with two sheets: 'watchlist' and 'all_metadata'.
-        If no filepath is provided, a file dialog will open to allow the user to choose a file."""
-
-        print("Loading watchlist from filepath: ", filepath)
-        if len(filepath) == 0:
-           filepath = qt_load_file_dialog(dialog_title="Choose a watchlist excel file.", initial_dir = self.watchlists_path, 
-                                                   file_types = "Excel Files (*.xlsx)")
-         
-        if len(filepath) > 0:
-            try:
-                self['watchlist'] = pd.read_excel(filepath, index_col=0, sheet_name="watchlist")
-                # FIX: Ensure metadata is loaded with object dtype to prevent datetime inference
-                self['metadata'] = pd.read_excel(filepath, index_col=0, sheet_name="all_metadata", dtype=str)
-                # Convert back to object dtype to handle mixed types properly
-                self['metadata'] = self['metadata'].astype('object')
-                self.name = filepath.split(fdel)[-1].split(".")[0]
-                
-                # ENHANCED DEBUG: Check the raw loaded data
-                print(f"=== RAW DATA LOADED ===")
-                print(f"Watchlist shape: {self['watchlist'].shape}")
-                print(f"Watchlist columns: {self['watchlist'].columns.tolist()}")
-                print(f"Source column type: {self['watchlist']['source'].dtype}")
-                print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
-                print(f"Source null count: {self['watchlist']['source'].isna().sum()}")
-                
-            except Exception as e:
-                print("Error loading watchlist data from file, '.xlsx file may have had the wrong format for a watchlist,\
-                        you want two sheets named 'watchlist' and 'all_metadata' with tables that can form dataframes in each. Exception:", e)
-                return None
-        
-        self.storepath = os.path.splitext(filepath)[0] + ".h5s"
-        self.storepath  = self.watchlists_path + fdel + self.name + fdel + self.name + ".h5s"
-        
-        # ENHANCED DEBUG: Check before index manipulation
-        print(f"=== BEFORE INDEX MANIPULATION ===")
-        print(f"Index unique count: {len(self['watchlist'].index.unique())}")
-        print(f"ID column unique count: {len(self['watchlist']['id'].unique())}")
-        print(f"Sample of index: {self['watchlist'].index[:5].tolist()}")
-        print(f"Sample of id column: {self['watchlist']['id'][:5].tolist()}")
-        
-        # Set index as the id column. Put ids in the id column and they'll be added.
-        if len(self["watchlist"].index.unique()) < len(self["watchlist"]["id"].unique()):
-            print("CASE 1: Setting index to id column")
-            # New values must have been copied into the id column  not the index, duplicate for index
-            self["watchlist"].set_index("id", inplace=True, drop=False)
-            self["watchlist"].index.rename("index", inplace=True)
-        elif len(self["watchlist"].index.unique()) == len(self["watchlist"]["id"].unique()):
-            print("CASE 2: Renaming existing index")
-            # If the index is already set to the id column, just rename it
-            self["watchlist"].index.rename("index", inplace=True)
-        else:
-            print("CASE 3: Copying index to id column")
-            self["watchlist"]["id"] = self["watchlist"].index.copy()
-
-        # ENHANCED DEBUG: Check after index manipulation
-        print(f"=== AFTER INDEX MANIPULATION ===")
-        print(f"Watchlist shape: {self['watchlist'].shape}")
-        print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
-        print(f"Source null count: {self['watchlist']['source'].isna().sum()}")
-
-        current_index = self['watchlist'].index.tolist()
-        meta_columns = self['metadata'].columns.tolist()
-        print("Current watchlist index before any processing: ", current_index[:10])  # Show first 10
-        print(f"Loaded watchlist shape: {self['watchlist'].shape}")
-
-        # Check if corresponding .h5s file exists and restore original keys if needed
-        if os.path.isfile(self.storepath):
-            try:
-                with pd.HDFStore(self.storepath, mode='r') as store:
-                    # Load key mapping if it exists
-                    if '/_key_mapping' in store.keys():
-                        mapping_series = store['_key_mapping']
-                        key_mapping = mapping_series.to_dict()
-                        print(f"Loaded key mapping from HDF5 file with {len(key_mapping)} entries")
-                        
-                        # FIXED: Don't add duplicate rows - the original Excel watchlist is the source of truth
-                        # The HDF5 key mapping should only be used for loading the dataset data, not modifying the watchlist
-                        for idx in key_mapping.keys():  
-                            original_key = key_mapping[idx]
-                            # Only process metadata columns, not watchlist rows
-                            if original_key in meta_columns and idx not in meta_columns:
-                                pass
-                            elif idx in meta_columns and original_key not in meta_columns:
-                                self["metadata"][original_key] = self["metadata"][idx]
-                                self["metadata"].drop(columns=[idx], axis=1, inplace=True)
-                            elif idx in meta_columns and original_key in meta_columns:
-                                # If both keys exist drop the duplicate
-                                self["metadata"].drop(columns=[idx], axis=1, inplace=True)
-                        
-            except Exception as e:
-                print(f"Could not load key mapping from HDF5 file: {e}")
-
-        # ENHANCED DEBUG: Check after HDF5 processing
-        print(f"=== AFTER HDF5 PROCESSING ===")
-        print(f"Watchlist shape: {self['watchlist'].shape}")
-        print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
-
-        try:
-            self.load_watchlist_data()
-        except Exception as e:
-            print("Watchlist and metadata were loaded but error encountered in loading the watchlist datasets from hdfStore file, error: ", e)
-
-        # ENHANCED DEBUG: Check before drop_data
-        print(f"=== BEFORE DROP_DATA ===")
-        print(f"Watchlist shape: {self['watchlist'].shape}")
-        print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
-
-        #Drop dem dupes dog
-        self.drop_data(drop_duplicates=True)
-        
-        # ENHANCED DEBUG: Check after drop_data
-        print(f"=== AFTER DROP_DATA ===")
-        print(f"Watchlist shape: {self['watchlist'].shape}")
-        print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
-        
-        # FIXED: Only drop rows where "source" column has NaN values, not "title" column
-        print(f"Shape before removing rows with NaN source: {self['watchlist'].shape}")
-        print(f"Rows with NaN source values: {self['watchlist']['source'].isna().sum()}")
-        
-        # ENHANCED DEBUG: Show exactly which rows will be dropped
-        rows_to_drop = self["watchlist"][self["watchlist"]["source"].isna()]
-        if len(rows_to_drop) > 0:
-            print("Rows that will be dropped due to NaN source:")
-            print(rows_to_drop[['id', 'title', 'source']])
-        
-        # Only drop rows where source is NaN/null - keep rows where title is NaN but source is valid
-        original_count = len(self["watchlist"])
-        
-        # ENHANCED: Let's see what the source column actually contains
-        print("Source column unique values:")
-        print(self["watchlist"]["source"].value_counts(dropna=False))
-        
-        # More specific filtering - check for actual NaN/None/empty values
-        valid_source_mask = (
-            self["watchlist"]["source"].notna() &  # Not NaN
-            (self["watchlist"]["source"] != "") &   # Not empty string
-            (self["watchlist"]["source"] != "nan") & # Not string "nan"
-            (self["watchlist"]["source"] != "None")  # Not string "None"
-        )
-        
-        self["watchlist"] = self["watchlist"][valid_source_mask]
-        removed_count = original_count - len(self["watchlist"])
-        
-        print(f"Removed {removed_count} rows with missing source values")
-        print(f"Final watchlist shape: {self['watchlist'].shape}")
-        print(f"Remaining rows with NaN titles (which is OK): {self['watchlist']['title'].isna().sum()}")
-
-    def append_current_watchlist(self, watchlist_data: pd.DataFrame, metadata_data: pd.DataFrame):
-        """append_current_watchlist method.
-        Mostly for use with the GUI, this method appends new data to the current watchlist."""
-
-
-        # Append new data to the current watchlist
-        self['watchlist'] = pd.concat([self['watchlist'], watchlist_data], axis=0)
-        self['metadata'] = pd.concat([self['metadata'], metadata_data], axis=1)
-
-    def save_watchlist(self, path: str = parent+fdel+"User_Data"+fdel+"Watchlists"):
-        """save_watchlist method.
-
-        This function saves the watchlist data to an Excel file with two sheets 'watchlist' and 'metadata'. 
-        It also saves your data series if you have pulled the data first using the get_watchlist_data method.
-        """
-
-        # Example method to save watchlist data to an Excel file
-        saveName = os.path.basename(self.name)  # Get just the name part, not the full path
-        saveName = saveName.replace(" ", "_")   # Replace spaces with underscores in the name only
-        save_directory = os.path.join(path, saveName)
-        save_path = os.path.join(save_directory, saveName + ".xlsx")
-        
-        print("Saving watchlist data to Excel file... save name: ", saveName, " to path: ", path, "watchlist name: ", self.name, 
-              "save path: ", save_path, "save directory: ", save_directory)
-        
-        if not os.path.exists(save_directory):
-            os.makedirs(save_directory, exist_ok=True)
-            
-        with pd.ExcelWriter(save_path) as writer:
-            self['watchlist'].to_excel(writer, sheet_name='watchlist')
-            self['metadata'].to_excel(writer, sheet_name='all_metadata')
-
-        if self['watchlist_datasets']:
-            self.storepath = os.path.join(save_directory, saveName + ".h5s")
-            close_open_stores(self.storepath)  #Close any open hdf5 stores pointing to this path
-
-            try:    
-                watchstore = pd.HDFStore(self.storepath, mode='a')
-                
-                # Create a mapping of original keys to sanitized keys
-                key_mapping = {}
-            
-                for key in self["watchlist_datasets"].keys():
-                    series = self["watchlist_datasets"][key]
-                    if isinstance(series, pd.DataFrame):
-                        if len(series.columns) == 1:
-                            series = series.squeeze()
-                            self["watchlist_datasets"][key] = series
-                    
-                    # Sanitize the key for HDF5 storage
-                    sanitized_key = sanitize_hdf_key(key)
-                    key_mapping[sanitized_key] = key
-                    
-                    # Store with sanitized key
-                    watchstore[sanitized_key] = series
-                
-                # Save the key mapping for later retrieval
-                if key_mapping:
-                    mapping_series = pd.Series(key_mapping, name='original_keys')
-                    watchstore['_key_mapping'] = mapping_series
-                    
-                watchstore.close()
-                print("Saved watchlist datasets to .h5s database... save name: ", saveName)
-
-            except Exception as e:
-                print("Error saving watchlist data to file. Exception: ", e)
-                watchstore.close()
-
-        return saveName, save_path
-    
-    class TimeoutError(Exception):
-        pass
-
-    def timeout_handler(signum, frame):
-        raise TimeoutError("Data pull timed out")
-
-    def get_watchlist_data(self, start_date: str = "1600-01-01", id_list: list = None, timeout: int = 60):
-        """
-        get_watchlist_data method.
-
-        This function takes a Watchlist object and returns a dictionary of pandas Series and/or dataframe objects.
-        Data will be pulled from the source listed for each asset/ticker/macrodata code in the watchlist.
-        The max time-length for each asset will be pulled. Geting higher frequency data from trading view may require 
-        doing it manually with the tvDatafeedz module.
-
-        Parameters:
-
-        - Watchlist: search_symbol_gui.Watchlist object
-        - start_date: str, default "1900-01-01"
-        - id_list: list, default None - a list of asset/ticker/macrodata codes to pull data for. If None, all assets in the watchlist will be pulled.
-        - timeout: int, default 60 - timeout in seconds for each individual data pull
-        """
-
-        watchlist = pd.DataFrame(self["watchlist"]); meta = pd.DataFrame(self["metadata"])
-        #print("Watchlist: \n", watchlist, "\n\nMetadata: \n", meta)
-
-        #Then get the data....
-        data = {}
-        if id_list is None:
-            # If no id_list is provided, use all ids in the watchlist
-            ids = watchlist["id"].to_list() if len(watchlist["id"]) > len(watchlist.index) else watchlist.index.to_list()
-            # can a column have a greater length than the index? Yes, if there are duplicate index values
-        else:
-            ids = id_list
-      
-        for i in ids:
-            sauce = str(watchlist.loc[i, "source"]).strip()
-            eyed = str(watchlist.loc[i, "id"]).strip()
-            try:
-                exchag = str(meta.loc["exchange", i]).strip()
-            except:
-                exchag = None
-            print(f"Attempting data pull for series id: {eyed}, from source: {sauce},\n start_date: {start_date}), exchange_code: {exchag}")
-            
-            # Set up timeout for this data pull
-            signal.signal(signal.SIGALRM, self.timeout_handler)
-            signal.alarm(timeout)
-            
-            try:
-                ds = Pull_Data.dataset()
-                ds.get_data(sauce, eyed, start_date, exchange_code = exchag, timeout=timeout)
-                data[watchlist.loc[i,"id"]] = ds.data
-                series_meta = ds.SeriesInfo
-                
-                # FIX: Ensure series_meta is properly oriented as a column
-                if isinstance(series_meta, pd.DataFrame):
-                    # If it's a DataFrame, squeeze to Series and ensure it's named correctly
-                    series_meta = series_meta.squeeze()
-                
-                if isinstance(series_meta, pd.Series):
-                    # Ensure the Series has the correct name (the series ID)
-                    series_meta.name = eyed
-                    # Convert to DataFrame column format for concatenation
-                    series_meta_df = series_meta.to_frame()
-                else:
-                    print(f"Warning: series_meta for {eyed} is not a Series or DataFrame: {type(series_meta)}")
-                    continue
-                    
-                # Concatenate as columns (axis=1) ensuring proper orientation
-                meta = pd.concat([meta, series_meta_df], axis=1)
-                
-                print(f"Data pull successful for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}.")
-                #print(f"This is what we have in the metadata for this series: \n", meta[eyed][meta[eyed].notna()])
-                signal.alarm(0)  # Cancel the alarm
-
-            except TimeoutError:
-                print(f"Timeout ({timeout}s) exceeded for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Skipping...")
-                data[watchlist.loc[i,"id"]] = pd.Series([f"Data pull timed out after {timeout} seconds.", "Timeout exceeded", 
-                                                        f"Source: {sauce}"], name="Timeout_"+watchlist.loc[i,"id"], index = [0, 1, 2])
-                signal.alarm(0)  # Cancel the alarm
-            
-            except Exception as e:
-                print(f"Error pulling data for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Exception: {e}")
-                data[watchlist.loc[i,"id"]] = pd.Series(["Data pull failed for this series.", "Devo bro....",
-                                                        "Error messsage: "+str(e)], name="Error_"+watchlist.loc[i,"id"], index = [0, 1, 2])
-                signal.alarm(0)  # Cancel the alarm
-                pass
-
-        # Check if 'watchlist_datasets' key already exists
-        if "watchlist_datasets" in self:
-            # Append new data to the existing dictionary
-            self["watchlist_datasets"].update(data)
-        else:
-            # Create the dictionary if it doesn't exist
-            self["watchlist_datasets"] = data
-
-        self["metadata"] = meta  # Update the metadata DataFrame with the new data
-        #try:
-        self.update_metadata()
-        # except Exception as e:
-        #     print("Error updating metadata after data pull. Exception: ", e)
-        #     pass
-
-        self.save_watchlist()
-
-    def update_metadata(self):
-        
-        #Drop any duplicates in the metadata
-        self.drop_data(drop_duplicates=True)
-        # Update the metadata with the new data
-        if self["watchlist_datasets"]:
-            print("Running watchlist update_metadata method.....")
-            for key in self["watchlist_datasets"].keys():
-                series = self["watchlist_datasets"][key]
-                #first reduce dataframes to series if the df has only a single column
-                if isinstance(series, pd.DataFrame):
-                    print("Your metadata series is a DataFrame, reducing to a Series.... Have a look at it first: \n", series)
-                    if len(series.columns) == 1:
-                        series = series.squeeze()
-                    else:
-                        print("Skipping this series, it is a DataFrame with more than one column, should be a series with metadata,", series.columns)
-                        continue
-            
-                # Get the title from metadata, use series.name or key as fallback
-                try:
-                    metadata_title = self["metadata"].loc["title", key]
-                    if pd.isna(metadata_title) or metadata_title == "" or metadata_title is None:
-                        # Use series name if available, otherwise use the key
-                        title = series.name if series.name is not None and series.name != "" else key
-                        print(f"Title was NaN/empty for {key}, using fallback title: {title}")
-                    else:
-                        title = metadata_title
-                except (KeyError, IndexError):
-                    # Title not found in metadata, use series name or key as fallback
-                    title = series.name if series.name is not None and series.name != "" else key
-                    #print(f"Title not found in metadata for {key}, using fallback title: {title}")
-                
-                # Rename the series to have the proper title
-                try:
-                    if series.name != title:
-                        series.rename(title, inplace=True)
-                        print(f"Renamed series {key} to: {title}")
-                except Exception as err:
-                    print("Failed to rename series, ", series.name, " to title: ", title, ", error: ", err)
-
-                start_date = series.index[0]
-                end_date = series.index[-1]
-                self["watchlist_datasets"][key] = series
-
-                #Update the watchlist with improved metadata as well as the metadata DataFrame
-                self["watchlist"].loc[key, "id"] = key
-                
-                # Fix Warning 1: Ensure title column is object dtype before assignment
-                if "title" not in self["watchlist"].columns:
-                    self["watchlist"]["title"] = ""
-                self["watchlist"]["title"] = self["watchlist"]["title"].astype('object')
-                self["watchlist"].loc[key, "title"] = str(title)  # Explicitly convert to string
-                
-                # Update metadata with the title if it was missing or NaN
-                if key in self["metadata"].columns:
-                    if pd.isna(self["metadata"].loc["title", key]) or self["metadata"].loc["title", key] == "":
-                        self["metadata"].loc["title", key] = str(title)  # Explicitly convert to string
-                        try:
-                            # Ensure observation_start and observation_end rows exist
-                            for row_name in ["observation_start", "observation_end"]:
-                                if row_name not in self["metadata"].index:
-                                    # Create a new row with object dtype and fill with empty strings
-                                    new_row = pd.Series([''] * len(self["metadata"].columns), 
-                                                      index=self["metadata"].columns, 
-                                                      name=row_name, 
-                                                      dtype=object)
-                                    # Use pd.concat to add the new row
-                                    new_row_df = new_row.to_frame().T
-                                    self["metadata"] = pd.concat([self["metadata"], new_row_df], ignore_index=False)
-                            
-                            # Ensure the entire metadata DataFrame is object dtype
-                            self["metadata"] = self["metadata"].astype('object')
-                            
-                            # Now safely assign the date values
-                            if key in self["metadata"].columns and pd.notna(self["metadata"].loc["observation_start", key]):
-                                self["metadata"].loc["observation_start", key] = str(start_date)
-                                self["metadata"].loc["observation_end", key] = str(end_date)
-                            else:
-                                self["metadata"].loc["observation_start", key] = str(start_date)
-                                self["metadata"].loc["observation_end", key] = str(end_date)
-                        except Exception as e:
-                            print(f"Error setting observation dates for {key}: {e}")
-
-                # Also set the title in the watchlist 
-                self["watchlist"].loc[key, "title"] = str(title)
-                
-                # FIX: Handle frequency metadata assignment with proper dtype management
-                if key in self["metadata"].columns and "frequency" in self["metadata"].index and pd.notna(self["metadata"].loc["frequency", key]):
-                    pass
-                else:
-                    try:
-                        freq = Utilities.freqDetermination(series)
-                        freq.DetermineSeries_Frequency()
-                    
-                        # Ensure frequency rows exist and are object dtype
-                        if "frequency" not in self["metadata"].index:
-                            # Initialize the metadata with proper object dtype if needed
-                            if self["metadata"].empty:
-                                self["metadata"] = pd.DataFrame(dtype=object)
-                            
-                            # Create a new row with object dtype and fill with empty strings
-                            new_row = pd.Series([''] * len(self["metadata"].columns), 
-                                                index=self["metadata"].columns, 
-                                                name="frequency", 
-                                                dtype=object)
-                            # Use pd.concat to add the new row
-                            new_row_df = new_row.to_frame().T
-                            self["metadata"] = pd.concat([self["metadata"], new_row_df], ignore_index=False)
-                        
-                        if "frequency_short" not in self["metadata"].index:
-                            # Create a new row with object dtype and fill with empty strings
-                            new_row = pd.Series([''] * len(self["metadata"].columns), 
-                                                index=self["metadata"].columns, 
-                                                name="frequency_short", 
-                                                dtype=object)
-                            # Use pd.concat to add the new row
-                            new_row_df = new_row.to_frame().T
-                            self["metadata"] = pd.concat([self["metadata"], new_row_df], ignore_index=False)
-                        
-                        # Ensure the entire metadata DataFrame is object dtype
-                        self["metadata"] = self["metadata"].astype('object')
-                        
-                        # Now safely assign the frequency values
-                        self["metadata"].loc["frequency", key] = str(freq.frequency)
-                        self["metadata"].loc["frequency_short", key] = str(freq.frequency[0])
-                        
-                    except Exception as e:
-                        print("Error determining frequency for series: ", key, ". Exception: ", e)
-                        
-                        # Ensure frequency rows exist with object dtype before assigning fallback values
-                        if "frequency" not in self["metadata"].index:
-                            if self["metadata"].empty:
-                                self["metadata"] = pd.DataFrame(dtype=object)
-                            new_row = pd.Series([''] * len(self["metadata"].columns), 
-                                                index=self["metadata"].columns, 
-                                                name="frequency", 
-                                                dtype=object)
-                            new_row_df = new_row.to_frame().T
-                            self["metadata"] = pd.concat([self["metadata"], new_row_df], ignore_index=False)
-                        
-                        if "frequency_short" not in self["metadata"].index:
-                            new_row = pd.Series([''] * len(self["metadata"].columns), 
-                                                index=self["metadata"].columns, 
-                                                name="frequency_short", 
-                                                dtype=object)
-                            new_row_df = new_row.to_frame().T
-                            self["metadata"] = pd.concat([self["metadata"], new_row_df], ignore_index=False)
-                        
-                        # Ensure the entire metadata DataFrame is object dtype
-                        self["metadata"] = self["metadata"].astype('object')
-                        
-                        # Now safely assign fallback values as strings
-                        self["metadata"].loc["frequency", key] = "Unknown"
-                        self["metadata"].loc["frequency_short", key] = "U"
-        else:
-            print("Download datasets for the watchlist first using get_watchlist_data() or load_watchlist_data() methods.....")
-            return
-
-    def load_watchlist_data(self, ask_input: bool = False):
-        """load_watchlist_data method.
-        This function loads the watchlist data from a .h5s database file. The data is stored in the 'watchlist_datasets' dictionary.
-        This can be run as an alternative to get_wtaclist_data, if the data has already been pulled and saved to a .h5s file."""
-
-        print("Database filepath: ", self.storepath)
-        if self.storepath is not None and os.path.isfile(self.storepath):
-            with pd.HDFStore(self.storepath, mode='a') as data:
-                #print("Database keys: ", data.keys())
-                
-                # Load key mapping if it exists
-                key_mapping = {}
-                if '_key_mapping' in data.keys():
-                    mapping_series = data['_key_mapping']
-                    key_mapping = mapping_series.to_dict()
-                
-                # Load data with original keys restored
-                self['watchlist_datasets'] = {}
-                for sanitized_key in data.keys():
-                    if sanitized_key.startswith('/_key_mapping'):
-                        continue  # Skip the mapping key
-                    
-                    clean_key = sanitized_key.lstrip('/')
-                    original_key = key_mapping.get(clean_key, clean_key)
-                    self['watchlist_datasets'][original_key] = data[sanitized_key]
-                
-                data.close()
-            self.update_metadata()
-        else:
-            print("No .h5s database found for this watchlist. Get and save data first....")
-            if ask_input:
-                if input("Do you want to attempt pulling the data for the watchlist now? y/n?") == "y":
-                    self.get_watchlist_data()
-                    self.save_watchlist()
-                    self.update_metadata()
-                else:
-                    return
-            return
-        
-        print("Loaded database from .h5s file, keys: ", self["watchlist_datasets"].keys())
-
-    def insert_data(self, data: Union[pd.DataFrame, pd.Series], metadata: pd.Series):
-        """ INSERT DATA METHOD.
-        Add a dataset into your watchlist database. Must be pandas series or dataframe. 
-        Some metadata must be supplied.
-
-        **Parameters:**
-        - data: pd.DataFrame or pd.Series: Your dataset.
-        - metadata: pd.Series - This must have index values "id", "title" & "source"at a minimum.
-            - "title": str - this is the title/name for your dataset, can be the same as id.
-            - "id": str - this is the all important datacode/ticker/id for the dataset from the source. 
-            - "source": str - this is the name of the data source. It can be one of the sources used by Pull_Data module 
-            or it can be "SavedData"to load the series from the User_Data/SavedData folder. An arbitrary source name can also be used 
-            and if it does not match any of the upported sources the dataset will never be updated when the get_watchlist_data method is run. 
-        """
-        for key in ["id", "title", "source"]:
-            if key not in metadata.index.to_list():
-                print(f'You need to have {key} in your metadata series for this to work, pulling out.')
-                return
-
-        self["watchlist_datasets"][metadata["id"]] = data
-        self["watchlist"].loc[metadata["id"], "id"] = metadata["id"]
-        self["watchlist"].loc[metadata["id"], "title"] = metadata["title"]
-        self["watchlist"].loc[metadata["id"], "source"] = metadata["source"]
-
-        ## Drop if already exiting in the dataset
-        if metadata["id"] in self["metadata"].columns:
-            self["metadata"].drop(metadata["id"], axis=1, inplace=True)
-            
-        self["metadata"] = pd.concat([self["metadata"], metadata], axis = 1)
-        print("Dataset ", metadata['title'], f"inserted into your {self.name} watchlist.")
-
-    def add_series_from_SavedData(self, seriesName: str):
-        """Add a data series that is found in the User_Data/SavedData folder to your watchlist.
-
-        **Parameters:**
-        - seriesName: str - This must match the name of an .xlsx file that is found in your SavedData folder. These files are generated
-        by the Pull_Data module when the data is pulled and saved. These have tw sheets with names 'Closing_Price' and 'SeriesInfo'that
-        contain your data and metadata.
-        """
-        rel_datapath = parent+fdel+"User_Data"+fdel+"SavedData"
-        
-        try:
-            series = pd.read_excel(rel_datapath+fdel+seriesName+".xlsx", sheet_name="Closing_Price", index_col=0, parse_dates=True).squeeze()
-            series_meta = pd.read_excel(rel_datapath+fdel+seriesName+".xlsx", sheet_name="SeriesInfo",index_col=0).squeeze().rename(seriesName)
-            series_meta.loc["title"] = series.name
-            series_meta.loc["id"] = seriesName
-            series_meta.loc["source"] = "SavedData"
-            series_meta.loc["notes"] = series_meta.loc["title"]+", aggregate index by the Macro Bootlegger."
-            self.insert_data(series, series_meta)
-        except Exception as e:
-            print("Could not find the data or something else went wrong, check you seriesName, error message: ", e)
-            return
-
-    def drop_data(self, data_name: str = None, drop_duplicates: bool = False):
-        """drop_data method.
-        Eliminate duplicates from the watchlist and metadata dataframes, and drop data from the watchlist_datasets dictionary.
-        Or just drop a given data_name from the watchlist_datasets dictionary, watchlist and metadata dataframes."""
-        
-        if data_name is not None:
-            if data_name in self["watchlist_datasets"].keys():
-                self["watchlist_datasets"].pop(data_name)
-            if data_name in self["metadata"].columns:
-                self["metadata"].drop(data_name, axis=1, inplace=True)
-            if data_name in self["watchlist"].index:
-                self["watchlist"].drop(data_name, axis=0, inplace=True)
-        
-        if drop_duplicates:
-            watch = pd.DataFrame(self["watchlist"])
-            #print("Checking for duplicates in watchlist... Original index/columns watchlist/metadata: ", watch.index, self["metadata"].columns)
-            offenders = list(watch[watch.index.duplicated()].index)
-            print("Duplicate indexes found in watchlist & will be dropped: ", offenders)
-            meta , dropped = drop_duplicate_columns(self["metadata"]); self["metadata"] = meta
-            print("Duplicate columns found in metadata & will be dropped: ", dropped)
-            # Drop duplicate columns
-            self["metadata"] = self["metadata"].loc[:, ~self["metadata"].columns.duplicated(keep='first')]
-          
-            self["watchlist"].drop_duplicates(inplace=True)
-            tickers_to_remove = []
-            for ticker in self["watchlist_datasets"].keys():
-                if ticker not in self["watchlist"]["id"].to_list():
-                    tickers_to_remove.append(ticker)
-            
-            for ticker in tickers_to_remove:
-                self["watchlist_datasets"].pop(ticker)
-            #print("Final index/columns watchlist/metadata: ", self["watchlist"].index, self["metadata"].columns)
-
-    def plot_watchlist(self, left: list, right: list, template: str = "plotly_white"):
-        """
-        Plot selected datasets in this watchlist on a dual-axis chart.
-
-        Parameters:
-        - left: list of ids (strings) to plot on the left axis (primary)
-        - right: list of ids (strings) to plot on the right axis (secondary)
-        """
-        if not self.get("watchlist_datasets"):
-            print("No datasets loaded. Use get_watchlist_data() or load_watchlist_data() first.")
-            return None
-
-        # Helper to build dict[title] -> Series from a list of ids
-        def build_series_map(ids: list) -> dict:
-            out = {}
-            for did in ids or []:
-                if did not in self["watchlist_datasets"]:
-                    print(f"Warning: '{did}' not in watchlist_datasets. Skipping.")
-                    continue
-                ser = self["watchlist_datasets"][did]
-                # Reduce DataFrame to Series where possible
-                if isinstance(ser, pd.DataFrame):
-                    if ser.shape[1] == 1:
-                        ser = ser.squeeze()
-                    else:
-                        first_col = ser.columns[0]
-                        print(f"Info: '{did}' is a DataFrame with multiple columns. Using first column: {first_col}")
-                        ser = ser[first_col]
-                if not isinstance(ser, (pd.Series, pd.Index)):
-                    print(f"Warning: '{did}' is not a pandas Series. Skipping.")
-                    continue
-                # Title from watchlist, fallback to id
-                try:
-                    title = self["watchlist"].loc[did, "title"]
-                    if pd.isna(title) or title is None or title == "":
-                        title = did
-                except Exception:
-                    title = did
-                out[str(title)] = ser
-            return out
-
-        # De-duplicate ids if any appear in both lists (prefer right axis)
-        left_ids = [i for i in (left or []) if i not in (right or [])]
-        right_ids = right or []
-
-        primary_data = build_series_map(left_ids)
-        secondary_data = build_series_map(right_ids)
-
-        if not primary_data and not secondary_data:
-            print("Nothing to plot. Check the ids provided.")
-            return None
-
-        title = self.name if hasattr(self, "name") and self.name else "Watchlist Plot"
-        fig = charting_plotly.dual_axis_basic_plot(primary_data, secondary_data=secondary_data, title=title, template=template)
-        return fig
-
-## Standalone functions ####################
-
-def qt_load_file_dialog(dialog_title: str = "Choose a file", initial_dir: str = wd, 
-                        file_types: str = "All Files (*);;Text Files (*.txt);;Excel Files (*.xlsx)"):
-    app = QtWidgets.QApplication.instance()  # Check if an instance already exists
-    if not app:  # If not, create a new instance
-        app = QtWidgets.QApplication(sys.argv)
-
-    file_path, _ = QtWidgets.QFileDialog.getOpenFileName(None, dialog_title, initial_dir, file_types, options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
-
-    return file_path
 
 ########## QT6 window object definitions... ####################
 
@@ -878,13 +174,12 @@ class WatchListView(QtWidgets.QMainWindow):
         self.template_file = template_file
         self.name, self.ext = os.path.splitext(template_file)
         if self.watchlist_name:
-            self.wb_path = out_folder + fdel+self.watchlist_name +fdel + self.watchlist_name +".xlsm"
+            self.wb_path = out_folder + fdel + self.watchlist_name + fdel + self.watchlist_name + ".xlsm"
         else:
-            self.wb_path = out_folder
-        if os.path.isfile(self.wb_path):
-            self.watchlist_wb = openpyxl.load_workbook(self.wb_path, keep_vba=True, keep_links=True, rich_text=True)
-        else:
-            self.watchlist_wb = openpyxl.load_workbook(self.template_file, keep_vba=True, keep_links=True, rich_text=True)
+            self.wb_path = out_folder + fdel + "unnamed" + fdel + "unnamed.xlsm"
+        self.watchlist_wb, created = ensure_watchlist_workbook(self.wb_path, self.template_file)
+        if self.watchlist_wb is None:
+            print("Workbook unavailable; sublist export disabled.")
         
         # Connect signals
         self.connectSignals()
@@ -1412,7 +707,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         # Set the current watchlist to the selected one
         self.current_list_name = selected_watchlist
         print(f"Current watchlist set to: {self.current_list_name}")
-        self.current_list = Watchlist(watchlist_name=self.current_list_name)
+        self.current_list = watchlist.Watchlist(watchlist_name=self.current_list_name)
         self.current_list.load_watchlist(filepath=self.watchlists_path+fdel+self.current_list_name+fdel+self.current_list_name+".xlsx")
         print("\n\nWatchlist loaded: ", self.current_list_name, ", wtachlist data: ", self.current_list["watchlist"], "\n\n", "metadata: ", self.current_list["metadata"])
         self.return_df = self.current_list["watchlist"]
@@ -1420,17 +715,23 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.display_current_selections()
         if hasattr(self, 'dataframe_viewer'):
             # Show and populate the sublists dropdown
+            print("Dataframe viewer already created, showing sublists dropdown.")
             self.sublists_dropdown.show()
             self.populate_sublists_dropdown()
         else:
             print("Dataframe viewer not yet created, select a watchlist to view it first, before dropdown available.")
 
     def populate_sublists_dropdown(self):
-        # Logic to populate the sublists dropdown with sheet names from the .xlsm file
-        # This is just a placeholder, you need to implement the actual logic
-        self.sublists_dropdown.clear()
-        sheet_names = self.dataframe_viewer.watchlist_wb.sheetnames 
-        self.sublists_dropdown.addItems(sheet_names)
+        if not self.dataframe_viewer or not getattr(self.dataframe_viewer, "watchlist_wb", None):
+            print("No workbook loaded; cannot populate sublists.")
+            return
+        try:
+            sheet_names = self.dataframe_viewer.watchlist_wb.sheetnames
+            self.sublists_dropdown.clear()
+            self.sublists_dropdown.addItems(sheet_names)
+            print("Sheet names in the watchlist workbook: ", sheet_names)
+        except Exception as e:
+            print("Failed to read sheet names: ", e)
 
     def save_watchlist(self):
 
@@ -1443,12 +744,12 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         if self.current_list is None:
             fileName, _ = QtWidgets.QFileDialog.getSaveFileName(self, "Save Watchlist", self.watchlists_path,"Excel Files (*.xlsx);;All Files (*)", options=QtWidgets.QFileDialog.Option.DontUseNativeDialog)
             self.current_list_name = fileName.split(fdel)[-1].split(".")[0]
-            self.current_list = Watchlist(watchlist_data=watchlist_data, metadata_data=metadata, watchlist_name=self.current_list_name)
+            self.current_list = watchlist.Watchlist(watchlist_data=watchlist_data, metadata_data=metadata, watchlist_name=self.current_list_name)
         else:
             fileName = self.watchlists_path+fdel+self.current_list_name+fdel+self.current_list_name+".xlsx"
             self.current_list.append_current_watchlist(watchlist_data, metadata)
 
-         # This saves the wtachlist to a .xlsx file with two sheets, one for the watchlist and one for the metadata.
+         # This saves the wtachlist to a .xlsx file with two shxeets, one for the watchlist and one for the metadata.
         self.current_list.drop_data(drop_duplicates=True)
         if fileName:
             print("FilenameExists, filename: ", fileName)
@@ -1485,7 +786,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                 time.sleep(1)
                 for i in range(5):
                     if os.path.isfile(fileName):
-                        self.current_list = Watchlist(watchlist_name=self.current_list_name)
+                        self.current_list = watchlist.Watchlist(watchlist_name=self.current_list_name)
                         self.current_list.load_watchlist(filepath=fileName)
                     else:
                         time.sleep(1)
@@ -1526,12 +827,29 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             return
         
     def choose_sublist(self):
-        if self.dataframe_viewer.wb_path:
-            print("Loading watchlist workbook: ", self.dataframe_viewer.wb_path)
-            self.watchlist_book = openpyxl.load_workbook(self.dataframe_viewer.wb_path, keep_vba=True, keep_links=True, rich_text=True)
-            self.watchlist_sublist = self.watchlist_book.sheetnames
-            self.dataframe_viewer.sublist_name = self.sublists_dropdown.currentText()
-    
+        if not self.dataframe_viewer:
+            print("No dataframe viewer; cannot choose sublist.")
+            return
+        wb_path = self.dataframe_viewer.wb_path
+        template = self.dataframe_viewer.template_file
+        print("Loading watchlist workbook: ", wb_path)
+        wb, created = ensure_watchlist_workbook(wb_path, template)
+        if wb is None:
+            print("Workbook still unavailable after ensure step.")
+            return
+        self.watchlist_book = wb
+        self.watchlist_sublist = wb.sheetnames
+        if not self.watchlist_sublist:
+            print("No sheets found in workbook.")
+            return
+        current = self.sublists_dropdown.currentText()
+        if current not in self.watchlist_sublist:
+            # Default to first sheet
+            self.dataframe_viewer.sublist_name = self.watchlist_sublist[0]
+        else:
+            self.dataframe_viewer.sublist_name = current
+        print("Active sublist set to: ", self.dataframe_viewer.sublist_name)
+
     def handle_dataframe_viewer_close(self):
         # Delete the dataframe_viewer object
         self.dataframe_viewer = None
@@ -1566,24 +884,6 @@ def org_metadata(series_meta: dict) -> pd.DataFrame:
     meta_df = meta_df.reindex(index)
     meta_df.index.rename("property", inplace=True)
     return meta_df
-
-def sanitize_hdf_key(key: str) -> str:
-    """
-    Sanitize a key to be valid for HDF5 storage by replacing invalid characters
-    with underscores and ensuring it starts with a letter or underscore.
-    """
-    import re
-    # Replace any non-alphanumeric characters (except underscores) with underscores
-    sanitized = re.sub(r'[^a-zA-Z0-9_]', '_', str(key))
-    
-    # Ensure it starts with a letter or underscore
-    if sanitized and not sanitized[0].isalpha() and sanitized[0] != '_':
-        sanitized = '_' + sanitized
-    
-    # Remove multiple consecutive underscores
-    sanitized = re.sub(r'_+', '_', sanitized)
-    
-    return sanitized
 
 def run_app():
     sources = {'fred': PriceImporter.FREDSearch, 
@@ -1620,27 +920,8 @@ def run_app():
 
 if __name__ == "__main__":
 
-    # watched = run_app()
-    # if isinstance(watched, Watchlist):
-    #     print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
-    # else:
-    #     print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
-
-    # wl = Watchlist()
-    # wl.load_watchlist()
-    # path = qt_load_file_dialog()
-    # print("Path: ", path)
-    # watched = run_app()
-    # if isinstance(watched, Watchlist):
-    #     print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
-    # else:
-    #     print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
-
-    # wl = Watchlist()
-    # wl.load_watchlist()
-    # path = qt_load_file_dialog()
-    # print("Path: ", path)
-
-    watchlist = Watchlist()
-    watchlist.load_watchlist(filepath = "/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/Watchlists/housing_aus/housing_aus.xlsx")
-    watchlist.get_watchlist_data(id_list = ["A83728607L","A83728605J","A128478317T","A83728543L","A2422340L","A2422341R","A2422342T","A2326751F","A2326751F"])
+    watched = run_app()
+    if isinstance(watched, watchlist.Watchlist):
+        print("Watchlist: ", watched.name, "\nWatchlist:\n", watched['watchlist'], "\nMetadata:\n", watched['metadata'])
+    else:
+        print("Series: chosen: \n", watched[0], "\nMetadata: \n", watched[1])
