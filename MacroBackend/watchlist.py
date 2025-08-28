@@ -22,7 +22,7 @@ from PyQt6 import QtWidgets
 import pydantic
 from pydantic import BaseModel, Field
 import datetime
-from typing import Optional, Any, Mapping
+from typing import Optional, Any, Mapping, ClassVar
 
 ###### Standalone functions ##################
 
@@ -102,6 +102,79 @@ def strip_timezone_from_df(df: pd.DataFrame) -> pd.DataFrame:
     return df_copy
 
 ############ Pydantic Common Metadata Model ################
+
+# Comprehensive frequency mapping dictionary
+FREQUENCY_MAPPING = {
+    # Daily frequencies
+    'D': ['daily', 'day', 'days', 'd', '1d', '24h', '1day'],
+    
+    # Weekly frequencies  
+    'W': ['weekly', 'week', 'weeks', 'w', '1w', '7d', '1week', 'wk'],
+    
+    # Monthly frequencies
+    'M': ['monthly', 'month', 'months', 'm', '1m', '1month', 'mo'],
+    'MS': ['month start', 'monthly start', 'ms', 'month_start'],
+    
+    # Quarterly frequencies
+    'Q': ['quarterly', 'quarter', 'quarters', 'q', '1q', '3m', '1quarter'],
+    'QS': ['quarter start', 'quarterly start', 'qs', 'quarter_start'],
+    
+    # Annual frequencies
+    'A': ['annual', 'annually', 'year', 'yearly', 'years', 'a', 'y', '1y', '1year', '12m'],
+    'AS': ['annual start', 'year start', 'as', 'yas', 'annual_start'],
+    
+    # Business frequencies
+    'B': ['business', 'business day', 'business days', 'b', 'bd', 'bday'],
+    'BM': ['business month', 'business monthly', 'bm', 'business_month'],
+    'BQ': ['business quarter', 'business quarterly', 'bq', 'business_quarter'],
+    'BA': ['business annual', 'business year', 'ba', 'business_annual'],
+    
+    # Higher frequency
+    'H': ['hourly', 'hour', 'hours', 'h', '1h', '1hour', 'hr'],
+    'T': ['minute', 'minutes', 'min', 't', '1min', '1minute'],
+    'S': ['second', 'seconds', 'sec', 's', '1sec', '1second'],
+}
+
+def map_frequency_to_pandas(freq_string: str, mapping: dict = FREQUENCY_MAPPING) -> str:
+    """
+    Map a frequency string to a pandas frequency code.
+    
+    Parameters:
+    - freq_string: The frequency string to map
+    - mapping: The frequency mapping dictionary
+    
+    Returns:
+    - str: Pandas frequency code or original string if no match
+    """
+    if freq_string is None or freq_string == '' or freq_string == 'Unknown':
+        return None
+        
+    freq_lower = str(freq_string).lower().strip()
+    
+    # Direct match first
+    for pandas_freq, aliases in mapping.items():
+        if freq_lower in [alias.lower() for alias in aliases]:
+            return pandas_freq
+    
+    # Handle special cases and partial matches
+    if 'quarter' in freq_lower or freq_lower == 'q':
+        return 'Q'
+    elif 'month' in freq_lower and 'start' in freq_lower:
+        return 'MS'
+    elif 'month' in freq_lower:
+        return 'M'
+    elif 'day' in freq_lower or freq_lower in ['d', '1d']:
+        return 'D'
+    elif 'year' in freq_lower or 'annual' in freq_lower:
+        return 'A'
+    elif 'week' in freq_lower:
+        return 'W'
+    elif 'hour' in freq_lower or freq_lower.endswith('h'):
+        return 'H'
+    
+    # If no match found, return original
+    return freq_string
+
 class CommonMetadata(BaseModel):
     """
     Standardized metadata model for any dataset in a Watchlist.
@@ -117,6 +190,7 @@ class CommonMetadata(BaseModel):
     series_type: Optional[str] = None
     data_type: Optional[str] = None
     frequency: Optional[str] = None
+    frequency_short: Optional[str] = None
     original_source: Optional[str] = None
     source: Optional[str] = None
     description: Optional[str] = None
@@ -132,6 +206,10 @@ class CommonMetadata(BaseModel):
     length: Optional[int] = None
     units_short: Optional[str] = None
 
+    # Add frequency mapping as class attribute with proper ClassVar annotation
+    frequency_mapping: ClassVar[dict] = FREQUENCY_MAPPING
+    field_aliases: ClassVar[dict] = {}  # Will be set after class definition
+
     class Config:
         populate_by_name = True
         allow_population_by_field_name = True
@@ -143,6 +221,7 @@ FIELD_ALIASES = {
     'series_type': ['Series Type', 'series_type', 'type', 'quoteType', 'typeDisp', 'Data Type'],
     'data_type': ['Data Type', 'data_type', 'datatype', 'type', 'typeDisp'],
     'frequency': ['frequency', 'freq', 'periodicity', 'Freq.', 'Data frequency', 'resolution', 'Frequency'],
+    'frequency_short': ['frequency_short', 'freq_short'],
     'original_source': ['original_source', 'originalSource', 'Source'],
     'source': ['source', 'data_source', 'provider', 'Source', 'original_source'],
     'description': ['description', 'notes', 'longBusinessSummary', 'table_title', 'indicator'],
@@ -152,7 +231,7 @@ FIELD_ALIASES = {
     'min_value': ['min_value', 'minimum', 'min'],
     'max_value': ['max_value', 'maximum', 'max'],
     'length': ['length', 'count', 'observations', 'No. Obs.', 'No. Obs'],
-    'units_short': ['units_short', 'unit_short', 'symbol', 'seasonal_adjustment_short', 'frequency_short'],
+    'units_short': ['units_short', 'unit_short', 'symbol', 'seasonal_adjustment_short'],
     'title': ['title', 'name', 'longName', 'shortName', 'label', 'shortname', 'series', 'Datasetname', 'TableName', 'metric_full'],
     'id': ['id', 'symbol', 'Ticker', 'Series ID', 'series_id', 'metric_short', 'path'],
     # Additional specialized fields that don't have direct CommonMetadata equivalents but could be useful
@@ -266,6 +345,14 @@ def from_series(cls, data: Union[pd.Series, pd.DataFrame], meta: Union[Mapping[s
                     print(f"Warning: Could not parse {field} value '{value}': {e}")
                     # Remove invalid datetime value
                     del resolved_meta[field]
+    
+    # Handle frequency_short mapping
+    if 'frequency' in resolved_meta and resolved_meta['frequency'] is not None:
+        if 'frequency_short' not in resolved_meta or resolved_meta['frequency_short'] is None:
+            # Map frequency to pandas frequency code for frequency_short field
+            pandas_freq = map_frequency_to_pandas(resolved_meta['frequency'])
+            if pandas_freq:
+                resolved_meta['frequency_short'] = pandas_freq
     
     if source is not None:
         # If source is provided, add it to the metadata
@@ -889,8 +976,8 @@ class Watchlist(dict):
     def load_watchlist_data(self, ask_input: bool = False):
         """load_watchlist_data method.
         This function loads the watchlist data from a .h5s database file. The data is stored in the 'watchlist_datasets' dictionary.
-        This can be run as an alternative to get_wtaclist_data, if the data has already been pulled and saved to a .h5s file."""
-
+        Or just drop a given data_name from the watchlist_datasets dictionary, watchlist and metadata dataframes."""
+        
         print("Database filepath: ", self.storepath)
         if self.storepath is not None and os.path.isfile(self.storepath):
             with pd.HDFStore(self.storepath, mode='a') as data:
