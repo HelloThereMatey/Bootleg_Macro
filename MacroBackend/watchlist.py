@@ -1100,7 +1100,8 @@ class Watchlist(dict):
                 self["watchlist_datasets"].pop(ticker)
             #print("Final index/columns watchlist/metadata: ", self["watchlist"].index, self["metadata"].columns)
 
-    def plot_watchlist(self, left: list, right: list, template: str = "plotly_white"):
+    def plot_watchlist(self, left: list, right: list, template: str = "plotly_white", title: str = None,
+                       left_axis_title: str = None, right_axis_title: str = None):
         """
         Plot selected datasets in this watchlist on a dual-axis chart.
 
@@ -1152,8 +1153,22 @@ class Watchlist(dict):
             print("Nothing to plot. Check the ids provided.")
             return None
 
-        title = self.name if hasattr(self, "name") and self.name else "Watchlist Plot"
-        fig = charting_plotly.dual_axis_basic_plot(primary_data, secondary_data=secondary_data, title=title, template=template)
+        if title is None:
+            title = self.name if hasattr(self, "name") and self.name else "Watchlist Plot"
+
+        if left_axis_title is None:
+            if not pd.isna(self["metadata"].loc["units", left_ids[0]]):
+                left_axis_title = self["metadata"].loc["units", left_ids[0]]
+            else:
+                left_axis_title = "Primary Axis"
+        if right_axis_title is None:
+            if not pd.isna(self["metadata"].loc["units", right_ids[0]]):
+                right_axis_title = self["metadata"].loc["units", right_ids[0]]
+            else:
+                right_axis_title = "Secondary Axis"
+
+        fig = charting_plotly.dual_axis_basic_plot(primary_data, secondary_data=secondary_data, title=title, template=template,
+                                                    primary_yaxis_title=left_axis_title, secondary_yaxis_title=right_axis_title)
         return fig
     
 
