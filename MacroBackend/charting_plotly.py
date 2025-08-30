@@ -512,16 +512,21 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
         width=width,
         height=height,
         hovermode="x unified",
+        # Horizontal, multi-column legend centered under the x-axis.
+        # Note: 'ncols' is available in recent Plotly versions; if your Plotly
+        # doesn't support 'ncols' the legend will still be horizontal and centered.
         legend=dict(
             orientation="h",
-            yanchor="top",
-            y=-0.15,  # Position below x-axis
-            xanchor="center",
             x=0.5,
-            bgcolor='rgba(255, 255, 255, 0)',
-            bordercolor='rgba(255, 255, 255, 0)'
+            y=-0.22,               # push legend below x-axis
+            xanchor="center",
+            yanchor="top",
+            bgcolor="rgba(255,255,255,0)",
+            bordercolor="rgba(255,255,255,0)",
+            ncols=3
         ),
-        margin=dict(l=50, r=50, t=40, b=80),  # Extra bottom margin for legend
+        # Increase bottom margin to make room for the 3-column legend
+        margin=dict(l=50, r=50, t=40, b=110),
         font={"family": "Arial, sans-serif", "size": 14, "color": "black"}
     )
     
