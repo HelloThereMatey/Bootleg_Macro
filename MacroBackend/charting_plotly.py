@@ -523,7 +523,7 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
             yanchor="top",
             bgcolor="rgba(255,255,255,0)",
             bordercolor="rgba(255,255,255,0)",
-            ncols=3
+            #ncols=3
         ),
         # Increase bottom margin to make room for the 3-column legend
         margin=dict(l=50, r=50, t=40, b=110),
