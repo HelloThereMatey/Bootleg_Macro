@@ -1006,13 +1006,19 @@ class Watchlist(dict):
             #print("Final index/columns watchlist/metadata: ", self["watchlist"].index, self["metadata"].columns)
 
     def plot_watchlist(self, left: list, right: list, template: str = "plotly_white", title: str = None,
-                       left_axis_title: str = None, right_axis_title: str = None):
+                       left_axis_title: str = None, right_axis_title: str = None, other_series: dict = None,  x_start_date: str = None):
         """
         Plot selected datasets in this watchlist on a dual-axis chart.
 
         Parameters:
         - left: list of ids (strings) to plot on the left axis (primary)
         - right: list of ids (strings) to plot on the right axis (secondary)
+        - template: str, default "plotly_white" - Plotly template to use
+        - title: str, default None - Title for the plot
+        - left_axis_title: str, default None - Title for the left axis
+        - right_axis_title: str, default None - Title for the right axis
+        - other_series: dict, default None - Additional series to plot, e.g., {"left": pd.Series, "right": pd.Series}
+        - x_start_date: str, default None - Start date for the x-axis (e.g., "2020-01-01")
         """
         if not self.get("watchlist_datasets"):
             print("No datasets loaded. Use get_watchlist_data() or load_watchlist_data() first.")
@@ -1059,6 +1065,20 @@ class Watchlist(dict):
         primary_data = build_series_map(left_ids)
         secondary_data = build_series_map(right_ids)
 
+        # FIX: Add other_series to the plot
+        if other_series:
+            for axis, series in other_series.items():
+                if axis.lower() == "left":
+                    # Add to primary_data
+                    series_title = series.name if series.name else f"Other Left Series {len(primary_data) + 1}"
+                    primary_data[series_title] = series
+                elif axis.lower() == "right":
+                    # Add to secondary_data
+                    series_title = series.name if series.name else f"Other Right Series {len(secondary_data) + 1}"
+                    secondary_data[series_title] = series
+                else:
+                    print(f"Warning: Invalid axis '{axis}' in other_series. Use 'left' or 'right'.")
+
         if not primary_data and not secondary_data:
             print("Nothing to plot. Check the ids provided.")
             return None
@@ -1067,18 +1087,35 @@ class Watchlist(dict):
             title = self.name if hasattr(self, "name") and self.name else "Watchlist Plot"
 
         if left_axis_title is None:
-            if not pd.isna(self["metadata"].loc["units", left_ids[0]]):
+            if left_ids and not pd.isna(self["metadata"].loc["units", left_ids[0]]):
                 left_axis_title = self["metadata"].loc["units", left_ids[0]]
             else:
                 left_axis_title = "Primary Axis"
         if right_axis_title is None:
-            if not pd.isna(self["metadata"].loc["units", right_ids[0]]):
+            if right_ids and not pd.isna(self["metadata"].loc["units", right_ids[0]]):
                 right_axis_title = self["metadata"].loc["units", right_ids[0]]
             else:
                 right_axis_title = "Secondary Axis"
 
+        # FIX: Slice series from x_start_date if provided
+        if x_start_date:
+            try:
+                start_dt = pd.to_datetime(x_start_date)
+                # Slice primary_data series
+                for title, series in primary_data.items():
+                    if isinstance(series.index, pd.DatetimeIndex):
+                        primary_data[title] = series.loc[start_dt:]
+                # Slice secondary_data series
+                for title, series in secondary_data.items():
+                    if isinstance(series.index, pd.DatetimeIndex):
+                        secondary_data[title] = series.loc[start_dt:]
+                print(f"Sliced all series to start from: {x_start_date}")
+            except Exception as e:
+                print(f"Warning: Could not parse x_start_date '{x_start_date}' for slicing: {e}")
+
         fig = charting_plotly.dual_axis_basic_plot(primary_data, secondary_data=secondary_data, title=title, template=template,
                                                     primary_yaxis_title=left_axis_title, secondary_yaxis_title=right_axis_title)
+        
         
         fig.add_annotation(
             text="Source: " + source_str,  # Your custom text
