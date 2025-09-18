@@ -241,6 +241,9 @@ FIELD_ALIASES = {
 # Add the alias mapping as a class attribute
 CommonMetadata.field_aliases = FIELD_ALIASES
 
+# Add canonical metadata index after FIELD_ALIASES is defined
+METADATA_INDEX = list(FIELD_ALIASES.keys())
+
 # Update the class methods
 @classmethod
 def _resolve_field_value(cls, raw_meta: dict, field_name: str):
@@ -462,6 +465,8 @@ class Watchlist(dict):
         if len(filepath) > 0:
             try:
                 self['metadata'] = pd.read_excel(filepath, index_col=0, sheet_name="all_metadata")
+                # Normalize metadata index to canonical CommonMetadata fields
+                self['metadata'] = self['metadata'].reindex(METADATA_INDEX)
                 print("The metadata before processing: ", self['metadata'])
                 
                 # # Ensure all columns are object dtype for consistency
@@ -766,6 +771,10 @@ class Watchlist(dict):
                     # FIX: Update or add the common metadata column instead of always concatenating
                     common_series = common.to_series()
                     common_series.name = eyed  # Ensure proper column name
+
+                    # Ensure common_series only contains canonical metadata rows before concatenation
+                    common_series = common_series.reindex(METADATA_INDEX)
+
                     if eyed in meta.columns:
                         # Update existing column
                         meta[eyed] = common_series
@@ -804,6 +813,8 @@ class Watchlist(dict):
             # Create the dictionary if it doesn't exist
             self["watchlist_datasets"] = data
 
+        # Before assigning back to self['metadata'], ensure canonical index (drops stray rows)
+        meta = meta.reindex(METADATA_INDEX)
         self["metadata"] = meta  # Update the metadata DataFrame with the new data
         print(f"Final metadata shape: {meta.shape}")
         print(f"Final metadata columns: {meta.columns.tolist()}")
@@ -948,6 +959,8 @@ class Watchlist(dict):
             self["metadata"].drop(metadata["id"], axis=1, inplace=True)
             
         self["metadata"] = pd.concat([self["metadata"], metadata], axis = 1)
+        # Ensure metadata index conforms to CommonMetadata model
+        self["metadata"] = self["metadata"].reindex(METADATA_INDEX)
         print("Dataset ", metadata['title'], f"inserted into your {self.name} watchlist.")
 
     def add_series_from_SavedData(self, seriesName: str):
@@ -1003,10 +1016,36 @@ class Watchlist(dict):
             
             for ticker in tickers_to_remove:
                 self["watchlist_datasets"].pop(ticker)
-            #print("Final index/columns watchlist/metadata: ", self["watchlist"].index, self["metadata"].columns)
+    def rename_series(self, renamer_dict: dict):
+        """
+        Batch rename series titles using a dict {id: new_name}.
+        Minimal logic: set watchlist.title and metadata['title'] entries; exceptions per-item are ignored.
+        """
+        if "title" not in self["watchlist"].columns:
+            self["watchlist"]["title"] = ""
+            self["watchlist"]["title"] = self["watchlist"]["title"].astype('object')
 
-    def plot_watchlist(self, left: list, right: list, template: str = "plotly_white", title: str = None,
-                       left_axis_title: str = None, right_axis_title: str = None, other_series: dict = None,  x_start_date: str = None):
+        for sid, newn in (renamer_dict or {}).items():
+            try:
+                self["watchlist"].loc[sid, "title"] = str(newn)
+                # ensure metadata has the column and a 'title' row
+                if sid not in self["metadata"].columns:
+                    self["metadata"][sid] = np.nan
+                if "title" not in self["metadata"].index:
+                    self["metadata"].loc["title"] = np.nan
+                self["metadata"].loc["title", sid] = str(newn)
+            except Exception:
+                print(f"Could not rename series {sid} to {newn}, check if the id exists in the watchlist.")
+                # ignore errors for individual items and continue
+                continue
+
+        # Normalize metadata index to canonical CommonMetadata fields after batch rename
+        self["metadata"] = self["metadata"].reindex(METADATA_INDEX)
+
+    def plot_watchlist(self, left: list, right: list, template: str = "seaborn", plot_title: str = None,
+                       left_axis_title: str = None, right_axis_title: str = None, other_series: dict = None, x_start_date: str = None,
+                       margin: dict = None, figsize: tuple = (12,6), dpi: int = 110, width: int = None, height: int = None,
+                       plotly_kwargs: dict = None):
         """
         Plot selected datasets in this watchlist on a dual-axis chart.
 
@@ -1014,12 +1053,18 @@ class Watchlist(dict):
         - left: list of ids (strings) to plot on the left axis (primary)
         - right: list of ids (strings) to plot on the right axis (secondary)
         - template: str, default "plotly_white" - Plotly template to use
-        - title: str, default None - Title for the plot
+        - plot_title: str, default None - Title for the plot (renamed from 'title' to avoid shadowing)
         - left_axis_title: str, default None - Title for the left axis
         - right_axis_title: str, default None - Title for the right axis
-        - other_series: dict, default None - Additional series to plot, e.g., {"left": pd.Series, "right": pd.Series}
+        - other_series: dict, default None - Additional series to plot. Format: {"left": pd.Series or [pd.Series, ...], "right": pd.Series or [pd.Series, ...]}
         - x_start_date: str, default None - Start date for the x-axis (e.g., "2020-01-01")
+        - margin: dict, default None - Margin configuration, e.g., {"t": 50, "b": 50, "l": 50, "r": 50}
+        - figsize: tuple (width_in_inches, height_in_inches). Converted to pixels by dpi.
+        - dpi: int, dots-per-inch used to convert figsize into pixels (default 96).
+        - width, height: ints in pixels. If provided these override figsize conversion.
+        - plotly_kwargs: dict, optional - Arbitrary keyword args passed to fig.update_layout (e.g. {'width':1200, 'height':700, 'margin': {...}, 'legend': {...}})
         """
+
         if not self.get("watchlist_datasets"):
             print("No datasets loaded. Use get_watchlist_data() or load_watchlist_data() first.")
             return None
@@ -1050,12 +1095,12 @@ class Watchlist(dict):
                     continue
                 # Title from watchlist, fallback to id
                 try:
-                    title = self["watchlist"].loc[did, "title"]
-                    if pd.isna(title) or title is None or title == "":
-                        title = did
+                    series_title = self["watchlist"].loc[did, "title"]
+                    if pd.isna(series_title) or series_title is None or series_title == "":
+                        series_title = did
                 except Exception:
-                    title = did
-                out[str(title)] = ser
+                    series_title = did
+                out[str(series_title)] = ser
             return out
 
         # De-duplicate ids if any appear in both lists (prefer right axis)
@@ -1065,26 +1110,47 @@ class Watchlist(dict):
         primary_data = build_series_map(left_ids)
         secondary_data = build_series_map(right_ids)
 
-        # FIX: Add other_series to the plot
+        # Enhanced other_series handling to support lists of series
         if other_series:
-            for axis, series in other_series.items():
-                if axis.lower() == "left":
-                    # Add to primary_data
-                    series_title = series.name if series.name else f"Other Left Series {len(primary_data) + 1}"
-                    primary_data[series_title] = series
-                elif axis.lower() == "right":
-                    # Add to secondary_data
-                    series_title = series.name if series.name else f"Other Right Series {len(secondary_data) + 1}"
-                    secondary_data[series_title] = series
-                else:
+            for axis, series_data in other_series.items():
+                if axis.lower() not in ["left", "right"]:
                     print(f"Warning: Invalid axis '{axis}' in other_series. Use 'left' or 'right'.")
+                    continue
+                
+                # Determine target data dict
+                target_data = primary_data if axis.lower() == "left" else secondary_data
+                
+                # Handle both single series and lists of series
+                series_list = series_data if isinstance(series_data, list) else [series_data]
+                
+                for i, series in enumerate(series_list):
+                    if not isinstance(series, (pd.Series, pd.Index)):
+                        print(f"Warning: Item {i} in other_series['{axis}'] is not a pandas Series. Skipping.")
+                        continue
+                    
+                    # Determine series title/legend name
+                    if hasattr(series, 'name') and series.name is not None and series.name != "":
+                        series_title = str(series.name)
+                    else:
+                        # Create a fallback name based on axis and position
+                        axis_name = "Left" if axis.lower() == "left" else "Right"
+                        series_title = f"Other {axis_name} Series {len(target_data) + 1}"
+                    
+                    # Ensure unique title if there are duplicates
+                    original_title = series_title
+                    counter = 1
+                    while series_title in target_data:
+                        series_title = f"{original_title} ({counter})"
+                        counter += 1
+                    
+                    target_data[series_title] = series
 
         if not primary_data and not secondary_data:
             print("Nothing to plot. Check the ids provided.")
             return None
 
-        if title is None:
-            title = self.name if hasattr(self, "name") and self.name else "Watchlist Plot"
+        if plot_title is None:
+            plot_title = self.name if hasattr(self, "name") and self.name else "Watchlist Plot"
 
         if left_axis_title is None:
             if left_ids and not pd.isna(self["metadata"].loc["units", left_ids[0]]):
@@ -1113,14 +1179,60 @@ class Watchlist(dict):
             except Exception as e:
                 print(f"Warning: Could not parse x_start_date '{x_start_date}' for slicing: {e}")
 
-        fig = charting_plotly.dual_axis_basic_plot(primary_data, secondary_data=secondary_data, title=title, template=template,
+        # Set default margins if not provided
+        if margin is None:
+            margin = {"t": 60, "b": 40, "l": 70, "r": 10}  # Reduced bottom margin
+
+        fig = charting_plotly.dual_axis_basic_plot(primary_data, secondary_data=secondary_data, title=plot_title, template=template,
                                                     primary_yaxis_title=left_axis_title, secondary_yaxis_title=right_axis_title)
         
+        # Compute layout width/height (pixels) with precedence:
+        # 1) explicit width/height args (pixels)
+        # 2) figsize (inches) converted by dpi
+        layout_kwargs = {}
+        if width is not None:
+            try:
+                layout_kwargs['width'] = int(width)
+            except Exception:
+                pass
+        if height is not None:
+            try:
+                layout_kwargs['height'] = int(height)
+            except Exception:
+                pass
+
+        if ('width' not in layout_kwargs or 'height' not in layout_kwargs) and figsize is not None:
+            try:
+                w_in, h_in = figsize
+                # Only set those not already provided explicitly
+                if 'width' not in layout_kwargs:
+                    layout_kwargs['width'] = int(w_in * dpi)
+                if 'height' not in layout_kwargs:
+                    layout_kwargs['height'] = int(h_in * dpi)
+            except Exception:
+                # invalid figsize tuple -> ignore
+                pass
+
+        # Default layout dict (margin + legend); user can override via plotly_kwargs
+        default_layout = dict(margin=margin,
+                              legend=dict(orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5))
+        # Merge computed width/height into default layout
+        default_layout.update(layout_kwargs)
+
+        # If user passed plotly_kwargs, merge them so user values override defaults
+        if isinstance(plotly_kwargs, dict):
+            merged_layout = {**default_layout, **plotly_kwargs}
+        else:
+            merged_layout = default_layout
+
+        # Apply merged layout to figure
+        fig.update_layout(**merged_layout)
         
+        # Add annotation for data source
         fig.add_annotation(
             text="Source: " + source_str,  # Your custom text
             xref="paper", yref="paper",  # Relative to the entire figure
-            x=-0.05, y=- 0.16,  # Bottom left position (adjust if needed)
+            x=0.0, y=-0.14,  # Bottom left position (adjust if needed)
             font=dict(size=12, color="black"),  # Small font, black color
             showarrow=False, 
             align="left",  # Left-align text
@@ -1137,3 +1249,5 @@ if __name__ == "__main__":
     watchlist = Watchlist()
     watchlist.load_watchlist()
     print(watchlist["watchlist"])
+    print(watchlist["watchlist"])
+
