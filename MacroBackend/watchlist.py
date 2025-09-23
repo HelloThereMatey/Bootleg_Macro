@@ -515,50 +515,13 @@ class Watchlist(dict):
             self["watchlist"]["id"] = self["watchlist"].index.copy()
 
         # ENHANCED DEBUG: Check after index manipulation
-        print(f"=== AFTER INDEX MANIPULATION ===")
-        print(f"Watchlist shape: {self['watchlist'].shape}")
-        print(f"Source non-null count: {self['watchlist']['source'].notna().sum()}")
-        print(f"Source null count: {self['watchlist']['source'].isna().sum()}")
+        #drop any duplicates present
+        self.drop_data(drop_duplicates=True)
 
         current_index = self['watchlist'].index.tolist()
         meta_columns = self['metadata'].columns.tolist()
         print("Current watchlist index before any processing: ", current_index[:10])  # Show first 10
         print(f"Loaded watchlist shape: {self['watchlist'].shape}")
-
-        # # Check if corresponding .h5s file exists and restore original keys if needed
-        # if os.path.isfile(self.storepath):
-        #     try:
-        #         with pd.HDFStore(self.storepath, mode='r') as store:
-        #             # Load key mapping if it exists
-        #             if '/_key_mapping' in store.keys():
-        #                 mapping_series = store['_key_mapping']
-        #                 key_mapping = mapping_series.to_dict()
-        #                 print(f"Loaded key mapping from HDF5 file with {len(key_mapping)} entries")
-                        
-        #                 # FIXED: Don't add duplicate rows - the original Excel watchlist is the source of truth
-        #                 # The HDF5 key mapping should only be used for loading the dataset data, not modifying the watchlist
-        #                 # Only proceed if there are actual mismatches to avoid unnecessary alterations
-        #                 mismatches_found = False
-        #                 for idx in key_mapping.keys():  
-        #                     original_key = key_mapping[idx]
-        #                     if idx in meta_columns and original_key not in meta_columns:
-        #                         # Sanitized key in metadata, original not present - rename to original
-        #                         print(f"Renaming metadata column '{idx}' to '{original_key}' based on HDF5 mapping.")
-        #                         self["metadata"][original_key] = self["metadata"][idx]
-        #                         self["metadata"].drop(columns=[idx], axis=1, inplace=True)
-        #                         mismatches_found = True
-        #                     elif idx in meta_columns and original_key in meta_columns:
-        #                         # Both present - drop sanitized to avoid duplicates
-        #                         print(f"Dropping duplicate metadata column '{idx}' (original '{original_key}' exists).")
-        #                         self["metadata"].drop(columns=[idx], axis=1, inplace=True)
-        #                         mismatches_found = True
-        #                     # If original in metadata and sanitized not, do nothing (Excel is source of truth)
-                        
-        #                 if not mismatches_found:
-        #                     print("No metadata column mismatches found with HDF5 mapping. Skipping alterations.")
-                        
-        #     except Exception as e:
-        #         print(f"Could not load key mapping from HDF5 file: {e}")
 
         # ENHANCED DEBUG: Check after HDF5 processing
         print(f"=== AFTER HDF5 PROCESSING ===")
@@ -717,24 +680,24 @@ class Watchlist(dict):
             try:
                 ds = Pull_Data.dataset()
                 ds.get_data(sauce, eyed, start_date, exchange_code = exchag, timeout=timeout)
-                data[watchlist.loc[i,"id"]] = ds.data
+                data[str(i)] = ds.data  # <--- FIX HERE
                 series_meta = ds.SeriesInfo
                 ds_data = ds.data
 
-                print(f"Data pull successful for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}.")
+                print(f"Data pull successful for {eyed} from {sauce}.")
                 signal.alarm(0)  # Cancel the alarm
 
             except TimeoutError:
-                print(f"Timeout ({timeout}s) exceeded for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Skipping...")
-                data[watchlist.loc[i,"id"]] = pd.Series([f"Data pull timed out after {timeout} seconds.", "Timeout exceeded", 
-                                                        f"Source: {sauce}"], name="Timeout_"+watchlist.loc[i,"id"], index = [0, 1, 2])
+                print(f"Timeout ({timeout}s) exceeded for {eyed} from {sauce}. Skipping...")
+                data[str(i)] = pd.Series([f"Data pull timed out after {timeout} seconds.", "Timeout exceeded", 
+                                        f"Source: {sauce}"], name=f"Timeout_{eyed}", index=[0, 1, 2])  # <--- FIX HERE
                 signal.alarm(0)  # Cancel the alarm
                 continue  # Skip metadata processing for failed pulls
-        
+
             except Exception as e:
-                print(f"Error pulling data for {watchlist.loc[i,'id']} from {watchlist.loc[i,'source']}. Exception: {e}")
-                data[watchlist.loc[i,"id"]] = pd.Series(["Data pull failed for this series.", "Devo bro....",
-                                                        "Error messsage: "+str(e)], name="Error_"+watchlist.loc[i,"id"], index = [0, 1, 2])
+                print(f"Error pulling data for {eyed} from {sauce}. Exception: {e}")
+                data[str(i)] = pd.Series(["Data pull failed for this series.", "Devo bro....",
+                                        "Error messsage: "+str(e)], name=f"Error_{eyed}", index=[0, 1, 2])  # <--- FIX HERE
                 signal.alarm(0)  # Cancel the alarm
                 continue  # Skip metadata processing for failed pulls
 
@@ -1016,6 +979,7 @@ class Watchlist(dict):
             
             for ticker in tickers_to_remove:
                 self["watchlist_datasets"].pop(ticker)
+
     def rename_series(self, renamer_dict: dict):
         """
         Batch rename series titles using a dict {id: new_name}.
