@@ -8,6 +8,7 @@ import numpy as np
 from scipy.signal import argrelextrema
 from scipy.optimize import curve_fit
 import scipy.stats as stats
+from statsmodels.tsa.seasonal import STL
 
 import pandas as pd
 import matplotlib as mpl
@@ -755,6 +756,42 @@ def get_peak_locs(data_series: pd.Series, yscale: str = 'log', ylabel: str = "Bi
         peak_locs = final_locs(data_series, x_locs)
 
     return peak_locs
+
+## Seasonal adjustment function using STL decomposition from statsmodels...
+def seasonal_adjust(series: pd.Series, period: int = None, robust: bool = True) -> pd.Series:
+    """
+    Returns a seasonally adjusted version of the input time series using STL decomposition.
+
+    Parameters:
+        series (pd.Series): The time series to adjust.
+        period (int, optional): The number of periods in a seasonal cycle (e.g., 12 for monthly data).
+        robust (bool): Use robust fitting to handle outliers.
+
+    Returns:
+        pd.Series: Seasonally adjusted series (trend + residual).
+    """
+    if period is None:
+        # Try to infer period from frequency
+        inferred = pd.infer_freq(series.index)
+        if inferred == 'M':
+            period = 12
+        elif inferred == 'Q':
+            period = 4
+        elif inferred == 'W':
+            period = 52
+        else:
+            raise ValueError("Please specify the seasonal period for your data.")
+    stl = STL(series, period=period, robust=robust)
+    res = stl.fit()
+    return res.trend + res.resid  # Seasonally adjusted series
+
+def plot_decomposition(series: pd.Series, period: int = None, robust: bool = True):
+    """Quick plot of STL decomposition components."""
+    import matplotlib.pyplot as plt
+    stl = STL(series, period=period, robust=robust)
+    res = stl.fit()
+    res.plot()
+    plt.show()
 
 if __name__ == '__main__':
     data = pd.Series(pd.read_excel(parent+fdel+'Macro_Chartist/SavedData/CPIAUCSL.xlsx', sheet_name="Closing_Price", index_col=0).squeeze())
