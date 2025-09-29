@@ -26,12 +26,13 @@ abs_path = grampa+fdel+"User_Data"+fdel+"ABS"+fdel+"LastPull"
 # Default input for the R script, here we want series_ID for the ABS series,savePath,
 series_id = "A2302476C"
 
-def get_abs_series_r(series_id: str = "A2302476C", abs_path: str = abs_path) -> tuple[pd.Series, pd.Series]:
+def abs_get_series(series_id: str = None, abs_path: str = abs_path):
+    """ USES R Script to use read_abs package to download a data table from ABS & save to an excel file"""
     input_string = series_id + "," + abs_path
 
     # Run the R script
     process = subprocess.run([r_executable_path, r_script_path, input_string],
-                             capture_output=True, text=True)
+                            capture_output=True, text=True)
 
     # Capture the output (now the full file path)
     output = process.stdout.strip()
@@ -43,7 +44,14 @@ def get_abs_series_r(series_id: str = "A2302476C", abs_path: str = abs_path) -> 
 
     # Use the full file path directly (no need for table_name or regex)
     excel_file_path = output
+    print(f"Data table containing series id {series_id} downloaded and saved to: \n{excel_file_path}")
+    return excel_file_path
 
+def get_abs_series_r(excel_file_path: str = None, series_id: str = "A2302476C") -> tuple[pd.Series, pd.Series]:
+    """ USES R Script to use read_abs package to download a data table from ABS & save to an excel file"""
+
+    if excel_file_path is None and series_id is not None: 
+        excel_file_path = abs_get_series(series_id = series_id)
     # Verify the file exists
     if not os.path.isfile(excel_file_path):
         raise FileNotFoundError(f"Excel file not found at: {excel_file_path}")
@@ -83,7 +91,27 @@ def get_abs_series_r(series_id: str = "A2302476C", abs_path: str = abs_path) -> 
     series = data.iloc[:, column_index]
 
     # When copying the file, use the full path
-    shutil.copy(excel_file_path, grampa + fdel + "User_Data" + fdel + "ABS" + fdel + "Full_Sheets" + fdel + os.path.basename(excel_file_path))
+    # Ensure destination folder exists and avoid copying if source and destination are identical
+    try:
+        dest_dir = os.path.join(grampa, "User_Data", "ABS", "Full_Sheets")
+        os.makedirs(dest_dir, exist_ok=True)
+        dest_path = os.path.join(dest_dir, os.path.basename(excel_file_path))
+
+        # If source and destination are the same file, skip copy to avoid shutil.SameFileError
+        if os.path.abspath(excel_file_path) == os.path.abspath(dest_path):
+            print(f"Source file is already in Full_Sheets ({dest_path}); skipping copy.")
+        else:
+            try:
+                shutil.copy2(excel_file_path, dest_path)
+                print(f"Copied file to Full_Sheets: {dest_path}")
+            except shutil.SameFileError:
+                # Defensive: should be handled by path check above, but catch just in case
+                print("Source and destination are the same file; skipping copy.")
+            except Exception as e:
+                print(f"Warning: could not copy file to Full_Sheets: {e}")
+    except Exception as e:
+        print(f"Warning: error preparing Full_Sheets copy: {e}")
+    
     # NEW: Clean up the "LastPull" directory - delete all files except the current one
     try:
         last_pull_dir = abs_path  # This is the "LastPull" directory
@@ -189,4 +217,9 @@ def get_rba_series_r(series_id: str = "FIRMMCRTD", rba_path: str = grampa+fdel+"
 if __name__ == "__main__":
     search = get_rba_series_r()
     print(search)
+
+    arrivals = get_abs_series_r(excel_file_path="/Users/jamesbishop/Documents/Python/Bootleg_Macro/User_Data/ABS/Full_Sheets/340101.xlsx",
+                                                                     series_id = 'A85232568L')
+    
+    print(arrivals)
 

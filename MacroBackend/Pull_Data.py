@@ -62,8 +62,8 @@ class dataset(object):
                                     'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
                                     'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'rba_series', 
                                     'saveddata', "hdfstores", "tedata"]
-        self.added_sources = ['fred', 'yfinance', 'yfinance2', "yahoo_financials", 'tv', 'coingecko', 'quandl', 'glassnode', 'abs_series', 'abs_tables', 'bea', 'rba_tables', 'rba_series', 
-                              'saveddata', "hdfstores", "tedata"]
+        self.added_sources = ['fred', 'yfinance', 'yfinance2', "yahoo_financials", 'tv', 'coingecko', 'quandl', 'glassnode', 'abs_series', 
+                              'abs_tables', 'bea', 'rba_tables', 'rba_series', 'saveddata', "hdfstores", "tedata"]
 
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
         self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
@@ -147,7 +147,7 @@ class dataset(object):
             if self.exchange_code is None:
                 try:
                     split = self.data_code.split(',', maxsplit=1)   #Data codes for tv are input in the format: DATA_CODE,EXCHANGE_CODE
-                    self.data_code = split[0]; self.exchange_code = split[1]
+                    self.data_code = split[0].strip(); self.exchange_code = split[1].strip()
                 except:
                     print("You need to provide the exchange code for the data code you want to pull from TV. Try again.")
                     return None
@@ -223,7 +223,16 @@ class dataset(object):
             return None
 
         elif self.source.lower() == 'abs_series'.lower():  
-            series, SeriesInfo = abs_series_by_r.get_abs_series_r(series_id = self.data_code)
+            abs_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"Full_Sheets"
+            #Data codes for abs_series are input in the format: series_id,excel_file_name, where excel_file_name is the name of
+            # an excel file downloaded from the ABS site that has an ABS data table and the series that comprise it with codes. 
+            # Supply id in the form of tuple like that in order to load an excel file from the Full_Sheets folder instead of getting data from ABS. 
+            split = self.data_code.split(',', maxsplit=1)
+            if len(split) > 1:
+                self.data_code = split[0].strip(); self.exchange_code = split[1].strip()  # assign table name (excel file name) to the pre-existing exchang_code pareameter
+                series, SeriesInfo = abs_series_by_r.get_abs_series_r(excel_file_path = abs_path+fdel+self.exchange_code+".xlsx", series_id = self.data_code)
+            else:
+                series, SeriesInfo = abs_series_by_r.get_abs_series_r(series_id = self.data_code)
             self.data = series
             self.SeriesInfo = SeriesInfo.astype('object')  # Ensure object dtype
             self.dataName = series.name
