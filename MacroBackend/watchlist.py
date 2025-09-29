@@ -653,19 +653,54 @@ class Watchlist(dict):
 
         #Then get the data....
         data = {}
+        # Build candidate ids from watchlist when id_list is not supplied
         if id_list is None:
-            # If no id_list is provided, use all ids in the watchlist
-            ids = watchlist["id"].to_list() if len(watchlist["id"]) > len(watchlist.index) else watchlist.index.to_list()
-            # can a column have a greater length than the index? Yes, if there are duplicate index values
+            if "id" in watchlist.columns:
+                ids = watchlist["id"].tolist()
+            else:
+                ids = watchlist.index.to_list()
         else:
-            ids = id_list
-      
-        for i in ids:
-            sauce = str(watchlist.loc[i, "source"]).strip()
+            # Use provided id_list (may contain index keys or values from the 'id' column)
+            ids = list(id_list)
+
+        # Normalize requested ids to actual watchlist index entries:
+        resolved_ids = []
+        missing_ids = []
+        for req in ids:
+            # If it already matches an index entry, keep it
+            if req in watchlist.index:
+                resolved_ids.append(req)
+                continue
+
+            # If it matches a value in the 'id' column, map to the corresponding index (take first match)
+            if "id" in watchlist.columns:
+                matches = watchlist.index[watchlist["id"].astype(str) == str(req)].tolist()
+                if matches:
+                    # If multiple rows match, we keep them all to preserve data
+                    resolved_ids.extend(matches)
+                    continue
+
+            # Not found: warn and skip
+            missing_ids.append(req)
+
+        if missing_ids:
+            print(f"Warning: the following requested ids were not found in watchlist index or 'id' column and will be skipped: {missing_ids}")
+
+        # Final list to iterate
+        ids_to_process = resolved_ids
+
+        for i in ids_to_process:
+            # Accessing watchlist row is now safe because i was resolved from the index
+            try:
+                sauce = str(watchlist.loc[i, "source"]).strip()
+            except KeyError:
+                print(f"Warning: index '{i}' not found in watchlist. Skipping.")
+                continue
+
             eyed = str(watchlist.loc[i, "id"]).strip()
             try:
                 exchag = str(meta.loc["exchange", i]).strip()
-            except:
+            except Exception:
                 exchag = None
             print(f"Attempting data pull for series id: {eyed}, from source: {sauce},\n start_date: {start_date}), exchange_code: {exchag}")
             
@@ -1212,6 +1247,5 @@ if __name__ == "__main__":
     # Example usage
     watchlist = Watchlist()
     watchlist.load_watchlist()
-    print(watchlist["watchlist"])
-    print(watchlist["watchlist"])
-
+    watchlist.get_watchlist_data(id_list = ["A85232558J", "A85232568L"])
+    watchlist.save_watchlist()

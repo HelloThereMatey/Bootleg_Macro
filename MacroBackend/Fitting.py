@@ -290,6 +290,7 @@ class stat_models_fit(object):
 
         *Parameters:*
         - data (pd.Series): The dataset to be tested. Must be a pandas Series.
+
         """
         if data is not None:
             data = data.copy().dropna().values
@@ -792,6 +793,87 @@ def plot_decomposition(series: pd.Series, period: int = None, robust: bool = Tru
     res = stl.fit()
     res.plot()
     plt.show()
+
+def x13_seasonal_adjust(series: pd.Series, freq: int = None) -> pd.Series:
+    """
+    Seasonally adjust a time series using X-13ARIMA-SEATS only.
+    
+    Parameters:
+    -----------
+    series : pd.Series
+        Time series data with datetime index to seasonally adjust
+    freq : int, optional  
+        Seasonal frequency (4 for quarterly, 12 for monthly). If None, attempts to infer from index
+    
+    Returns:
+    --------
+    pd.Series
+        Seasonally adjusted time series with same index as input, or original series if X-13 fails
+    
+    Notes:
+    ------
+    Requires X-13ARIMA-SEATS binary installed and on PATH.
+    Install via: conda install -c conda-forge x13as
+    """
+    
+    # Validate input
+    if not isinstance(series.index, pd.DatetimeIndex):
+        try:
+            series.index = pd.to_datetime(series.index)
+        except Exception:
+            print("Warning: Series must have a datetime-like index for seasonal adjustment. Returning original series.")
+            return series
+    
+    # Infer frequency if not provided
+    if freq is None:
+        print("No frequency provided, attempting to infer frequency of time-series...")
+        inferred_freq = pd.infer_freq(series.index)
+        if inferred_freq:
+            if 'M' in inferred_freq:
+                freq = 12  # Monthly
+            elif 'Q' in inferred_freq:  
+                freq = 4   # Quarterly
+            elif 'W' in inferred_freq:
+                freq = 52  # Weekly
+
+        if freq is not None:
+            print(f"Frequency inferred, will use: {freq}")
+        # Fallback frequency detection
+        if freq is None:
+            freq = 12 if len(series) > 24 else 4
+            print(f"Could not infer frequency, using default: {freq}")
+    
+    # Check X-13 availability
+    try:
+        from statsmodels.tsa.x13 import x13_arima_analysis
+    except ImportError:
+        print("X-13 not available. Install statsmodels and X-13 binary (conda install -c conda-forge x13as). Returning original series.")
+        return series
+    
+    # Attempt X-13 seasonal adjustment
+    try:
+        print(f"Attempting X-13ARIMA-SEATS seasonal adjustment (freq={freq})...")
+        result = x13_arima_analysis(series, freq=freq)
+        
+        # Extract seasonally adjusted series
+        if hasattr(result, 'seasadj'):
+            sa_series = result.seasadj
+        elif hasattr(result, 'series'):
+            sa_series = result.series  
+        else:
+            raise AttributeError("X-13 result missing expected seasonally adjusted series")
+        
+        # Ensure proper Series formatting
+        if not isinstance(sa_series, pd.Series):
+            sa_series = pd.Series(sa_series, index=series.index)
+        
+        sa_series = sa_series.rename(f"{series.name}_x13_seasadj" if series.name else "x13_seasadj")
+        print("X-13 seasonal adjustment completed successfully")
+        return sa_series
+        
+    except Exception as e:
+        print(f"X-13 seasonal adjustment failed: {e}. Returning original series.")
+        return series
 
 if __name__ == '__main__':
     data = pd.Series(pd.read_excel(parent+fdel+'Macro_Chartist/SavedData/CPIAUCSL.xlsx', sheet_name="Closing_Price", index_col=0).squeeze())
