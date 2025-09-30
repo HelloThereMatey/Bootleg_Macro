@@ -1043,8 +1043,8 @@ class Watchlist(dict):
 
     def plot_watchlist(self, left: list, right: list, template: str = "seaborn", plot_title: str = None,
                        left_axis_title: str = None, right_axis_title: str = None, other_series: dict = None, x_start_date: str = None,
-                       margin: dict = None, figsize: tuple = (12,6), dpi: int = 110, width: int = None, height: int = None,
-                       plotly_kwargs: dict = None):
+                       margin: dict = None, figsize: tuple = (12,6), dpi: int = 110, width: int = None, height: int = None, source_str: str = None,
+                       align_zeros: bool = False, plotly_kwargs: dict = None):
         """
         Plot selected datasets in this watchlist on a dual-axis chart.
 
@@ -1061,6 +1061,8 @@ class Watchlist(dict):
         - figsize: tuple (width_in_inches, height_in_inches). Converted to pixels by dpi.
         - dpi: int, dots-per-inch used to convert figsize into pixels (default 96).
         - width, height: ints in pixels. If provided these override figsize conversion.
+        - source_str: str, default None - Override source string for annotation
+        - align_zeros: bool, default False - Align zero positions of left and right y-axes
         - plotly_kwargs: dict, optional - Arbitrary keyword args passed to fig.update_layout (e.g. {'width':1200, 'height':700, 'margin': {...}, 'legend': {...}})
         """
 
@@ -1072,7 +1074,8 @@ class Watchlist(dict):
         charted = self['watchlist'].loc[full_list]
         sources = charted["source"].unique()
         # Build a string of source labels for all unique sources in the chart
-        source_str = ", ".join([self.source_labels.get(s, str(s)) for s in sources])
+        if source_str is None:
+            source_str = ", ".join([self.source_labels.get(s, str(s)) for s in sources])
         # Helper to build dict[title] -> Series from a list of ids
         def build_series_map(ids: list) -> dict:
             out = {}
@@ -1185,6 +1188,67 @@ class Watchlist(dict):
         fig = charting_plotly.dual_axis_basic_plot(primary_data, secondary_data=secondary_data, title=plot_title, template=template,
                                                     primary_yaxis_title=left_axis_title, secondary_yaxis_title=right_axis_title)
         
+        # Add zero alignment if requested
+        if align_zeros and primary_data and secondary_data:
+            # Calculate data ranges for both axes
+            left_values = []
+            right_values = []
+            
+            for series in primary_data.values():
+                left_values.extend(series.dropna().values)
+            for series in secondary_data.values():
+                right_values.extend(series.dropna().values)
+            
+            if left_values and right_values:
+                left_min, left_max = min(left_values), max(left_values)
+                right_min, right_max = min(right_values), max(right_values)
+                
+                # Skip alignment if either axis doesn't cross zero
+                if (left_min >= 0 or left_max <= 0) and (right_min >= 0 or right_max <= 0):
+                    print("Zero alignment skipped: neither axis crosses zero")
+                elif left_min >= 0 or left_max <= 0:
+                    print("Zero alignment skipped: left axis doesn't cross zero")
+                elif right_min >= 0 or right_max <= 0:
+                    print("Zero alignment skipped: right axis doesn't cross zero")
+                else:
+                    # Both axes cross zero - proceed with alignment
+                    # Calculate the proportion of negative vs positive range for each axis
+                    left_negative_range = abs(left_min)
+                    left_positive_range = left_max
+                    
+                    right_negative_range = abs(right_min)
+                    right_positive_range = right_max
+                    
+                    # Calculate zero position as fraction from bottom (0=bottom, 1=top)
+                    left_zero_position = left_negative_range / (left_negative_range + left_positive_range)
+                    right_zero_position = right_negative_range / (right_negative_range + right_positive_range)
+                    
+                    print(f"Left zero position: {left_zero_position:.3f}, Right zero position: {right_zero_position:.3f}")
+                    
+                    # Align by adjusting ranges to match the larger zero fraction
+                    if abs(left_zero_position - right_zero_position) > 0.01:  # Only adjust if difference is meaningful
+                        target_zero_position = max(left_zero_position, right_zero_position)
+                        
+                        if left_zero_position < target_zero_position:
+                            # Expand left axis negative range to match target zero position
+                            # target_zero_position = new_negative_range / (new_negative_range + left_positive_range)
+                            # Solving for new_negative_range:
+                            new_left_negative = (target_zero_position * left_positive_range) / (1 - target_zero_position)
+                            new_left_min = -new_left_negative
+                            fig.update_layout(yaxis=dict(range=[new_left_min, left_max]))
+                            print(f"Adjusted left axis range: [{new_left_min:.2f}, {left_max:.2f}]")
+                            print(f"New left zero position: {new_left_negative / (new_left_negative + left_positive_range):.3f}")
+                        
+                        if right_zero_position < target_zero_position:
+                            # Expand right axis negative range to match target zero position
+                            new_right_negative = (target_zero_position * right_positive_range) / (1 - target_zero_position)
+                            new_right_min = -new_right_negative
+                            fig.update_layout(yaxis2=dict(range=[new_right_min, right_max]))
+                            print(f"Adjusted right axis range: [{new_right_min:.2f}, {right_max:.2f}]")
+                            print(f"New right zero position: {new_right_negative / (new_right_negative + right_positive_range):.3f}")
+                    else:
+                        print("Zero positions are already well-aligned")
+
         # Compute layout width/height (pixels) with precedence:
         # 1) explicit width/height args (pixels)
         # 2) figsize (inches) converted by dpi
@@ -1217,6 +1281,13 @@ class Watchlist(dict):
                               legend=dict(orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5))
         # Merge computed width/height into default layout
         default_layout.update(layout_kwargs)
+
+        # Add zero line styling if align_zeros is True
+        if align_zeros:
+            default_layout.update({
+                'yaxis': {**default_layout.get('yaxis', {}), 'zeroline': True, 'zerolinecolor': 'gray', 'zerolinewidth': 1},
+                'yaxis2': {**default_layout.get('yaxis2', {}), 'zeroline': True, 'zerolinecolor': 'gray', 'zerolinewidth': 1}
+            })
 
         # If user passed plotly_kwargs, merge them so user values override defaults
         if isinstance(plotly_kwargs, dict):
