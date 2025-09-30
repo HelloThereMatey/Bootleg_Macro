@@ -29,6 +29,7 @@
 /User_Data/SavedData/*
 /User_Data/Watchlists/*
 !/User_Data/Watchlists/aus_econ
+!/User_Data/Watchlists/aus_pop
 /User_Data/Research_notebooks/*
 /User_Data/Chartist/*
 !/User_Data/Chartist/EquityIndexes/EquityIndexes.xlsm
