@@ -8,7 +8,6 @@ grampa = os.path.dirname(parent); ancestor = os.path.dirname(grampa)
 fdel = os.path.sep
 sys.path.append(parent)
 from beaapiloc import update_metadata, api_request
-import beaapi
 
 
 def search_metadata(search_term: str, userid: str = None,
