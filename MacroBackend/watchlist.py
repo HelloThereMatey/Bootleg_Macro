@@ -1,7 +1,7 @@
 import os
 import sys
 import time
-import signal
+import threading
 from typing import Union
 import pandas as pd
 import numpy as np
@@ -626,9 +626,6 @@ class Watchlist(dict):
     class TimeoutError(Exception):
         pass
 
-    def timeout_handler(signum, frame):
-        raise TimeoutError("Data pull timed out")
-
     def get_watchlist_data(self, start_date: str = "1600-01-01", id_list: list = None, timeout: int = 60):
         """
         get_watchlist_data method.
@@ -704,37 +701,44 @@ class Watchlist(dict):
                 exchag = None
             print(f"Attempting data pull for series id: {eyed}, from source: {sauce},\n start_date: {start_date}), exchange_code: {exchag}")
             
-            # Set up timeout for this data pull
-            signal.signal(signal.SIGALRM, self.timeout_handler)
-            signal.alarm(timeout)
-            
             # Initialize variables for this iteration
             series_meta = None
             ds_data = None
             
-            try:
-                ds = Pull_Data.dataset()
-                ds.get_data(sauce, eyed, start_date, exchange_code = exchag, timeout=timeout)
-                data[str(i)] = ds.data  # <--- FIX HERE
-                series_meta = ds.SeriesInfo
-                ds_data = ds.data
-
-                print(f"Data pull successful for {eyed} from {sauce}.")
-                signal.alarm(0)  # Cancel the alarm
-
-            except TimeoutError:
+            # Windows-compatible timeout using threading
+            def pull_data_with_timeout():
+                nonlocal series_meta, ds_data
+                try:
+                    ds = Pull_Data.dataset()
+                    ds.get_data(sauce, eyed, start_date, exchange_code=exchag, timeout=timeout)
+                    ds_data = ds.data
+                    series_meta = ds.SeriesInfo
+                    return True
+                except Exception as e:
+                    print(f"Error in data pull thread for {eyed}: {e}")
+                    return False
+            
+            # Create and start thread
+            thread = threading.Thread(target=pull_data_with_timeout)
+            thread.daemon = True
+            thread.start()
+            thread.join(timeout=timeout)
+            
+            if thread.is_alive():
                 print(f"Timeout ({timeout}s) exceeded for {eyed} from {sauce}. Skipping...")
                 data[str(i)] = pd.Series([f"Data pull timed out after {timeout} seconds.", "Timeout exceeded", 
-                                        f"Source: {sauce}"], name=f"Timeout_{eyed}", index=[0, 1, 2])  # <--- FIX HERE
-                signal.alarm(0)  # Cancel the alarm
+                                        f"Source: {sauce}"], name=f"Timeout_{eyed}", index=[0, 1, 2])
                 continue  # Skip metadata processing for failed pulls
-
-            except Exception as e:
-                print(f"Error pulling data for {eyed} from {sauce}. Exception: {e}")
-                data[str(i)] = pd.Series(["Data pull failed for this series.", "Devo bro....",
-                                        "Error messsage: "+str(e)], name=f"Error_{eyed}", index=[0, 1, 2])  # <--- FIX HERE
-                signal.alarm(0)  # Cancel the alarm
+            
+            if ds_data is None:
+                print(f"Data pull failed for {eyed} from {sauce}.")
+                data[str(i)] = pd.Series(["Data pull failed for this series.", "Devo bro....", 
+                                        "Check the error messages above"], name=f"Error_{eyed}", index=[0, 1, 2])
                 continue  # Skip metadata processing for failed pulls
+            
+            # Data pull was successful
+            data[str(i)] = ds_data
+            print(f"Data pull successful for {eyed} from {sauce}.")
 
             # Process metadata only if data pull was successful
             if series_meta is not None and ds_data is not None:
