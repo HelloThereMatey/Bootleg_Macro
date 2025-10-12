@@ -6,6 +6,7 @@ from typing import Union
 import pandas as pd
 import numpy as np
 import re
+import base64
 import gc
 
 # Path helpers (used by defaults in the class)
@@ -1048,7 +1049,9 @@ class Watchlist(dict):
     def plot_watchlist(self, left: list, right: list, template: str = "seaborn", plot_title: str = None,
                        left_axis_title: str = None, right_axis_title: str = None, other_series: dict = None, x_start_date: str = None,
                        margin: dict = None, figsize: tuple = (12,6), dpi: int = 110, width: int = None, height: int = None, source_str: str = None,
-                       align_zeros: bool = False, plotly_kwargs: dict = None):
+                       align_zeros: bool = False, plotly_kwargs: dict = None,
+                       # logo options: path to image file (PNG/JPG). If provided, will inset bottom-right.
+                       logo_path: str = None, logo_size: float = 0.12, logo_opacity: float = 1.0, logo_x_offset: int = 8, logo_y_offset: int = 6):
         """
         Plot selected datasets in this watchlist on a dual-axis chart.
 
@@ -1068,6 +1071,11 @@ class Watchlist(dict):
         - source_str: str, default None - Override source string for annotation
         - align_zeros: bool, default False - Align zero positions of left and right y-axes
         - plotly_kwargs: dict, optional - Arbitrary keyword args passed to fig.update_layout (e.g. {'width':1200, 'height':700, 'margin': {...}, 'legend': {...}})
+        - logo_path: str, default None - Path to a logo image file (PNG/JPG) to inset in the bottom-right corner
+        - logo_size: float, default 0.12 - Relative size of the logo (0 < logo_size <= 1)
+        - logo_opacity: float, default 1.0 - Opacity of the logo (0.0 to 1.0)
+        - logo_x_offset: int, default 8 - Horizontal offset in pixels from the right edge
+        - logo_y_offset: int, default 6 - Vertical offset in pixels from the bottom edge
         """
 
         if not self.get("watchlist_datasets"):
@@ -1306,14 +1314,99 @@ class Watchlist(dict):
         fig.add_annotation(
             text="Source: " + source_str,  # Your custom text
             xref="paper", yref="paper",  # Relative to the entire figure
-            x=0.0, y=-0.14,  # Bottom left position (adjust if needed)
-            font=dict(size=12, color="black"),  # Small font, black color
+            x=0.0, y=-0.12,  # Bottom left position (adjust if needed)
+            font=dict(size=14, color="black"),  # Small font, black color
             showarrow=False, 
             align="left",  # Left-align text
             bgcolor="white",  # White background for visibility
             bordercolor="black",  # Black border
             borderwidth=1
         )
+
+        # Add optional inset logo if provided. Default behaviour: interpret logo_x_offset/logo_y_offset
+        # as pixel offsets from the figure origin (bottom-left, i.e. paper (0,0)) and anchor the image's
+        # bottom-left corner there. This places the image in the margin when offsets are small or
+        # inside the plot if offsets push it into the plot area. If layout width/height can't be
+        # determined, falls back to paper fractions.
+        if logo_path:
+            try:
+                # read and base64-encode the image so plotly can embed it
+                with open(logo_path, 'rb') as _f:
+                    raw = _f.read()
+                b64 = base64.b64encode(raw).decode('ascii')
+                src = f"data:image/png;base64,{b64}"
+
+                # determine layout width/height (pixels) to convert pixel offsets
+                layout_w = merged_layout.get('width') if isinstance(merged_layout, dict) else None
+                layout_h = merged_layout.get('height') if isinstance(merged_layout, dict) else None
+                try:
+                    # fallback to fig.layout values if not found in merged_layout
+                    if not layout_w and getattr(fig.layout, 'width', None):
+                        layout_w = fig.layout.width
+                    if not layout_h and getattr(fig.layout, 'height', None):
+                        layout_h = fig.layout.height
+                except Exception:
+                    pass
+
+                # Compute image size in pixels and preserve aspect ratio when possible
+                img_px_w = None
+                img_px_h = None
+                if layout_w:
+                    try:
+                        img_px_w = float(logo_size) * float(layout_w)
+                    except Exception:
+                        img_px_w = None
+
+                # Try to obtain image aspect using Pillow if available
+                img_aspect = None
+                try:
+                    from PIL import Image as _PILImage
+                    with _PILImage.open(logo_path) as _im:
+                        iw, ih = _im.size
+                        img_aspect = float(ih) / float(iw) if iw and ih else None
+                except Exception:
+                    img_aspect = None
+
+                if img_px_w is not None and img_aspect is not None:
+                    img_px_h = img_px_w * img_aspect
+                elif img_px_w is not None:
+                    # fallback to square if aspect unknown
+                    img_px_h = img_px_w
+
+                # Convert pixel sizes to paper fraction sizes (sizex, sizey)
+                if layout_w and layout_h and img_px_w is not None and img_px_h is not None:
+                    sizex = img_px_w / float(layout_w)
+                    sizey = img_px_h / float(layout_h)
+                else:
+                    # fallback to using logo_size for both dimensions (fractional)
+                    sizex = float(logo_size)
+                    sizey = float(logo_size)
+
+                # Compute desired position: pixel offsets from bottom-left of figure
+                if layout_w and layout_h:
+                    x_pos = float(logo_x_offset) / float(layout_w)
+                    y_pos = float(logo_y_offset) / float(layout_h)
+                else:
+                    # fallback: interpret offsets as paper fractions if layout unknown
+                    x_pos = float(logo_x_offset)
+                    y_pos = float(logo_y_offset)
+
+                # clamp to reasonable range (allow small negative y to place in margin)
+                x_pos = max(-1.0, min(1.0, x_pos))
+                y_pos = max(-1.0, min(1.0, y_pos))
+
+                fig.add_layout_image(dict(
+                    source=src,
+                    xref="paper", yref="paper",
+                    x=x_pos, y=y_pos,
+                    xanchor="left", yanchor="bottom",
+                    sizex=sizex, sizey=sizey,
+                    sizing="contain",
+                    opacity=float(logo_opacity),
+                    layer="above"
+                ))
+            except Exception as e:
+                print(f"Warning: could not add logo from '{logo_path}': {e}")
 
         return fig
     

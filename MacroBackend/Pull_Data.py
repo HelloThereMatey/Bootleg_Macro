@@ -19,7 +19,7 @@ import quandl
 from yahoofinancials import YahooFinancials as yf
 import tedata as ted ##This is my package that scrapes data from Trading Economics
 import json
-import signal
+import concurrent.futures
 
 def yf_get_data(ticker: str, start_date: str, end_date: str, data_freq: str = "daily"):
     yfobj = yf(ticker)
@@ -33,8 +33,8 @@ def tedata_search(searchstr: str = "gdp", wait_time: int = 5):
     search.search_trading_economics(searchstr, wait_time=wait_time)
     return search.result_table
 
-def timeout_handler(signum, frame):
-    raise TimeoutError("Data pull timed out")
+# Note: signal-based timeouts are unsafe in threaded environments (Jupyter/notebooks).
+# Use a ThreadPoolExecutor timeout wrapper instead of signal.alarm.
 
 ####### CLASSES ######################################################
 class get_data_failure(Exception):
@@ -333,21 +333,21 @@ class dataset(object):
 
         print("Looking for data from source: ", self.source, "data code: ", self.data_code)
         
-        # Set up timeout for the pull_data operation
-        signal.signal(signal.SIGALRM, timeout_handler)
-        signal.alarm(self.timeout)
-        
+        # Run pull_data in a separate thread and enforce timeout using futures.
+        # This avoids using `signal` (which only works in main thread) and is
+        # safe to call from Jupyter notebooks or worker threads.
         try:
-            self.pull_data()
-            signal.alarm(0)  # Cancel the alarm if successful
-        except TimeoutError:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                future = ex.submit(self.pull_data)
+                # future.result will raise concurrent.futures.TimeoutError on timeout
+                future.result(timeout=self.timeout)
+        except concurrent.futures.TimeoutError:
             print(f"Data pull timed out after {self.timeout} seconds for {self.data_code} from {self.source}")
-            self.data = pd.Series([f"Data pull timed out after {self.timeout} seconds"], 
-                                 name=f"Timeout_{self.data_code}", index=[0])
-            signal.alarm(0)  # Cancel the alarm
+            self.data = pd.Series([f"Data pull timed out after {self.timeout} seconds"],
+                                  name=f"Timeout_{self.data_code}", index=[0])
             return
         except Exception as e:
-            signal.alarm(0)  # Cancel the alarm
+            # propagate real errors from pull_data
             raise e
 
         if capitalize_column_names and dtype != "close" and len(self.data.columns) > 0:
