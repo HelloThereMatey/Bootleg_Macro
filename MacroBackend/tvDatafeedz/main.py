@@ -8,9 +8,10 @@ import string
 import pandas as pd
 from websocket import create_connection
 import requests
-import json
 import os
 import signal
+import threading
+import json
 
 wd = os.path.dirname(os.path.realpath(__file__))
 fdel = os.path.sep
@@ -416,25 +417,46 @@ class TvDatafeed:
         while tries < attempts:  # Changed from <= to <
             tries += 1  # Increment at start of loop
             
-            # Set up timeout for this data pull attempt
-            signal.signal(signal.SIGALRM, timeout_handler)
-            signal.alarm(timeout)
+            # Set up timeout for this data pull attempt **only** if running in main thread
+            used_signal = False
+            if threading.current_thread() is threading.main_thread():
+                try:
+                    signal.signal(signal.SIGALRM, timeout_handler)
+                    signal.alarm(timeout)
+                    used_signal = True
+                except Exception:
+                    # If signals are not available for any reason, continue without signal-based timeout
+                    used_signal = False
             
             try:
                 data = self.exp_ws(symbol, exchange = exchange, interval = interval, n_bars = n_bars, fut_contract = fut_contract, 
                                    collection_method = collection_method, extended_session = extended_session, time_zone = time_zone)
-                signal.alarm(0)  # Cancel the alarm if successful
-                print(f"data pull timed out after {timeout} seconds for {symbol}")
+                # Cancel the alarm if it was set
+                if used_signal:
+                    try:
+                        signal.alarm(0)
+                    except Exception:
+                        pass
+                print(f"data pull completed for {symbol}")
                 if data is not None:
                     break  # Exit loop on successful data retrieval
         
             except TimeoutError:
                 print(f"TV data pull timed out after {timeout} seconds for {symbol}")
-                signal.alarm(0)  # Cancel the alarmo
+                if used_signal:
+                    try:
+                        signal.alarm(0)
+                    except Exception:
+                        pass
                 return None
                     
             except Exception as ahshit:
-                signal.alarm(0)  # Cancel the alarm
+                # Ensure we cancel any alarm we set
+                if used_signal:
+                    try:
+                        signal.alarm(0)
+                    except Exception:
+                        pass
                 print("TV data pull failed, error: ", ahshit)
                 if "Connection timed out" in str(ahshit) or "no data, please check the exchange and symbol" in str(ahshit):
                     print("Connection timed out. Either internet not connected or there's no data for this symbol Please check the exchange and symbol and network connection.")
