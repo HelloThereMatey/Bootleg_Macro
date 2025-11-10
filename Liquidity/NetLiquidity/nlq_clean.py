@@ -28,6 +28,9 @@ current_dir = os.path.dirname(__file__)
 project_root = os.path.dirname(os.path.dirname(current_dir))
 sys.path.append(project_root)
 
+wd = os.path.dirname(os.path.abspath(__file__))
+fdel = os.sep
+
 from MacroBackend import Pull_Data, PriceImporter, Utilities
 
 
@@ -297,6 +300,11 @@ class NLQDataFetcher:
                 tga_daily_series = tga_daily_series.dropna()
                 tga_daily_series.index = pd.to_datetime(tga_daily_series.index)
                 
+                # Remove duplicate dates (keep last occurrence)
+                if tga_daily_series.index.duplicated().any():
+                    print(f"Warning: Removing {tga_daily_series.index.duplicated().sum()} duplicate dates from TGA data")
+                    tga_daily_series = tga_daily_series[~tga_daily_series.index.duplicated(keep='last')]
+                
                 print(f"TGA data: {len(tga_daily_series)} observations from {tga_daily_series.index[0].date()} to {tga_daily_series.index[-1].date()}")
                 
                 return tga_daily_series
@@ -352,6 +360,317 @@ class NLQDataFetcher:
         return core_data
 
 
+class NetLiquidity:
+    """
+    Class to calculate and manage Net Liquidity indices.
+    
+    Net Liquidity = Fed Balance Sheet - Treasury General Account - Reverse Repo
+    
+    This class provides three versions of the NLQ calculation:
+    1. Weekly frequency using raw FRED data (no resampling)
+    2. Daily frequency with FRED TGA (all FRED data resampled to daily)
+    3. Daily frequency with Treasury API TGA (most accurate, daily updates)
+    """
+
+    def __init__(self, input_settings: pd.DataFrame = None, core_data: Dict[str, Union[pd.Series, str]] = None):
+        """
+        Initialize NetLiquidity calculator with core data.
+        
+        Args:
+            - input_settings: DataFrame of input settings from excel sheet template for netliquidity (optional).
+            - core_data: Dictionary from NLQDataFetcher.get_core_nlq_data() containing:
+                - 'fed_balance_sheet': Fed assets series (WALCL or RESPPNTNWW)
+                - 'reverse_repo': Reverse repo facility series (RRPONTSYD)
+                - 'tga_fred_weekly': TGA from FRED (weekly)
+                - 'tga_treasury_daily': TGA from Treasury API (daily)
+                - 'series_type': 'total_assets' or 'QE_only'
+        """
+
+        if input_settings is None:
+            try:
+                self.input_settings = pd.read_excel(wd + fdel + "NetLiquidity_InputParams.xlsx", sheet_name="Parameters", index_col=0)
+        
+            except Exception as e:
+                print(f"Error reading input settings: {e}\nEnsure that the NetLiquidity_InputParams.xlsx file exists in the script directory.")
+                return None 
+        else:
+            self.input_settings = input_settings
+
+        self.start_date = str(self.input_settings.loc["Start date", "Additional FRED Data"])
+        end = self.input_settings.loc["End date", "Additional FRED Data"]
+        if pd.isna(end) or end.strip() == "":
+            self.end_date = datetime.datetime.today().strftime('%Y-%m-%d')
+        else:
+            self.end_date = str(end)
+
+        if core_data is None:
+           fetcher = NLQDataFetcher(save_data=True)
+           self.core_data = fetcher.get_core_nlq_data(self.start_date, self.end_date, use_qe_only=False)
+        else:
+            self.core_data = core_data
+        
+        # Extract individual components
+        self.fed_balance_sheet = self.core_data.get('fed_balance_sheet', pd.Series()).copy()
+        self.reverse_repo = self.core_data.get('reverse_repo', pd.Series()).copy()
+        self.tga_fred = self.core_data.get('tga_fred_weekly', pd.Series()).copy()
+        self.tga_treasury = self.core_data.get('tga_treasury_daily', pd.Series()).copy()
+        self.series_type = self.core_data.get('series_type', 'total_assets')
+
+        # Calculated NLQ series (initialized as None)
+        self.nlq_weekly = None
+        self.nlq_daily_treasury = None
+        
+        # Daily date index for resampling
+        self.daily_index = None
+        
+        # Resampled component series
+        self.fed_balance_sheet_daily = None
+        self.reverse_repo_daily = None
+        self.tga_fred_daily = None
+        
+        print(f"NetLiquidity initialized with {self.series_type} Fed balance sheet")
+        self._validate_data()
+    
+    def _validate_data(self) -> None:
+        """Validate that core data components are available."""
+        required_series = {
+            'Fed Balance Sheet': self.fed_balance_sheet,
+            'Reverse Repo': self.reverse_repo,
+            'TGA Treasury': self.tga_treasury
+        }
+        
+        missing = []
+        for name, series in required_series.items():
+            if series.empty:
+                missing.append(name)
+        
+        if missing:
+            print(f"Warning: Missing data for: {', '.join(missing)}")
+        else:
+            print("All core data components validated successfully")
+    
+    def create_daily_index(self, start_date: Optional[str] = None, 
+                          end_date: Optional[str] = None) -> pd.DatetimeIndex:
+        """
+        Create a daily date index for resampling.
+        
+        Args:
+            start_date: Start date (defaults to earliest date in data)
+            end_date: End date (defaults to latest date in data)
+            
+        Returns:
+            Daily DatetimeIndex
+        """
+        if start_date is None:
+            # Find earliest date across all series
+            dates = []
+            for series in [self.fed_balance_sheet, self.reverse_repo, 
+                          self.tga_fred, self.tga_treasury]:
+                if not series.empty:
+                    dates.append(series.index[0])
+            start_date = min(dates) if dates else datetime.datetime(2000, 1, 1)
+        else:
+            start_date = pd.to_datetime(start_date)
+        
+        if end_date is None:
+            # Find latest date across all series
+            dates = []
+            for series in [self.fed_balance_sheet, self.reverse_repo, 
+                          self.tga_fred, self.tga_treasury]:
+                if not series.empty:
+                    dates.append(series.index[-1])
+            end_date = max(dates) if dates else datetime.datetime.today()
+        else:
+            end_date = pd.to_datetime(end_date)
+        
+        self.daily_index = pd.date_range(start_date, end_date, freq='D')
+        print(f"Created daily index: {self.daily_index[0].date()} to {self.daily_index[-1].date()} ({len(self.daily_index)} days)")
+        
+        return self.daily_index
+    
+    def resample_to_daily(self, series: pd.Series, 
+                         index: Optional[pd.DatetimeIndex] = None,
+                         method: str = 'ffill') -> pd.Series:
+        """
+        Resample a series to daily frequency.
+        
+        Args:
+            series: Series to resample
+            index: Target daily index (uses self.daily_index if None)
+            method: Resampling method ('ffill' for forward fill)
+            
+        Returns:
+            Resampled daily series
+        """
+        if index is None:
+            if self.daily_index is None:
+                raise ValueError("Daily index not created. Call create_daily_index() first.")
+            index = self.daily_index
+        
+        # Remove duplicates from the series if any exist
+        if series.index.duplicated().any():
+            print(f"Warning: Removing {series.index.duplicated().sum()} duplicate dates from {series.name}")
+            series = series[~series.index.duplicated(keep='last')]
+        
+        # Check if resampling is needed
+        if len(index.difference(series.index)) == 0 and len(series.index) == len(index):
+            # Already aligned
+            return series
+        
+        # Reindex to daily frequency using forward fill
+        resampled = series.reindex(index, method=method)
+        
+        return resampled
+    
+    def calculate_nlq_weekly(self) -> pd.Series:
+        """
+        Calculate NLQ using raw weekly FRED data (no resampling).
+        
+        Formula: Fed Balance Sheet - TGA (FRED) - Reverse Repo
+        
+        Returns:
+            Weekly NLQ series
+        """
+        print("Calculating NLQ (weekly, raw FRED data)...")
+        
+        self.nlq_weekly = (
+            self.fed_balance_sheet - 
+            self.tga_fred - 
+            self.reverse_repo
+        )
+        
+        self.nlq_weekly = pd.Series(self.nlq_weekly, name='NLQ Weekly (Bil $)')
+        self.nlq_weekly.dropna(inplace=True)
+        
+        print(f"NLQ Weekly calculated: {len(self.nlq_weekly)} observations")
+        if len(self.nlq_weekly) > 0:
+            print(f"Latest value: ${self.nlq_weekly.iloc[-1]:.2f} billion")
+        
+        return self.nlq_weekly
+    
+    def calculate_nlq_daily_treasury(self) -> pd.Series:
+        """
+        Calculate daily NLQ using Treasury API TGA data (most accurate).
+        
+        Formula: Fed Balance Sheet (daily) - TGA Treasury (daily) - Reverse Repo (daily)
+        
+        Returns:
+            Daily NLQ series using Treasury TGA
+        """
+        print("Calculating NLQ (daily, Treasury TGA)...")
+        
+        # Ensure daily index exists
+        if self.daily_index is None:
+            self.create_daily_index()
+        
+        # Resample Fed and RRP to daily (if not already done)
+        if self.fed_balance_sheet_daily is None:
+            self.fed_balance_sheet_daily = self.resample_to_daily(self.fed_balance_sheet)
+        if self.reverse_repo_daily is None:
+            self.reverse_repo_daily = self.resample_to_daily(self.reverse_repo)
+        
+        # Resample TGA Treasury to daily
+        tga_treasury_daily = self.resample_to_daily(self.tga_treasury)
+        
+        # Calculate NLQ
+        self.nlq_daily_treasury = pd.Series(
+            self.fed_balance_sheet_daily - 
+            tga_treasury_daily - 
+            self.reverse_repo_daily,
+            name='NLQ Daily Treasury (Bil $)'
+        )
+        
+        self.nlq_daily_treasury.dropna(inplace=True)
+        
+        print(f"NLQ Daily (Treasury) calculated: {len(self.nlq_daily_treasury)} observations")
+        if len(self.nlq_daily_treasury) > 0:
+            print(f"Latest value: ${self.nlq_daily_treasury.iloc[-1]:.2f} billion")
+        
+        return self.nlq_daily_treasury
+    
+    def calculate_all(self) -> Dict[str, pd.Series]:
+        """
+        Calculate all three NLQ versions.
+        
+        Args:
+            start_date: Start date for daily index
+            end_date: End date for daily index
+            
+        Returns:
+            Dictionary with all NLQ series
+        """
+        print("\n=== Calculating All NLQ Versions ===")
+        
+        if hasattr(self, 'start_date') and hasattr(self, 'end_date'):
+            start_date = self.start_date
+            end_date = self.end_date
+        else:
+            print("Using default date range for daily index")
+            start_date = "01-01-2021"
+            end_date = datetime.datetime.today().strftime('%Y-%m-%d')
+
+        # Create daily index
+        self.create_daily_index(start_date, end_date)
+        
+        # Calculate all versions
+        nlq_weekly = self.calculate_nlq_weekly()
+        nlq_daily_treasury = self.calculate_nlq_daily_treasury()
+        
+        return {
+            'nlq_weekly': nlq_weekly,
+            'nlq_daily_treasury': nlq_daily_treasury,
+            'fed_balance_sheet_daily': self.fed_balance_sheet_daily,
+            'reverse_repo_daily': self.reverse_repo_daily,
+            'tga_fred_daily': self.tga_fred_daily,
+            'tga_treasury_daily': self.resample_to_daily(self.tga_treasury)
+        }
+    
+    def get_latest_values(self) -> Dict[str, float]:
+        """Get the latest values for all NLQ series and components."""
+        latest = {}
+        
+        series_map = {
+            'Fed Balance Sheet': self.fed_balance_sheet,
+            'Reverse Repo': self.reverse_repo,
+            'TGA FRED': self.tga_fred,
+            'TGA Treasury': self.tga_treasury,
+            'NLQ Weekly': self.nlq_weekly,
+            'NLQ Daily Treasury': self.nlq_daily_treasury
+        }
+        
+        for name, series in series_map.items():
+            if series is not None and not series.empty:
+                latest[name] = {
+                    'value': series.iloc[-1],
+                    'date': series.index[-1].date() if hasattr(series.index[-1], 'date') else series.index[-1]
+                }
+        
+        return latest
+    
+    def summary(self) -> None:
+        """Print a summary of all NLQ calculations."""
+        print("\n" + "="*60)
+        print("NET LIQUIDITY SUMMARY")
+        print("="*60)
+        print(f"Series Type: {self.series_type}")
+        
+        latest = self.get_latest_values()
+        
+        print("\nLatest Component Values:")
+        for component in ['Fed Balance Sheet', 'Reverse Repo', 'TGA FRED', 'TGA Treasury']:
+            if component in latest:
+                info = latest[component]
+                print(f"  {component:.<30} ${info['value']:>10.2f}B on {info['date']}")
+        
+        print("\nLatest NLQ Values:")
+        for nlq_type in ['NLQ Weekly', 'NLQ Daily FRED', 'NLQ Daily Treasury']:
+            if nlq_type in latest:
+                info = latest[nlq_type]
+                print(f"  {nlq_type:.<30} ${info['value']:>10.2f}B on {info['date']}")
+        
+        print("="*60 + "\n")
+
+
 def test_data_fetching():
     """Test function to verify data fetching works correctly."""
     print("Testing NLQ data fetching...")
@@ -400,6 +719,45 @@ def test_data_fetching():
     return core_data
 
 
+def test_nlq_calculation():
+    """Test the NetLiquidity class and NLQ calculations."""
+    print("\n" + "="*60)
+    print("TESTING NET LIQUIDITY CALCULATIONS")
+    print("="*60)
+    
+    # Fetch core data
+    fetcher = NLQDataFetcher(save_data=True)
+    start_date = "2020-01-01"
+    end_date = "2024-12-31"
+    
+    core_data = fetcher.get_core_nlq_data(start_date, end_date, use_qe_only=False)
+    
+    # Initialize NetLiquidity calculator
+    nlq = NetLiquidity(core_data=core_data)
+    
+    # Calculate all NLQ versions
+    nlq_results = nlq.calculate_all()
+    
+    # Print summary
+    nlq.summary()
+    
+    # Show some sample data
+    print("\nSample NLQ Data (last 5 observations):")
+    print("\nNLQ Weekly:")
+    print(nlq_results['nlq_weekly'].tail())
+    
+    print("\nNLQ Daily (Treasury TGA):")
+    print(nlq_results['nlq_daily_treasury'].tail())
+    
+    return nlq, nlq_results
+
+
 if __name__ == "__main__":
-    core_data = test_data_fetching()
-    print(core_data, "NLQ data fetching test completed.")
+    # Test NLQ calculations
+    nlq, nlq_results = test_nlq_calculation()
+    
+    print("\n" + "="*60)
+    print(nlq_results)
+    print("ALL TESTS COMPLETED SUCCESSFULLY")
+    print(nlq)
+    print("="*60)
