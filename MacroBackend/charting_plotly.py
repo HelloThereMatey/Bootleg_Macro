@@ -8,7 +8,7 @@ if __name__ == '__main__':
 else:
     from . import Utilities
 
-def fit_trendlines(fig, fit_specs: dict, line_style: dict = None):
+def fit_trendlines(fig, fit_specs: dict, line_style: dict = None, debug: bool = False):
     """
     Fit polynomial trendlines to traces in a Plotly figure.
     
@@ -48,6 +48,8 @@ def fit_trendlines(fig, fit_specs: dict, line_style: dict = None):
         order = int(spec[0])
         start = spec[1] if len(spec) > 1 else None
         end = spec[2] if len(spec) > 2 else None
+        if debug:
+            print(f"[trendfit] series={series_name!r} order={order} start={start} end={end}")
         
         # Find matching trace
         trace = None
@@ -57,22 +59,28 @@ def fit_trendlines(fig, fit_specs: dict, line_style: dict = None):
                 break
         
         if trace is None or trace.x is None or trace.y is None:
+            if debug:
+                print(f"[trendfit] no data for '{series_name}' (trace found={trace is not None})")
             continue
         
         # Convert to arrays
         x = np.array(trace.x)
         y = np.array(trace.y, dtype=float)
+        if debug:
+            print(f"[trendfit] raw points: x_len={len(x)} y_len={len(y)}")
         
         # Handle datetime conversion for fitting
         if is_datetime:
             x_dt = pd.to_datetime(x)
             x_num = (x_dt - pd.Timestamp("1970-01-01")) // pd.Timedelta('1s')
             x_num = x_num.astype(float)
+            if debug:
+                print(f"[trendfit] x is datetime, range {x_dt.min()} -> {x_dt.max()}")
         else:
             x_num = x.astype(float)
         
         # Apply start/end slicing
-        mask = np.ones(len(x), dtype=bool)
+    mask = np.ones(len(x), dtype=bool)
         if start is not None:
             if isinstance(start, int):
                 mask[:start] = False
@@ -92,16 +100,35 @@ def fit_trendlines(fig, fit_specs: dict, line_style: dict = None):
                     mask &= (x_dt <= end_dt)
                 else:
                     mask &= (x_num <= float(end))
-        
+
         x_fit = x_num[mask]
         y_fit = y[mask]
+        if debug:
+            try:
+                # sample first/last few values for quick inspection
+                n_sample = 3
+                if is_datetime:
+                    x_sample = pd.to_datetime(x_dt[mask])
+                else:
+                    x_sample = x_fit
+                print(f"[trendfit] slice points: count={len(x_fit)} sample_x_head={list(x_sample[:n_sample])} sample_x_tail={list(x_sample[-n_sample:])} ")
+                print(f"[trendfit] slice y sample_head={list(y_fit[:n_sample])} sample_tail={list(y_fit[-n_sample:])}")
+            except Exception as _:
+                pass
         
         if len(x_fit) < order + 1:
+            if debug:
+                print(f"[trendfit] insufficient points after slicing for '{series_name}': need {order+1}, got {len(x_fit)}")
             continue
-        
+
         # Fit polynomial
-        coeffs = np.polyfit(x_fit, y_fit, order)
-        poly = np.poly1d(coeffs)
+        try:
+            coeffs = np.polyfit(x_fit, y_fit, order)
+            poly = np.poly1d(coeffs)
+        except Exception as e:
+            if debug:
+                print(f"[trendfit] polyfit failed for '{series_name}': {e}")
+            continue
         
         # Generate extended x range across full chart limits
         if is_datetime:
@@ -114,6 +141,19 @@ def fit_trendlines(fig, fit_specs: dict, line_style: dict = None):
             x_plot = x_extend_num
         
         y_plot = poly(x_extend_num)
+        if debug:
+            # compute simple R^2 on the fit sample
+            try:
+                y_pred = poly(x_fit)
+                ss_res = np.sum((y_fit - y_pred) ** 2)
+                ss_tot = np.sum((y_fit - np.mean(y_fit)) ** 2)
+                r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else float('nan')
+            except Exception:
+                r2 = float('nan')
+            try:
+                print(f"[trendfit] coeffs={coeffs} r2={r2:.4f} plotted_points={len(x_plot)}")
+            except Exception:
+                print(f"[trendfit] coeffs={coeffs} r2={r2}")
         
         # Add trendline trace
         import plotly.graph_objects as go
