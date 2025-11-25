@@ -80,7 +80,7 @@ def fit_trendlines(fig, fit_specs: dict, line_style: dict = None, debug: bool = 
             x_num = x.astype(float)
         
         # Apply start/end slicing
-    mask = np.ones(len(x), dtype=bool)
+        mask = np.ones(len(x), dtype=bool)
         if start is not None:
             if isinstance(start, int):
                 mask[:start] = False
