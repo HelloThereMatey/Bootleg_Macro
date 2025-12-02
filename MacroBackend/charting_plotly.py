@@ -3,6 +3,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 import numpy as np
+from typing import Union
+
+
 if __name__ == '__main__':
     import Utilities
 else:
@@ -647,7 +650,7 @@ def basic_plot(data: pd.Series, metadata: dict = None, title: str = "", yaxis_la
     return fig
 
 def dual_axis_basic_plot(primary_data=None, secondary_data=None, 
-                        title: str = "", 
+                        title: str = "", limit_x_range: Union[tuple, str, int] = None,
                         primary_yaxis_title: str = "Primary Axis",
                         secondary_yaxis_title: str = "Secondary Axis",
                         height: int = 600, width: int = 1000,
@@ -690,6 +693,34 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
     # Process input data
     primary_series = process_data(primary_data)
     secondary_series = process_data(secondary_data)
+    
+    # Apply x-range limits if specified
+    if limit_x_range is not None:
+        start_val = limit_x_range
+        end_val = None
+        
+        if isinstance(limit_x_range, (tuple, list)):
+            if len(limit_x_range) > 0:
+                start_val = limit_x_range[0]
+            if len(limit_x_range) > 1:
+                end_val = limit_x_range[1]
+        
+        def slice_series(s, start, end):
+            try:
+                # Handle slicing based on provided start/end
+                if start is not None and end is not None:
+                    return s.loc[start:end]
+                elif start is not None:
+                    return s.loc[start:]
+                elif end is not None:
+                    return s.loc[:end]
+                return s
+            except Exception:
+                # If slicing fails (e.g. index mismatch), return original
+                return s
+
+        primary_series = {k: slice_series(v, start_val, end_val) for k, v in primary_series.items()}
+        secondary_series = {k: slice_series(v, start_val, end_val) for k, v in secondary_series.items()}
     
     # Create subplot with secondary y-axis if needed
     has_secondary = len(secondary_series) > 0
