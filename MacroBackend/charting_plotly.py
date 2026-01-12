@@ -3,6 +3,19 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import plotly.express as px
 import numpy as np
+import sys
+import os
+
+# Import equal_spaced_ticks from nlq_chart module
+wd = os.path.dirname(__file__)
+parent = os.path.dirname(wd)
+sys.path.append(parent)
+try:
+    from Liquidity.NetLiquidity.nlq_chart import equal_spaced_ticks
+except ImportError:
+    # Fallback if import fails
+    equal_spaced_ticks = None
+
 if __name__ == '__main__':
     import Utilities
 else:
@@ -433,9 +446,15 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
                         title: str = "", 
                         primary_yaxis_title: str = "Primary Axis",
                         secondary_yaxis_title: str = "Secondary Axis",
-                        height: int = 600, width: int = 1000,
+                        height: int = None, width: int = None,
                         log_primary: bool = False, log_secondary: bool = False,
-                        template: str = "plotly_white") -> go.Figure:
+                        template: str = "plotly_white",
+                        custom_ticks_primary: int = None,
+                        custom_ticks_secondary: int = None,
+                        primary_tick_prefix: str = None,
+                        secondary_tick_prefix: str = None,
+                        primary_ticks_int: bool = False,
+                        secondary_ticks_int: bool = False) -> go.Figure:
     """
     Create a basic plot with optional secondary y-axis support
     
@@ -445,13 +464,19 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
         title (str): Plot title
         primary_yaxis_title (str): Primary y-axis label
         secondary_yaxis_title (str): Secondary y-axis label
-        height (int): Plot height in pixels
-        width (int): Plot width in pixels
+        height (int): Plot height in pixels (auto if None)
+        width (int): Plot width in pixels (auto if None)
         log_primary (bool): Use log scale for primary y-axis
         log_secondary (bool): Use log scale for secondary y-axis
         template (str): Plotly template to use, options include:
             "plotly", "plotly_white", "plotly_dark", "ggplot2", "seaborn", "simple_white", 
-            "presentation", "xgridoff", "ygridoff", "gridon", "none":
+            "presentation", "xgridoff", "ygridoff", "gridon", "none"
+        custom_ticks_primary (int): Number of custom equally-spaced ticks for primary axis
+        custom_ticks_secondary (int): Number of custom equally-spaced ticks for secondary axis
+        primary_tick_prefix (str): Prefix for primary axis tick labels (e.g., '$')
+        secondary_tick_prefix (str): Prefix for secondary axis tick labels (e.g., '$')
+        primary_ticks_int (bool): Round primary axis tick labels to integers
+        secondary_ticks_int (bool): Round secondary axis tick labels to integers
 
     Returns:
         go.Figure: Plotly figure with optional dual y-axes
@@ -473,6 +498,14 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
     # Process input data
     primary_series = process_data(primary_data)
     secondary_series = process_data(secondary_data)
+    
+    # Calculate total number of traces for legend sizing
+    total_traces = len(primary_series) + len(secondary_series)
+    
+    # Auto-adjust bottom margin based on number of traces in legend
+    # Estimate: ~25px per trace in horizontal legend, with 3 traces per row
+    legend_rows = (total_traces + 2) // 3  # Ceiling division for 3 columns
+    bottom_margin = max(80, 60 + (legend_rows - 1) * 25)  # Base 80px, add 25px per extra row
     
     # Create subplot with secondary y-axis if needed
     has_secondary = len(secondary_series) > 0
@@ -506,35 +539,36 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
         )
     
     # Update layout
-    fig.update_layout(
-        title=title,
-        template="plotly_white",
-        width=width,
-        height=height,
-        hovermode="x unified",
-        # Horizontal, multi-column legend centered under the x-axis.
-        # Note: 'ncols' is available in recent Plotly versions; if your Plotly
-        # doesn't support 'ncols' the legend will still be horizontal and centered.
-        legend=dict(
+    layout_updates = {
+        'title': title,
+        'template': template,
+        'hovermode': "x unified",
+        'legend': dict(
             orientation="h",
             x=0.5,
-            y=-0.22,               # push legend below x-axis
+            y=-0.15,  # Relative position - plotly auto-adjusts with margin
             xanchor="center",
             yanchor="top",
             bgcolor="rgba(255,255,255,0)",
             bordercolor="rgba(255,255,255,0)",
-            #ncols=3
         ),
-        # Increase bottom margin to make room for the 3-column legend
-        margin=dict(l=50, r=50, t=40, b=110),
-        font={"family": "Arial, sans-serif", "size": 14, "color": "black"}
-    )
+        'margin': dict(l=50, r=50, t=50, b=bottom_margin),
+        'font': {"family": "Arial, sans-serif", "size": 14, "color": "black"}
+    }
+    
+    # Only set height/width if specified
+    if height is not None:
+        layout_updates['height'] = height
+    if width is not None:
+        layout_updates['width'] = width
+    
+    fig.update_layout(**layout_updates)
     
     # Update y-axes
     if has_secondary:
         fig.update_yaxes(
             title_text=primary_yaxis_title, 
-            secondary_y=False,
+            #secondary_y=None,
             type='log' if log_primary else 'linear'
         )
         fig.update_yaxes(
@@ -543,11 +577,52 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
             type='log' if log_secondary else 'linear',
             showgrid=False
         )
+        
+        # Apply custom ticks if requested and function is available
+        if custom_ticks_primary is not None and equal_spaced_ticks is not None:
+            # Combine all primary data to get range
+            all_primary_vals = pd.concat(list(primary_series.values()))
+            primary_tick_config = equal_spaced_ticks(
+                num_ticks=custom_ticks_primary,
+                data=all_primary_vals,
+                scale='log' if log_primary else 'linear',
+                lab_prefix=primary_tick_prefix,
+                return_format='plotly',
+                round_to_int=primary_ticks_int
+            )
+            fig.update_yaxes(**primary_tick_config, secondary_y=False)
+        
+        if custom_ticks_secondary is not None and equal_spaced_ticks is not None:
+            # Combine all secondary data to get range
+            all_secondary_vals = pd.concat(list(secondary_series.values()))
+            secondary_tick_config = equal_spaced_ticks(
+                num_ticks=custom_ticks_secondary,
+                data=all_secondary_vals,
+                scale='log' if log_secondary else 'linear',
+                lab_prefix=secondary_tick_prefix,
+                return_format='plotly',
+                round_to_int=secondary_ticks_int
+            )
+            fig.update_yaxes(**secondary_tick_config, secondary_y=True)
     else:
         fig.update_yaxes(
             title_text=primary_yaxis_title,
             type='log' if log_primary else 'linear'
         )
+        
+        # Apply custom ticks if requested and function is available
+        if custom_ticks_primary is not None and equal_spaced_ticks is not None:
+            # Combine all primary data to get range
+            all_primary_vals = pd.concat(list(primary_series.values()))
+            primary_tick_config = equal_spaced_ticks(
+                num_ticks=custom_ticks_primary,
+                data=all_primary_vals,
+                scale='log' if log_primary else 'linear',
+                lab_prefix=primary_tick_prefix,
+                return_format='plotly',
+                round_to_int=primary_ticks_int
+            )
+            fig.update_yaxes(**primary_tick_config)
     
     #select theme/template
     fig.update_layout(template=template)
