@@ -581,7 +581,7 @@ class Pair_stats(object):
         self.lag_plot2 = fig2
         return optimal_lag, highest_correlation
 
-    def bm_scatterMatrix(self, yoy: bool = False):
+    def bm_scatterMatrix(self, yoy: bool = False, show: bool = True):
         """ Custom scatter matrix plot. Incudes kernel density approximations and line for the max of each kde.
         """
         if yoy:
@@ -621,6 +621,8 @@ class Pair_stats(object):
         # Extract the figure from the scatter matrix
         fig = scatter_matrix[0][0].get_figure()
         self.scatMatPlot = fig
+        if show:
+            plt.show()
         return scatter_matrix
 
     def export_plots(self, savePath: str = "", dialog: str = "Tk", format: str = "png"):
