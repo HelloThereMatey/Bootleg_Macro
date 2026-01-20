@@ -6,6 +6,7 @@ parent = os.path.dirname(wd)
 print(wd,parent)
 import sys
 sys.path.append(parent)
+from typing import Literal
 
 ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
 from MacroBackend import PriceImporter, Utilities, js_funcs
@@ -222,25 +223,58 @@ class dataset(object):
             print("This source will return a pandas dataframe, not a series. It is therefore not suitable for this method. Use 'abs_series' instead.")
             return None
 
+        ##### Start ABS block ######   
         elif self.source.lower() == 'abs_series'.lower():  
             abs_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"Full_Sheets"
-            #Data codes for abs_series are input in the format: series_id,excel_file_name, where excel_file_name is the name of
-            # an excel file downloaded from the ABS site that has an ABS data table and the series that comprise it with codes. 
+            #Data codes for abs_series are input in the format: series_id,catalog_num, where catalog_num is the ABS catalogue number
+            # Alternatively: series_id,excel_file_name for local Excel files
             # Supply id in the form of tuple like that in order to load an excel file from the Full_Sheets folder instead of getting data from ABS. 
             split = self.data_code.split(',', maxsplit=1)
+            
             if len(split) > 1:
-                self.data_code = split[0].strip(); self.exchange_code = split[1].strip()  # assign table name (excel file name) to the pre-existing exchang_code pareameter
-                series, SeriesInfo = abs_series_by_r.get_abs_series_r(excel_file_path = abs_path+fdel+self.exchange_code+".xlsx", series_id = self.data_code)
+                self.data_code = split[0].strip()
+                self.exchange_code = split[1].strip()  # Can be either catalog_num or excel_file_name
+            
+                # Check if exchange_code is an Excel file (contains .xlsx or .xls)
+                if self.exchange_code.endswith('.xlsx') or self.exchange_code.endswith('.xls'):
+                    # Local Excel file mode
+                    excel_path = abs_path+fdel+self.exchange_code if not os.path.isabs(self.exchange_code) else self.exchange_code
+                    print(f"Using ABS excel file: {excel_path} to find series id: {self.data_code}")
+                    series, SeriesInfo = abs_series_by_r.get_abs_series_from_excel(excel_file_path=excel_path, series_id=self.data_code)
+                    
+                else:
+                    # Assume it's a catalog number - use Python readabs
+                    print(f"Getting ABS series {self.data_code} from catalog {self.exchange_code}")
+                    try:
+                        series, SeriesInfo = abs_series_by_r.abs_download_with_r(series_id=self.data_code)
+
+                    except Exception as e:
+                        print(f"R script readabs failed, falling back to python readabs: {e}")
+                        series, SeriesInfo = abs_series_by_r.get_abs_series_python(
+                            series_id=self.data_code,
+                            catalog_num=self.exchange_code,
+                            verbose=False)
+                
             else:
-                series, SeriesInfo = abs_series_by_r.get_abs_series_r(series_id = self.data_code)
+                # Series ID only - attempt to use Python readabs (requires catalog number to be determined)
+                print(f"Getting ABS series directly for series id: {self.data_code}")
+                try:
+                    series, SeriesInfo = abs_series_by_r.abs_download_with_r(series_id=self.data_code)
+
+                except Exception as e:
+                    print(f"R script readabs failed, falling back to python readabs: {e}")
+                    series, SeriesInfo = abs_series_by_r.get_abs_series_python(series_id=self.data_code, verbose=False)
+            
+            # Data obtained now process it
             self.data = series
-            self.SeriesInfo = SeriesInfo.astype('object')  # Ensure object dtype
-            self.dataName = series.name
+            self.SeriesInfo = SeriesInfo if isinstance(SeriesInfo, pd.Series) else pd.Series(SeriesInfo)
+            self.SeriesInfo = self.SeriesInfo.astype('object')  # Ensure object dtype
+            self.dataName = series.name if hasattr(series, 'name') else self.data_code
             
             # Enhance SeriesInfo with more detailed information
             if hasattr(series, 'name') and series.name:
                 self.SeriesInfo['title'] = series.name
-                print(f"ABS series title set to: {series.name}")
+            ### End ABS block ######
 
         elif self.source.lower() == 'bea':
             print("Currently working on BEA data source, not yet implemented into this method. You can use 'bea_data_mate' module instead.")
@@ -251,7 +285,7 @@ class dataset(object):
             return None
 
         elif self.source.lower() == 'rba_series':
-            out_df = abs_series_by_r.get_rba_series_r(series_id = self.data_code)
+            out_df = abs_series_by_r.get_rba_series(series_id = self.data_code)
             print(out_df)
             series = out_df.set_index("date",  drop=True)["value"].rename(self.data_code)
             self.data = series
@@ -285,7 +319,8 @@ class dataset(object):
 
     def get_data(self, source: str, data_code: str, start_date: str = "1800-01-01", exchange_code: str = None, 
                  end_date: str = datetime.date.today().strftime('%Y-%m-%d'), data_freq: str = "1d", dtype: str = "close",
-                 capitalize_column_names: bool = False, asset: str = "BTC", resolution: str = '24h', format: str = 'json', timeout: int = 60):
+                 capitalize_column_names: bool = False,
+                 asset: str = "BTC", resolution: str = '24h', format: str = 'json', timeout: int = 60):
         """
         The get_data method is responsible for pulling data from various sources. Pulled data will be stored in 3 important 
         attributes: 

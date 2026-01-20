@@ -17,13 +17,43 @@ from MacroBackend.ABS_backend import abs_series_by_r
 import Macro_Chartist.chartist as mbchart
 from MacroBackend import watchlist
 
+###### GLOBAL slash module level Variables #####################################################
 keys = Utilities.api_keys().keys
-abs_index_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Series_Index.h5s"
+abs_index_path = wd+fdel+"ABS_backend"+fdel+"abs_master_index.h5s"
 abs_tables_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Tables_Index.h5s"
 cG_allshitsPath = wd+fdel+"AllCG.csv"
 metricsListPath = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv"
 bea_path = wd+fdel+"BEA_Data"+fdel+"Datasets"+fdel+"BEA_First3_Datasets.csv"
 watchlists_path_def = parent+fdel+"User_Data"+fdel+"Watchlists"
+
+### The data sources dict. This has references to functions to help with searching each source
+sources = {'fred': PriceImporter.FREDSearch, 
+        'yfinance': js_funcs.search_yf_tickers, 
+        'tv': js_funcs.js_search_tv, 
+        'coingecko': cG_allshitsPath, 
+        'quandl': None, 
+        'glassnode': metricsListPath, 
+        'abs_tables': abs_tables_path,
+        'abs_series': abs_index_path,
+        'bea': bea_data_mate.BEA_API_backend.bea_search_metadata,
+        "rba_tables": abs_series_by_r.browse_rba_tables,
+        "rba_series": abs_series_by_r.browse_rba_series,
+        "tedata": Pull_Data.tedata_search}
+
+# Source details for searching specific columns in each source and could add other source specific flags in hee later on..
+# Add alist of column names for the search_cols key to limit search to those columns in the metadata dataframe for that soirce only
+source_details = {'fred': {"search_cols": "all"},
+        'yfinance': {"search_cols": "all"}, 
+        'tv': {"search_cols": "all"}, 
+        'coingecko': {"search_cols": "all"}, 
+        'quandl': {"search_cols": "all"}, 
+        'glassnode': {"search_cols": "all"}, 
+        'abs_tables': {"search_cols": "all"},
+        'abs_series': {"search_cols": ['Data Item Description', "Series ID"]},
+        'bea': {"search_cols": "all"},
+        "rba_tables": {"search_cols": "all"},
+        "rba_series": {"search_cols": "all"},
+        "tedata": {"search_cols": "all"}}
 
 ###### Standalone functions ##################
 
@@ -523,7 +553,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
     def run_search_df(self):
         split = self.searchstr.strip().split(",")
         terms = [x.strip() for x in split]
-        i = 0
+        search_these_cols = source_details[self.selected_source]["search_cols"]
 
         for term in terms:
             if self.search_results is not None:
@@ -541,8 +571,12 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                     else:
                         print("File extension not recognized, please use .csv, .xlsx or .h5s")
                         return
-                    results = Utilities.Search_DF_np(df, term)
                     
+                    if search_these_cols == "all":
+                        results = Utilities.Search_DF_np(df, term)
+                    else:
+                        results = Utilities.Search_DF_np(df, term, search_these_cols)
+
                     if results.empty:
                         print("No results found, check search terms.")
                         results = pd.DataFrame(["No results found, check search terms.",\
@@ -886,18 +920,6 @@ def org_metadata(series_meta: dict) -> pd.DataFrame:
     return meta_df
 
 def run_app():
-    sources = {'fred': PriceImporter.FREDSearch, 
-            'yfinance': js_funcs.search_yf_tickers, 
-            'tv': js_funcs.js_search_tv, 
-            'coingecko': cG_allshitsPath, 
-            'quandl': None, 
-            'glassnode': metricsListPath, 
-            'abs_tables': abs_tables_path,
-            'abs_series': abs_index_path,
-            'bea': bea_data_mate.BEA_API_backend.bea_search_metadata,
-            "rba_tables": abs_series_by_r.browse_rba_tables_r,
-            "rba_series": abs_series_by_r.browse_rba_series_r,
-            "tedata": Pull_Data.tedata_search}
     
     app = QtWidgets.QApplication.instance()
     if app is None:
