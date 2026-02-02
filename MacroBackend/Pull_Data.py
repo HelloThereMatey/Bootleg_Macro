@@ -16,8 +16,6 @@ import datetime
 import pandas as pd
 import numpy as np
 import pandas_datareader as pdr
-import quandl
-from yahoofinancials import YahooFinancials as yf
 import tedata as ted ##This is my package that scrapes data from Trading Economics
 import json
 import concurrent.futures
@@ -59,7 +57,7 @@ class dataset(object):
         self.supported_sources = ['fred', 'yfinance', 'yfinance2', "yahoo_financials", 'tv', 'coingecko','glassnode',
                                     'abs_series', 'abs_tables', 'bea', 'yahoo','iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
                                     'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
-                                    'quandl', 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
+                                 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                     'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
                                     'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'rba_series', 
                                     'saveddata', "hdfstores", "tedata"]
@@ -67,7 +65,7 @@ class dataset(object):
                               'abs_tables', 'bea', 'rba_tables', 'rba_series', 'saveddata', "hdfstores", "tedata"]
 
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
-        self.keySources = ['fred', 'bea', 'glassnode', 'quandl']
+        self.keySources = ['fred', 'bea', 'glassnode', 'nasdaq']
 
         self.keyz = Utilities.api_keys(JSONpath=parent + fdel + 'MacroBackend' + fdel + 'SystemInfo')
         self.api_keys = dict(self.keyz.keys)

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import matplotlib.dates as mdates
 import datetime
-import pandas_datareader.data as web
+import pandas_datareader as pdr
 import yfinance as yf
 import os
 import sys 
@@ -163,7 +163,7 @@ def DataReaderAllSources(ticker,DataStart,DataEnd=datetime.date.today()):    ###
             "av-weekly","av-weekly-adjusted","av-monthly","av-monthly-adjusted","av-intraday","econdb","naver"]
     for source in expected_source:
         try:
-            AssetData = pd.DataFrame(web.DataReader(ticker,source,start=DataStart,end=DataEnd))
+            AssetData = pd.DataFrame(pdr.DataReader(ticker,source,start=DataStart,end=DataEnd))
         except:
             print('Could not get data for '+ticker+' from '+source+' using DataReader.')  
         else:

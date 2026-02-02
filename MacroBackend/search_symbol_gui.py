@@ -1,7 +1,7 @@
+import os
 import pandas as pd
 from PyQt6 import QtCore, QtGui, QtWidgets
 import openpyxl
-import os
 import sys
 import re
 import gc
