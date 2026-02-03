@@ -14,17 +14,11 @@ from MacroBackend.ABS_backend import abs_series_by_r
 from MacroBackend.Glassnode import GlassNode_API
 import datetime
 import pandas as pd
-import numpy as np
 import pandas_datareader as pdr
+import nasdaqdatalink as ndl
 import tedata as ted ##This is my package that scrapes data from Trading Economics
 import json
 import concurrent.futures
-
-def yf_get_data(ticker: str, start_date: str, end_date: str, data_freq: str = "daily"):
-    yfobj = yf(ticker)
-    data = yfobj.get_historical_price_data(start_date, end_date, data_freq)
-    data = pd.DataFrame(data[ticker]["prices"]).set_index("formatted_date", drop=True).drop("date", axis=1)
-    return data
 
 def tedata_search(searchstr: str = "gdp", wait_time: int = 5):
     ted.find_active_drivers()
@@ -54,14 +48,14 @@ class dataset(object):
         - api_keys (dict): A dictionary containing API keys.
         - data (None): Placeholder for the pulled data.
         """
-        self.supported_sources = ['fred', 'yfinance', 'yfinance2', "yahoo_financials", 'tv', 'coingecko','glassnode',
+        self.supported_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko','glassnode',
                                     'abs_series', 'abs_tables', 'bea', 'yahoo','iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
                                     'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
                                  'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
                                     'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
                                     'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'rba_series', 
                                     'saveddata', "hdfstores", "tedata"]
-        self.added_sources = ['fred', 'yfinance', 'yfinance2', "yahoo_financials", 'tv', 'coingecko', 'quandl', 'glassnode', 'abs_series', 
+        self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'nasdaq', 'glassnode', 'abs_series', 
                               'abs_tables', 'bea', 'rba_tables', 'rba_series', 'saveddata', "hdfstores", "tedata"]
 
         self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
@@ -138,10 +132,6 @@ class dataset(object):
                 print(f"Failed to fetch data: {result.get('error', 'Unknown error')}")
                 self.data = pd.DataFrame()
 
-        elif self.source == 'yahoo_financials':
-            TheData = yf_get_data(self.data_code, self.start_date.strftime('%Y-%m-%d'), self.end_date.strftime('%Y-%m-%d'))
-            self.filterData(TheData)
-
         elif self.source == 'tv': 
             if self.exchange_code is None:
                 try:
@@ -185,14 +175,14 @@ class dataset(object):
             TheData = pd.Series(TheData['Close'], name = self.dataName) 
             self.data = TheData
 
-        elif self.source == 'quandl':
-            if quandl.ApiConfig.api_key == self.api_keys['quandl']:
-                print('quandl key already set: ', quandl.ApiConfig.api_key)    
+        elif self.source == 'nasdaq':
+            if ndl.ApiConfig.api_key == self.api_keys['nasdaq']:
+                print('nasdaq key already set: ', ndl.ApiConfig.api_key)    
             else:    
-                quandl.ApiConfig.api_key = self.api_keys['quandl']
-                print('quandl API key set just now: ', quandl.ApiConfig.api_key) 
+                ndl.ApiConfig.api_key = self.api_keys['nasdaq']
+                print('nasdaq API key set just now: ', ndl.ApiConfig.api_key) 
             print(self.start_date, self.end_date)
-            self.data = quandl.get(self.exchange_code+'/'+self.data_code, start_date = self.start_date, end_date = self.end_date)
+            self.data = ndl.get(self.exchange_code+'/'+self.data_code, start_date = self.start_date, end_date = self.end_date)
 
         elif self.source == 'glassnode':
             # For GlassNode we need the data_code. specification to be in thee format METRIC,ASSET,TIME_RESOLUTION

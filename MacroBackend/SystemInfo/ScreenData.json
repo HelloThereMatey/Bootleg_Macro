@@ -1,18 +1,18 @@
 {
-    "OS": "darwin",
-    "USER": "jamesbishop",
-    "Screen_width": 1680,
-    "Screen_height": 1050,
-    "Pixel size (mm)": 0.127,
-    "Screen width (cm)": 21.336000000000002,
-    "Screen height (cm)": 13.334999999999999,
-    "Char_width": 18,
-    "Char_height": 22,
+    "OS": "win32",
+    "USER": "TotaBilcat",
+    "Screen_width": 1728,
+    "Screen_height": 1080,
+    "Pixel size (mm)": 0.16933333333333334,
+    "Screen width (cm)": 29.2608,
+    "Screen height (cm)": 18.288,
+    "Char_width": 17,
+    "Char_height": 21,
     "Def_font": {
         "name": "TkDefaultFont",
-        "family": ".AppleSystemUIFont",
-        "size": 13,
-        "char_width (pixels)": 9,
-        "char_height (pixels)": 16
+        "family": "Segoe UI",
+        "size": 9,
+        "char_width (pixels)": 7,
+        "char_height (pixels)": 15
     }
 }

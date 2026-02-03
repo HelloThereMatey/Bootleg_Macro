@@ -17,11 +17,10 @@ fdel = os.path.sep
 sys.path.append(parent)
 
 # Internal module imports
-from MacroBackend import Utilities, Pull_Data, charting_plotly
+from MacroBackend import Pull_Data, charting_plotly
 
 from PyQt6 import QtWidgets
-import pydantic
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 import datetime
 from typing import Optional, Any, Mapping, ClassVar
 
@@ -450,7 +449,7 @@ class Watchlist(dict):
 
         self.source_labels = {
             'bea': 'BEA', 'tv': "Trading View", "rba_series": "RBA",
-            'abs_series': 'ABS', "quandl": "NASDAQ", 
+            'abs_series': 'ABS', "nasdaq": "NASDAQ", 
             'fred': 'FRED', 'glassnode': "Glassnode", 'coingecko': "Coin Gecko",
             'yfinance': 'Yahoo Finance'}
 

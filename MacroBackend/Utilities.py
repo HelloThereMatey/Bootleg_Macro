@@ -1061,12 +1061,12 @@ class api_keys():
         fredKey = input('Paste in your FRED API key and hit enter. Hit enter with no input to skip.')
         bea_key = input('Paste in your BEA API key and hit enter. Hit enter with no input to skip.')
         gn_key = input('Paste in your GlassNode API key and hit enter. Hit enter with no input to skip.')
-        quandl_key = input('Paste in your Quandl (NASDAQ data link) API key and hit enter. Hit enter with no input to skip.')
+        nasdaq_key = input('Paste in your NASDAQ (NASDAQ data link) API key and hit enter. Hit enter with no input to skip.')
 
         keyData = {'fred': fredKey,
                    'bea': bea_key,
                    'glassnode': gn_key,
-                   'quandl': quandl_key}
+                   'nasdaq': nasdaq_key}
         
         with open(self.path+fdel+fileName, 'w') as f:
             json.dump(keyData, f, indent=4)

@@ -27,9 +27,9 @@ def js_search_tv(searchstr: str) -> dict:
     env = os.environ.copy()
     env['NODE_PATH'] = node_path
 
-    # Run Node.js process and pass data
+    # Run Node.js process and pass data with UTF-8 encoding
     result = subprocess.run(['node', wd+fdel+'searchTV_js.js'], 
-                          input=data_str, text=True, capture_output=True, env=env)
+                          input=data_str, text=True, capture_output=True, env=env, encoding='utf-8', errors='replace')
     print("Return code:", result.returncode)
 
     if result.returncode != 0:
@@ -62,12 +62,12 @@ def js_search_yf(searchstr: str) -> str:
     env = os.environ.copy()
     env['NODE_PATH'] = node_path
 
-    # Run Node.js process and pass data
+    # Run Node.js process and pass data with UTF-8 encoding
     result = subprocess.run(['node', wd+fdel+'yfinance2_js.js'], 
-                          input=data_str, text=True, capture_output=True, env=env)
+                          input=data_str, text=True, capture_output=True, env=env, encoding='utf-8', errors='replace')
     if result.returncode != 0:
         print("Error:", result.stderr)
-        quit()
+        return None
     else:
         print("Success with yfinance request.")
     #print("Return code:", result.returncode, "\n\n", result.stderr, "\n\n", 'stdout:', result.stdout, result.stdout)
@@ -76,9 +76,18 @@ def js_search_yf(searchstr: str) -> str:
 
 def process_yf_stdout(input: str) -> dict:
     
-    json_form = json.loads(input)
-    news = json_form['news']
-    tickers = json_form['quotes']
+    if input is None or input.strip() == "":
+        return {"News": [], "Tickers": [], "tickers_df": pd.DataFrame()}
+    
+    try:
+        json_form = json.loads(input)
+    except json.JSONDecodeError as e:
+        print(f"Failed to parse JSON: {e}")
+        print(f"Input was: {input[:200]}...")
+        return {"News": [], "Tickers": [], "tickers_df": pd.DataFrame()}
+    
+    news = json_form.get('news', [])
+    tickers = json_form.get('quotes', [])
     
     df = pd.DataFrame() 
     i = 0
@@ -89,8 +98,10 @@ def process_yf_stdout(input: str) -> dict:
         else:
             df = pd.concat([df, ser], axis=1)
         i += 1
-    df = df.T.reset_index(drop=True)
-    df.index.rename("Result #", inplace=True)
+    
+    if not df.empty:
+        df = df.T.reset_index(drop=True)
+        df.index.rename("Result #", inplace=True)
     
     outdict = {"News": news, "Tickers": tickers, "tickers_df": df}
     return outdict
@@ -109,9 +120,9 @@ def js_search_yf_enhanced(searchstr: str) -> dict:
     env = os.environ.copy()
     env['NODE_PATH'] = node_path
 
-    # Run Node.js process and pass data via stdin
+    # Run Node.js process and pass data via stdin with UTF-8 encoding
     result = subprocess.run(['node', wd+fdel+'yfinance2_js.js'], 
-                          input=data_str, text=True, capture_output=True, env=env)
+                          input=data_str, text=True, capture_output=True, env=env, encoding='utf-8', errors='replace')
     
     if result.returncode != 0:
         print("Error in yfinance search:", result.stderr)
@@ -134,11 +145,11 @@ def js_get_historical_data(symbol: str, start_date: str, end_date: str, interval
     env = os.environ.copy()
     env['NODE_PATH'] = node_path
     
-    # Run Node.js process with command line arguments
+    # Run Node.js process with command line arguments and UTF-8 encoding
     cmd = ['node', wd+fdel+'yfinance2_js.js', 'fetch', symbol, 
            str(start_timestamp), str(end_timestamp), interval]
     
-    result = subprocess.run(cmd, text=True, capture_output=True, env=env)
+    result = subprocess.run(cmd, text=True, capture_output=True, env=env, encoding='utf-8', errors='replace')
     
     if result.returncode != 0:
         print("Error fetching historical data:", result.stderr)
@@ -215,20 +226,20 @@ def convert_js_data_to_pandas(js_data) -> pd.DataFrame:
 
 if __name__ == "__main__":
 
-    searchstr = "ES1!"
+    searchstr = "XLC"
     # print("Searching trading view data for:", searchstr)
     
     #Con  vert Python dictionary to JSON string
-    pprint(js_search_tv(searchstr))
+    #pprint(js_search_tv(searchstr))
 
-    # print("Searching yfinance data for:", searchstr)
-    # #Convert Python dictionary to JSON string
-    # yf_results = js_search_yf(searchstr)
-    # formatted = process_yf_stdout(yf_results)
-    # news_res = formatted['News']
-    # tickers_dict = formatted['Tickers']
-    # tick_df = formatted['tickers_df']
-    # print(news_res,"\n\n", tickers_dict, "\n\n", tick_df, "\n\n", type(news_res), type(tickers_dict), type(tick_df))
+    print("Searching yfinance data for:", searchstr)
+    #Convert Python dictionary to JSON string
+    yf_results = js_search_yf(searchstr)
+    formatted = process_yf_stdout(yf_results)
+    news_res = formatted['News']
+    tickers_dict = formatted['Tickers']
+    tick_df = formatted['tickers_df']
+    print(news_res,"\n\n", tickers_dict, "\n\n", tick_df, "\n\n", type(news_res), type(tickers_dict), type(tick_df))
 
     # # print("Testing enhanced yfinance search for:", searchstr)
     # # yf_search_results = js_search_yf_enhanced(searchstr)
