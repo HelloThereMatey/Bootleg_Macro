@@ -7,10 +7,6 @@ import pandas as pd
 import json
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-<<<<<<< HEAD
-=======
-from . import GlassNode_API 
->>>>>>> origin/liquidityRevamp
 import datetime
 import time
 import os
@@ -21,7 +17,6 @@ wd = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(wd); grandpa = os.path.dirname(parent)
 fdel = os.path.sep
 
-<<<<<<< HEAD
 ## Import GlassNode_API module
 if __name__ == '__main__':
     import GlassNode_API 
@@ -29,8 +24,6 @@ else:
     from . import GlassNode_API 
 
 
-=======
->>>>>>> origin/liquidityRevamp
 try:
     with open(parent+fdel+'system_settings.json') as f:      ##Load file containg display specific dimensions for the particular screen & OS. 
         system_set = f.read()
@@ -44,11 +37,7 @@ print('System information: ',platform,', directory delimiter: ', fdel, ', workin
 # Insert your glassnode API key here
 API_KEY = GlassNode_API.API_KEY
 
-<<<<<<< HEAD
 defPath = wd+fdel+'GN_MetricsList.xlsx'  ##Default path to the excel file containing the list of all GN metrics.
-=======
-defPath = wd+fdel+'Saved_Data'+fdel+'GN_MetricsList.csv'
->>>>>>> origin/liquidityRevamp
 defPath = defPath.replace('\\','/')
 savePath = wd+fdel+'Saved_Data'; savePath = savePath.replace('\\','/')
 savePath2 = grandpa+fdel+'User_Data'+fdel+'Glassnode'; savePath2 = savePath2.replace('\\','/')
@@ -150,18 +139,11 @@ def run_app():
 
     def UpdateMetricList():
         Loc = root.getvar(name='GNMetricList_Path'); loc = Loc[0]
-<<<<<<< HEAD
         olDF = pd.read_excel(loc, index_col=0); olLength = len(olDF)
         df = pd.DataFrame(GlassNode_API.UpdateGNMetrics(API_KEY))
         df.columns = ["path"]
         print('Metrics list updated, old length: ',olLength,'new length: ',len(df))
         df.to_excel(loc)
-=======
-        olDF = pd.read_csv(loc, index_col=0); olLength = len(olDF)
-        df = pd.DataFrame(GlassNode_API.UpdateGNMetrics(API_KEY))
-        print('Metrics list updated, old length: ',olLength,'new length: ',len(df))
-        df.to_csv(loc)
->>>>>>> origin/liquidityRevamp
 
     def SearchBtn():
         update_text()
