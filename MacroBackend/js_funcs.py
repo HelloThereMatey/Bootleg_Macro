@@ -89,19 +89,13 @@ def process_yf_stdout(input: str) -> dict:
     news = json_form.get('news', [])
     tickers = json_form.get('quotes', [])
     
-    df = pd.DataFrame() 
-    i = 0
-    for res in tickers:
-        ser = pd.Series(res)
-        if i == 0:
-            df = ser
-        else:
-            df = pd.concat([df, ser], axis=1)
-        i += 1
+    # Handle empty results
+    if not tickers:
+        return {"News": news, "Tickers": tickers, "tickers_df": pd.DataFrame()}
     
-    if not df.empty:
-        df = df.T.reset_index(drop=True)
-        df.index.rename("Result #", inplace=True)
+    # Convert list of dicts to DataFrame directly
+    df = pd.DataFrame(tickers)
+    df.index.rename("Result #", inplace=True)
     
     outdict = {"News": news, "Tickers": tickers, "tickers_df": df}
     return outdict
