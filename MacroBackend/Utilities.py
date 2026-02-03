@@ -757,7 +757,6 @@ def Search_DF(df: Union[pd.DataFrame, pd.Series], searchTerm: str):
     finalMatchDF = innerSearch(df, search_regexes)
     return finalMatchDF
 
-<<<<<<< HEAD
 def Search_DF_np(df: Union[pd.DataFrame, pd.Series], searchTerm: str, use_cols: list = None, verbose: bool = True) -> Union[pd.DataFrame, pd.Series]:
     """
     This function runs a search through a DataFrame or Series for one or more search terms,
@@ -781,9 +780,6 @@ def Search_DF_np(df: Union[pd.DataFrame, pd.Series], searchTerm: str, use_cols: 
         df = df[use_cols]
 
     
-=======
-def Search_DF_np(df: Union[pd.DataFrame, pd.Series], searchTerm: str):
->>>>>>> origin/liquidityRevamp
     # Split the search term by comma if any
     searchTerms = []
     if re.search(".*,.*", searchTerm):
@@ -793,7 +789,6 @@ def Search_DF_np(df: Union[pd.DataFrame, pd.Series], searchTerm: str):
 
     # Create list of compiled regular expressions
     search_regexes = [term.strip().replace('*', '.*') for term in searchTerms]
-<<<<<<< HEAD
     if verbose:
         print("Original search terms list: ", search_regexes)
 
@@ -819,37 +814,6 @@ def Search_DF_np(df: Union[pd.DataFrame, pd.Series], searchTerm: str):
     if use_cols is not None:
         df = og_df
     return df.loc[result.index]
-=======
-    print("Original search terms list: ", search_regexes)
-
-    def innerSearch(df: Union[pd.DataFrame, pd.Series], search_regexs):
-        if not search_regexs:
-            return df
-
-        # Convert DataFrame to NumPy array for faster processing
-        df_values = df.values
-        match_indices = []
-        match_col_indices = []
-
-        for col_idx in range(df_values.shape[1]):
-            for row_idx in range(df_values.shape[0]):
-                if re.search(re.escape(search_regexes[0]), str(df_values[row_idx, col_idx]), flags=re.IGNORECASE):
-                    match_indices.append(row_idx)
-                    match_col_indices.append(col_idx)
-
-        if not match_indices:
-            return pd.DataFrame()  # Return empty DataFrame if no matches found
-
-        # Get unique row indices to avoid duplicate rows
-        unique_match_indices = np.unique(match_indices)
-        matchDF = df.iloc[unique_match_indices]
-
-        search_regexs.pop(0)
-        return innerSearch(matchDF, search_regexs)
-
-    finalMatchDF = innerSearch(df, search_regexes)
-    return finalMatchDF
->>>>>>> origin/liquidityRevamp
 
 def CheckIndexDifference(series1:Union[pd.DataFrame, pd.Series], series2:Union[pd.DataFrame, pd.Series]):
     diffs = (series1.index.difference(series2.index), series2.index.difference(series1.index))
@@ -1097,20 +1061,12 @@ class api_keys():
         fredKey = input('Paste in your FRED API key and hit enter. Hit enter with no input to skip.')
         bea_key = input('Paste in your BEA API key and hit enter. Hit enter with no input to skip.')
         gn_key = input('Paste in your GlassNode API key and hit enter. Hit enter with no input to skip.')
-<<<<<<< HEAD
         nasdaq_key = input('Paste in your NASDAQ (NASDAQ data link) API key and hit enter. Hit enter with no input to skip.')
-=======
-        quandl_key = input('Paste in your Quandl (NASDAQ data link) API key and hit enter. Hit enter with no input to skip.')
->>>>>>> origin/liquidityRevamp
 
         keyData = {'fred': fredKey,
                    'bea': bea_key,
                    'glassnode': gn_key,
-<<<<<<< HEAD
                    'nasdaq': nasdaq_key}
-=======
-                   'quandl': quandl_key}
->>>>>>> origin/liquidityRevamp
         
         with open(self.path+fdel+fileName, 'w') as f:
             json.dump(keyData, f, indent=4)
