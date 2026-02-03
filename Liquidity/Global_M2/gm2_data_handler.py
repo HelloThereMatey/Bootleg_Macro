@@ -165,6 +165,16 @@ class Global_M2:
         self.tv = None
         self.failed_downloads = []
         
+        # Aggregate definitions
+        self.aggregates = {
+            'Top50': None,
+            'Top33': None,
+            'Long28': None,
+            'Long27': None,
+            'Top8': None
+        }
+        self.aggregate_series = {}
+        
         # Load the country list configuration
         self._load_country_list()
         
@@ -508,6 +518,250 @@ class Global_M2:
         """
         return self.data_dict.get(country, None)
     
+    def load_aggregate_definitions(self, config_folder='UpdateM2Infos'):
+        """
+        Load country lists for each aggregate from Excel files.
+        
+        Parameters:
+        -----------
+        config_folder : str
+            Folder containing the aggregate definition files
+            
+        Returns:
+        --------
+        dict
+            Dictionary with aggregate names and their country lists
+        """
+        aggregate_files = {
+            'Top50': 'M2Info_Top50.xlsx',
+            'Top33': 'M2Info_Top33.xlsx',
+            'Long28': 'M2Info_Long28.xlsx',
+            'Long27': 'M2Info_Long27.xlsx',
+            'Top8': 'M2Info_Top8.xlsx'
+        }
+        
+        print(f"\nLoading aggregate definitions from {config_folder}...")
+        
+        for agg_name, filename in aggregate_files.items():
+            file_path = self.wd / config_folder / filename
+            try:
+                df = pd.read_excel(file_path, index_col=0)
+                self.aggregates[agg_name] = list(df.index)
+                print(f"  {agg_name}: {len(self.aggregates[agg_name])} countries")
+            except FileNotFoundError:
+                print(f"  ⚠ Warning: {filename} not found, skipping {agg_name}")
+                self.aggregates[agg_name] = []
+            except Exception as e:
+                print(f"  ✗ Error loading {agg_name}: {str(e)}")
+                self.aggregates[agg_name] = []
+        
+        print(f"✓ Loaded {len([a for a in self.aggregates.values() if a])} aggregate definitions")
+        return self.aggregates
+    
+    def create_aggregate(self, countries, name='Custom', use_ffill=True):
+        """
+        Create an aggregated Global M2 series from a list of countries.
+        
+        Parameters:
+        -----------
+        countries : list
+            List of country names to include in aggregate
+        name : str
+            Name for this aggregate
+        use_ffill : bool
+            Whether to forward-fill missing values at end of series
+            
+        Returns:
+        --------
+        tuple
+            (aggregate_series, aggregate_series_ffill) if use_ffill=True
+            aggregate_series if use_ffill=False
+        """
+        if not self.data_dict:
+            print("No data loaded. Run download_data() or load_from_hdf5() first.")
+            return None
+        
+        # Find countries that are available in data_dict
+        available_countries = [c for c in countries if c in self.data_dict]
+        missing_countries = [c for c in countries if c not in self.data_dict]
+        
+        if missing_countries:
+            print(f"\n⚠ Warning: {len(missing_countries)} countries not in data: {missing_countries}")
+        
+        if not available_countries:
+            print("✗ No countries available for aggregation")
+            return None
+        
+        print(f"\nCreating '{name}' aggregate from {len(available_countries)} countries...")
+        
+        # Collect all M2_USD series
+        country_series = {}
+        date_ranges = []
+        
+        for country in available_countries:
+            df = self.data_dict[country]
+            m2_usd_col = df.columns[-1]  # Last column is M2_USD
+            series = df[m2_usd_col].copy()
+            
+            # Ensure it's a Series
+            if isinstance(series, pd.DataFrame):
+                series = series.iloc[:, 0]
+            
+            country_series[country] = series
+            date_ranges.append((series.index[0], series.index[-1]))
+        
+        # Find the common date range (intersection)
+        earliest_start = max([dr[0] for dr in date_ranges])
+        latest_end = min([dr[1] for dr in date_ranges])
+        
+        print(f"  Date range: {earliest_start} to {latest_end}")
+        
+        # Create a common index
+        # Get all unique dates from all series
+        all_dates = set()
+        for series in country_series.values():
+            all_dates.update(series.index)
+        
+        # Sort and create DatetimeIndex
+        common_index = pd.DatetimeIndex(sorted(all_dates))
+        common_index = common_index[(common_index >= earliest_start) & (common_index <= latest_end)]
+        
+        # Create the aggregate series
+        aggregate = pd.Series(0.0, index=common_index, name=f'{name}_M2_USD')
+        
+        # Sum up each country's contribution
+        for country, series in country_series.items():
+            # Reindex to common index
+            series_aligned = series.reindex(common_index)
+            # Add to aggregate (NaN values don't contribute)
+            aggregate = aggregate.add(series_aligned, fill_value=0)
+        
+        print(f"  ✓ Aggregate created: {len(aggregate)} data points")
+        print(f"  Total M2 (latest): ${aggregate.iloc[-1]:.2e}")
+        
+        if use_ffill:
+            # Create forward-filled version for handling missing recent data
+            aggregate_ffill = pd.Series(0.0, index=common_index, name=f'{name}_M2_USD_ffill')
+            
+            for country, series in country_series.items():
+                # Reindex and forward fill
+                series_aligned = series.reindex(common_index)
+                series_filled = series_aligned.fillna(method='ffill')
+                # Add to aggregate
+                aggregate_ffill = aggregate_ffill.add(series_filled, fill_value=0)
+            
+            print(f"  Total M2 (ffill, latest): ${aggregate_ffill.iloc[-1]:.2e}")
+            
+            return aggregate, aggregate_ffill
+        else:
+            return aggregate
+    
+    def create_all_aggregates(self, use_ffill=True):
+        """
+        Create all predefined aggregate series.
+        
+        Parameters:
+        -----------
+        use_ffill : bool
+            Whether to create forward-filled versions
+            
+        Returns:
+        --------
+        dict
+            Dictionary with aggregate names and their series
+        """
+        if not self.aggregates or not any(self.aggregates.values()):
+            print("No aggregate definitions loaded. Run load_aggregate_definitions() first.")
+            return None
+        
+        print(f"\n{'='*70}")
+        print("Creating Global M2 Aggregates")
+        print(f"{'='*70}")
+        
+        self.aggregate_series = {}
+        
+        for agg_name, countries in self.aggregates.items():
+            if not countries:
+                print(f"\n⚠ Skipping {agg_name}: no countries defined")
+                continue
+            
+            result = self.create_aggregate(countries, name=agg_name, use_ffill=use_ffill)
+            
+            if result:
+                if use_ffill:
+                    self.aggregate_series[agg_name] = result[0]
+                    self.aggregate_series[f'{agg_name}_ffill'] = result[1]
+                else:
+                    self.aggregate_series[agg_name] = result
+        
+        print(f"\n{'='*70}")
+        print(f"✓ Created {len([k for k in self.aggregate_series.keys() if not k.endswith('_ffill')])} aggregates")
+        print(f"{'='*70}\n")
+        
+        return self.aggregate_series
+    
+    def save_aggregates(self, path=None, format='both'):
+        """
+        Save aggregate series to files.
+        
+        Parameters:
+        -----------
+        path : str or None
+            Directory to save files. If None, saves to working directory.
+        format : str
+            'hdf5', 'excel', or 'both'
+            
+        Returns:
+        --------
+        list
+            List of saved file paths
+        """
+        if not self.aggregate_series:
+            print("No aggregates to save. Run create_all_aggregates() first.")
+            return None
+        
+        # Determine save path
+        if path is None:
+            save_dir = self.wd
+        else:
+            save_dir = Path(path)
+        
+        saved_files = []
+        
+        # Save to Excel
+        if format in ['excel', 'both']:
+            print(f"\nSaving aggregates to Excel...")
+            for agg_name, series in self.aggregate_series.items():
+                if not agg_name.endswith('_ffill'):
+                    file_path = save_dir / f'{agg_name}_M2_USD.xlsx'
+                    series.to_excel(file_path)
+                    print(f"  Saved: {file_path.name}")
+                    saved_files.append(str(file_path))
+                    
+                    # Also save ffill version if it exists
+                    ffill_name = f'{agg_name}_ffill'
+                    if ffill_name in self.aggregate_series:
+                        file_path_ffill = save_dir / f'{agg_name}_M2_USD_ffill.xlsx'
+                        self.aggregate_series[ffill_name].to_excel(file_path_ffill)
+                        print(f"  Saved: {file_path_ffill.name}")
+                        saved_files.append(str(file_path_ffill))
+        
+        # Save to HDF5
+        if format in ['hdf5', 'both']:
+            print(f"\nSaving aggregates to HDF5...")
+            hdf_path = save_dir / 'global_m2_aggregates.h5'
+            
+            with pd.HDFStore(hdf_path, mode='w') as store:
+                for agg_name, series in self.aggregate_series.items():
+                    key = agg_name.replace(' ', '_').replace('-', '_')
+                    store.put(key, series, format='table')
+                    print(f"  Saved: /{key}")
+            
+            saved_files.append(str(hdf_path))
+            print(f"✓ Saved to {hdf_path}")
+        
+        return saved_files
+    
     def clean_outliers(self, method='iqr', threshold=3.0, z_score_threshold=3.0, 
                        iqr_multiplier=1.5, pct_change_threshold=None, 
                        interpolation_method='linear', countries=None):
@@ -649,11 +903,11 @@ if __name__ == "__main__":
     print(gm2.country_list)
     # Download data for all countries (or specify a subset)
     # gm2.download_data(countries=['United States', 'China', 'Japan'])
-    #gm2.download_data()
+    gm2.download_data()
     
     # Save to HDF5
     #gm2.save_to_hdf5()
-    gm2.load_from_hdf5()
+    #gm2.load_from_hdf5()
     outlier_report = gm2.clean_outliers(method='zscore', z_score_threshold=4.0)
 
     # Print outlier report  
