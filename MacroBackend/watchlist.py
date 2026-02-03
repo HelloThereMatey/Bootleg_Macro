@@ -17,18 +17,10 @@ fdel = os.path.sep
 sys.path.append(parent)
 
 # Internal module imports
-<<<<<<< HEAD
 from MacroBackend import Pull_Data, charting_plotly
 
 from PyQt6 import QtWidgets
 from pydantic import BaseModel
-=======
-from MacroBackend import Utilities, Pull_Data, charting_plotly
-
-from PyQt6 import QtWidgets
-import pydantic
-from pydantic import BaseModel, Field
->>>>>>> origin/liquidityRevamp
 import datetime
 from typing import Optional, Any, Mapping, ClassVar
 
@@ -457,11 +449,7 @@ class Watchlist(dict):
 
         self.source_labels = {
             'bea': 'BEA', 'tv': "Trading View", "rba_series": "RBA",
-<<<<<<< HEAD
             'abs_series': 'ABS', "nasdaq": "NASDAQ", 
-=======
-            'abs_series': 'ABS', "quandl": "NASDAQ", 
->>>>>>> origin/liquidityRevamp
             'fred': 'FRED', 'glassnode': "Glassnode", 'coingecko': "Coin Gecko",
             'yfinance': 'Yahoo Finance'}
 
@@ -1235,7 +1223,6 @@ class Watchlist(dict):
                     print("Zero alignment skipped: right axis doesn't cross zero")
                 else:
                     # Both axes cross zero - proceed with alignment
-<<<<<<< HEAD
                     # Strategy: choose a target zero position (as fraction from bottom) and adjust both axes
                     # to place zero at exactly that fraction by expanding whichever range needs it.
                     
@@ -1287,44 +1274,6 @@ class Watchlist(dict):
                     final_right_zero_frac = abs(new_right_min) / (abs(new_right_min) + new_right_max)
                     print(f"Final left zero position: {final_left_zero_frac:.4f}, right zero position: {final_right_zero_frac:.4f}")
                     print(f"Zero alignment complete. Target position: {target_zero_frac:.4f}")
-=======
-                    # Calculate the proportion of negative vs positive range for each axis
-                    left_negative_range = abs(left_min)
-                    left_positive_range = left_max
-                    
-                    right_negative_range = abs(right_min)
-                    right_positive_range = right_max
-                    
-                    # Calculate zero position as fraction from bottom (0=bottom, 1=top)
-                    left_zero_position = left_negative_range / (left_negative_range + left_positive_range)
-                    right_zero_position = right_negative_range / (right_negative_range + right_positive_range)
-                    
-                    print(f"Left zero position: {left_zero_position:.3f}, Right zero position: {right_zero_position:.3f}")
-                    
-                    # Align by adjusting ranges to match the larger zero fraction
-                    if abs(left_zero_position - right_zero_position) > 0.01:  # Only adjust if difference is meaningful
-                        target_zero_position = max(left_zero_position, right_zero_position)
-                        
-                        if left_zero_position < target_zero_position:
-                            # Expand left axis negative range to match target zero position
-                            # target_zero_position = new_negative_range / (new_negative_range + left_positive_range)
-                            # Solving for new_negative_range:
-                            new_left_negative = (target_zero_position * left_positive_range) / (1 - target_zero_position)
-                            new_left_min = -new_left_negative
-                            fig.update_layout(yaxis=dict(range=[new_left_min, left_max]))
-                            print(f"Adjusted left axis range: [{new_left_min:.2f}, {left_max:.2f}]")
-                            print(f"New left zero position: {new_left_negative / (new_left_negative + left_positive_range):.3f}")
-                        
-                        if right_zero_position < target_zero_position:
-                            # Expand right axis negative range to match target zero position
-                            new_right_negative = (target_zero_position * right_positive_range) / (1 - target_zero_position)
-                            new_right_min = -new_right_negative
-                            fig.update_layout(yaxis2=dict(range=[new_right_min, right_max]))
-                            print(f"Adjusted right axis range: [{new_right_min:.2f}, {right_max:.2f}]")
-                            print(f"New right zero position: {new_right_negative / (new_right_negative + right_positive_range):.3f}")
-                    else:
-                        print("Zero positions are already well-aligned")
->>>>>>> origin/liquidityRevamp
 
         # Compute layout width/height (pixels) with precedence:
         # 1) explicit width/height args (pixels)
