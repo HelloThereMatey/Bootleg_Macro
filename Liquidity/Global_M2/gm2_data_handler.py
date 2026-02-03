@@ -393,7 +393,7 @@ class Global_M2:
         
         return result_df
     
-    def save_to_hdf5(self, filename='global_m2_data.hd5', path=None):
+    def save_to_hdf5(self, filename='global_m2_data.h5', path=None):
         """
         Save the data dictionary to an HDF5 file.
         
@@ -447,7 +447,7 @@ class Global_M2:
             print(f"✗ Error saving to HDF5: {str(e)}")
             return None
     
-    def load_from_hdf5(self, filename='global_m2_data.hd5', path=None):
+    def load_from_hdf5(self, filename='global_m2_data.h5', path=None):
         """
         Load data from an HDF5 file.
         
@@ -700,7 +700,7 @@ class Global_M2:
         
         return self.aggregate_series
     
-    def save_aggregates(self, path=None, format='both'):
+    def save_aggregates(self, path=None, format: str = 'hdf5'):
         """
         Save aggregate series to files.
         
@@ -709,7 +709,7 @@ class Global_M2:
         path : str or None
             Directory to save files. If None, saves to working directory.
         format : str
-            'hdf5', 'excel', or 'both'
+            'xlsx' or 'hdf5'
             
         Returns:
         --------
@@ -729,7 +729,7 @@ class Global_M2:
         saved_files = []
         
         # Save to Excel
-        if format in ['excel', 'both']:
+        if format == 'xlsx':
             print(f"\nSaving aggregates to Excel...")
             for agg_name, series in self.aggregate_series.items():
                 if not agg_name.endswith('_ffill'):
@@ -747,7 +747,7 @@ class Global_M2:
                         saved_files.append(str(file_path_ffill))
         
         # Save to HDF5
-        if format in ['hdf5', 'both']:
+        elif format == 'hdf5':
             print(f"\nSaving aggregates to HDF5...")
             hdf_path = save_dir / 'global_m2_aggregates.h5'
             
