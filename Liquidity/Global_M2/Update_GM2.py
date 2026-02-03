@@ -42,7 +42,94 @@ def PullData(FullInfo:pd.DataFrame,Rank:list=None): #Use the full dataframe with
                 shitlist.append(TheCountry+'_'+FXSym+'_'+FXEx)
         DataDict[TheCountry] = (M2_Data,FXData)        
     print('Could not get data for these: ',shitlist)   
-    return DataDict         
+    return DataDict    
+
+def identify_outliers(series: pd.Series, method: str = 'iqr', threshold: float = 3.0, 
+                     z_score_threshold: float = 3.0, iqr_multiplier: float = 1.5,
+                     pct_change_threshold: float = None):
+    """
+    Identify outliers in a time series using various methods.
+    
+    Parameters:
+    -----------
+    series : pd.Series
+        The time series data to analyze
+    method : str
+        Method to use: 'iqr' (Interquartile Range), 'zscore', 'pct_change', or 'magnitude'
+    threshold : float
+        General threshold for magnitude-based detection (e.g., detect values > 10^14)
+    z_score_threshold : float
+        Number of standard deviations for z-score method (default: 3.0)
+    iqr_multiplier : float
+        Multiplier for IQR method (default: 1.5)
+    pct_change_threshold : float
+        Percentage change threshold (e.g., 100 for 100% change)
+    
+    Returns:
+    --------
+    dict with keys:
+        'outlier_indices': list of index positions
+        'outlier_dates': list of dates
+        'outlier_values': list of values
+        'method_used': string describing method
+    """
+    
+    outlier_info = {
+        'outlier_indices': [],
+        'outlier_dates': [],
+        'outlier_values': [],
+        'method_used': method
+    }
+    
+    if method == 'iqr':
+        # Interquartile Range method
+        Q1 = series.quantile(0.25)
+        Q3 = series.quantile(0.75)
+        IQR = Q3 - Q1
+        lower_bound = Q1 - iqr_multiplier * IQR
+        upper_bound = Q3 + iqr_multiplier * IQR
+        
+        outliers = (series < lower_bound) | (series > upper_bound)
+        
+    elif method == 'zscore':
+        # Z-score method
+        mean = series.mean()
+        std = series.std()
+        z_scores = np.abs((series - mean) / std)
+        outliers = z_scores > z_score_threshold
+        
+    elif method == 'pct_change':
+        # Percentage change method
+        if pct_change_threshold is None:
+            raise ValueError("pct_change_threshold must be specified for 'pct_change' method")
+        
+        pct_changes = series.pct_change().abs() * 100
+        outliers = pct_changes > pct_change_threshold
+        
+    elif method == 'magnitude':
+        # Absolute magnitude threshold (useful for your Iraq case)
+        outliers = series > threshold
+        
+    else:
+        raise ValueError(f"Unknown method: {method}. Use 'iqr', 'zscore', 'pct_change', or 'magnitude'")
+    
+    # Extract outlier information
+    outlier_mask = outliers.fillna(False)
+    outlier_info['outlier_indices'] = list(series[outlier_mask].index)
+    outlier_info['outlier_dates'] = [str(date) for date in series[outlier_mask].index]
+    outlier_info['outlier_values'] = list(series[outlier_mask].values)
+    
+    # Print summary
+    print(f"\nOutlier Detection Summary ({method} method):")
+    print(f"Total data points: {len(series)}")
+    print(f"Outliers found: {len(outlier_info['outlier_indices'])}")
+    
+    if len(outlier_info['outlier_indices']) > 0:
+        print("\nOutlier details:")
+        for date, value in zip(outlier_info['outlier_dates'], outlier_info['outlier_values']):
+            print(f"  Date: {date}, Value: {value:.2e}")
+    
+    return outlier_info     
 
 def MakeDataCompFile(FullInfo:pd.DataFrame,M2Path:str,FXPath:str):
     DataComp = {"Country":[],"Curr_code":[],"M2_Len":[],"FX_Len":[],"M2_1stDate":[],"M2_LastDate":[],"FX_1stDate":[],"FX_LastDate":[],\
@@ -214,9 +301,10 @@ def UpdateData(M2List:pd.DataFrame,M2Path:str,FXPath:str):
 
 if __name__ == "__main__":
 
-    #################################### ACTIVE CODE BELOW, FUNCTIONS ABOVE. #####################################################
 
-    print('Pulling M2 and FX data for the top 50 economies from TV........')
+    skip_update = True  #Set to True to skip updating M2 & FX data from TV and just use existing data on disk.
+    #################################### ACTIVE CODE BELOW, FUNCTIONS ABOVE. #####################################################
+        
     filename = wd+fdel+'UpdateM2Infos'+fdel+'M2Info_Top50.xlsx'
     top33path = wd+fdel+'UpdateM2Infos'+fdel+'M2Info_Top33.xlsx'
     long28path = wd+fdel+'UpdateM2Infos'+fdel+'M2Info_Long28.xlsx'
@@ -237,17 +325,29 @@ if __name__ == "__main__":
     print("Global M2 initial dataframe: ",FullList)
     split = filename.split(fdel); nam = split[len(split)-1]; split2 = nam.split("."); naml = split2[0]; split3 = naml.split("_"); des = split3[1]
 
-    DataComp = UpdateData(FullList,M2Path,FXPath)        #Step #2 update M2 & FX data if not already done (optional). 
-    DataComp.to_excel(wd+fdel+'Datasums'+fdel+des+'_DataComp.xlsx')
-    top33Sum = MakeDataCompFile(top33,M2Path,FXPath)
-    top33Sum.to_excel(wd+fdel+'Datasums'+fdel+'Top33_DataComp.xlsx')
-    long28Sum = MakeDataCompFile(long28,M2Path,FXPath)
-    long28Sum.to_excel(wd+fdel+'Datasums'+fdel+'Long28_DataComp.xlsx')
-    long27Sum = MakeDataCompFile(long27,M2Path,FXPath)
-    long27Sum.to_excel(wd+fdel+'Datasums'+fdel+'long27_DataComp.xlsx')
-    top8Sum = MakeDataCompFile(top8,M2Path,FXPath)
-    top8Sum.to_excel(wd+fdel+'Datasums'+fdel+'Top8_DataComp.xlsx')
+## PULl data from TV
+    if skip_update == False:
+        print('Pulling M2 and FX data for the top 50 economies from TV........')
+        DataComp = UpdateData(FullList,M2Path,FXPath)        #Step #2 update M2 & FX data if not already done (optional). 
+        DataComp.to_excel(wd+fdel+'Datasums'+fdel+des+'_DataComp.xlsx')
+        top33Sum = MakeDataCompFile(top33,M2Path,FXPath)
+        top33Sum.to_excel(wd+fdel+'Datasums'+fdel+'Top33_DataComp.xlsx')
+        long28Sum = MakeDataCompFile(long28,M2Path,FXPath)
+        long28Sum.to_excel(wd+fdel+'Datasums'+fdel+'Long28_DataComp.xlsx')
+        long27Sum = MakeDataCompFile(long27,M2Path,FXPath)
+        long27Sum.to_excel(wd+fdel+'Datasums'+fdel+'long27_DataComp.xlsx')
+        top8Sum = MakeDataCompFile(top8,M2Path,FXPath)
+        top8Sum.to_excel(wd+fdel+'Datasums'+fdel+'Top8_DataComp.xlsx')
+    else:
+        print('Skipping data update from TV. Loading existing DataComp files from disk.....')
+        DataComp = pd.read_excel(wd+fdel+'Datasums'+fdel+des+'_DataComp.xlsx', index_col=0)
+        top33Sum = pd.read_excel(wd+fdel+'Datasums'+fdel+'Top33_DataComp.xlsx', index_col=0)
+        long28Sum = pd.read_excel(wd+fdel+'Datasums'+fdel+'Long28_DataComp.xlsx', index_col=0)
+        long27Sum = pd.read_excel(wd+fdel+'Datasums'+fdel+'long27_DataComp.xlsx', index_col=0)
+        top8Sum = pd.read_excel(wd+fdel+'Datasums'+fdel+'Top8_DataComp.xlsx', index_col=0)
 
+
+## Combine data etc
     Combos = CombineDatasSimp(FullList,DataComp,M2Path,FXPath) ##Step #3 multiply M2 & FX datas. 
     top33com = CombineDatasSimp(top33,top33Sum,M2Path,FXPath) ##Step #3 multiply M2 & FX datas. 
     long28com = CombineDatasSimp(long28,long28Sum,M2Path,FXPath) ##Step #3 multiply M2 & FX datas. 

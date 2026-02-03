@@ -46,12 +46,30 @@ elif sys.platform == "win32":
 print('System information: ',sys.platform, OpSys,', directory delimiter: ', fdel, ', working directory: ', wd)
 
 Inputs = pd.read_excel(wd+fdel+'NetLiquidity_InputParams.xlsx', index_col=0)     ##Pull input parameters from the input parameters excel file. 
+
+# Normalize common string placeholders that indicate missing values (Excel often
+# contains literal strings like 'nan', 'NAN', 'None' or empty cells). Convert
+# those to real NaN so downstream pd.isna checks work correctly.
+def _normalize_inputs(df: pd.DataFrame) -> pd.DataFrame:
+    def _norm_cell(x):
+        if isinstance(x, str):
+            s = x.strip()
+            if s == "":
+                return np.nan
+            if s.lower() in ("nan", "none", "na"):
+                return np.nan
+            return s
+        return x
+    return df.applymap(_norm_cell)
+
+Inputs = _normalize_inputs(Inputs)
   
 inputs_main_col = Inputs['Additional FRED Data'].to_dict()
 mainLabelGenDict = {"Fed_BS_Full_Or_QE": ("USD Net liquidity (NLQ) = (FED (total) - RevRepo - TGA)\n", 'USD Net liquidity (NLQ) = (FED (QE only) - RevRepo - TGA)\n'), 
                     "Include_Remit": (' + Fed remittances ',""), "Include_ECB":  (" + ECB",""), "Include_BOJ":  (" + BOJ",""), "Include_PboC":  (" + PboC",""),
                     "Include_BoE":  (" + BOE",""), "Include_SNB":  (" + SNB","")}
 MainLabel = ""
+NoString = "no"
 for key in mainLabelGenDict.keys():
     if key == "Fed_BS_Full_Or_QE":
         if inputs_main_col[key] == 'total':
@@ -68,7 +86,7 @@ if any(inputs_main_col[bal] == "yes" for bal in bals):
     MainLabel += " bal. sheets (left axis)"       
 
 ################# Pull data for an asset/s to compare against fed liquidity and other FRED data ##############
-def pull_comp_asset_data(Inputs: pd.DataFrame) -> dict:
+def pull_comp_asset_data(Inputs: pd.DataFrame, save_data: bool = True) -> dict:
     CADict = {}; CAList = []
     for i in range(1,6,1):
         CompAss = (Inputs.loc[i].at['Comparison Assets'],Inputs.loc[i].at['Price API'],\
@@ -84,6 +102,7 @@ def pull_comp_asset_data(Inputs: pd.DataFrame) -> dict:
     print('List of comparison assets to pull data for: ',CAList) 
     start_date = str(Inputs.loc["Start date"].at["Additional FRED Data"])
     end_date = str(Inputs.loc["End date"].at["Additional FRED Data"])
+
     if pd.isna(end_date) or end_date.upper() == "NAN":
         end_date = datetime.date.today().strftime("%Y-%m-%d")
 
@@ -104,13 +123,15 @@ def pull_comp_asset_data(Inputs: pd.DataFrame) -> dict:
         AssetData = pulled_data.data; SeriesInfo = pulled_data.SeriesInfo
         print(f"Data pulled from {source} for {ComparisonAsset} from {start_date} to {end_date}. Datatype: ", type(AssetData))
 
-        savePath = grampa+fdel+"User_Data"+fdel+'SavedData'+fdel+AssetName+'.xlsx'
-        print('Saving new data set: ',ComparisonAsset,'to: ',savePath)
-        AssetData.to_excel(savePath,sheet_name='Closing_Price')
-        with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
-            SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+        if save_data:
+            savePath = grampa+fdel+"User_Data"+fdel+'SavedData'+fdel+AssetName+'.xlsx'
+            print('Saving new data set: ',ComparisonAsset,'to: ',savePath)
+            AssetData.to_excel(savePath,sheet_name='Closing_Price')
+            with pd.ExcelWriter(savePath, engine='openpyxl', mode='a') as writer:  
+                SeriesInfo.to_excel(writer, sheet_name='SeriesInfo')
+
         AssetData.sort_index(inplace=True)
-        AssetData = pd.DataFrame(AssetData[StartDate:EndDate])    
+        AssetData = pd.DataFrame(AssetData[start_date:end_date])    
 
         if i == 1:
             FirstDS = AssetData.copy(); DSMax = FirstDS.max(); DSMin = FirstDS.min(); RightLabel = AssetName+' price (USD)'; FirstDSName = AssetName
@@ -145,7 +166,129 @@ def fred_series(SeriesList: list, SaveFredData: bool = True):
     return SeriesDict      
 
 ############ Use daily Treasury general data from the US Treasury instead of the weekly data from FRED ##################
-def get_nlq_data(Findex: pd.DatetimeIndex):
+def get_nlq_raw(inputs_df: pd.DataFrame = None):
+    """Gather all raw data configuration and comparison asset pulls.
+
+    This function sets module-level globals used by downstream helpers (to
+    preserve backward compatibility with existing functions) and returns a
+    context dict that other modules can use.
+    """
+    global myFredAPI_key, SaveFredData, DataStart, StartDate, EndDateStr, EndDate
+    if inputs_df is None:
+        inputs_df = Inputs
+
+    # API key and save flag
+    myFredAPI_key = inputs_df.loc['API Key'].at['Additional FRED Data']
+    if pd.isna(myFredAPI_key):
+        keys = Utilities.api_keys()
+        myFredAPI_key = keys.keys['fred']
+
+    SaveFREDData = inputs_df.loc['SaveFREDData'].at['Additional FRED Data']
+    if pd.isna(SaveFREDData) or str(SaveFREDData).upper() == 'NO':
+        SaveFredData = False
+    else:
+        SaveFredData = True
+
+    # Date ranges
+    DayOne = inputs_df.loc['Start date'].at['Additional FRED Data']; LastDay = inputs_df.loc['End date'].at['Additional FRED Data']
+    if pd.isna(DayOne) is True:
+        raise ValueError('You must specify the starting date to pull data for in the inputs .xlsx file.')
+    DataStart = str(DayOne); split = DataStart.split(' '); DataStart = split[0]
+    StartDate = datetime.datetime.strptime(DataStart, '%Y-%m-%d').date()
+
+    if pd.isna(LastDay) is True:
+        EndDate = datetime.date.today(); EndDateStr = EndDate.strftime('%Y-%m-%d')
+    else:
+        EndDateStr = str(LastDay); split = EndDateStr.split(' '); EndDateStr = split[0]
+        EndDate = datetime.datetime.strptime(EndDateStr, '%Y-%m-%d').date()
+
+    # Build series list (keep same behavior as original script)
+    BS_Series = str(inputs_df.loc['Fed_BS_Full_Or_QE'].at['Additional FRED Data']); QEStr = 'qe'
+    SeriesList = ["WALCL", "RRPONTSYD", 'WTREGEN']
+    if BS_Series.upper() == QEStr.upper():
+        SeriesList.append('RESPPNTNWW')
+    for i in range(1, 6, 1):
+        ExtraSeries = inputs_df.loc[i].at['Additional FRED Data']
+        Display = inputs_df.loc[i].at['Display Individually']
+        if pd.isna(ExtraSeries):
+            pass
+        else:
+            SeriesList.append((ExtraSeries, Display))
+
+    # Date index for resampling
+    Findex = pd.date_range(StartDate, EndDate, freq='D')
+
+    # Pull comparison assets
+    CADict, ExtraAssets, RightLabel, FirstDSName = pull_comp_asset_data(inputs_df)
+
+    ctx = {
+        'Inputs': inputs_df,
+        'myFredAPI_key': myFredAPI_key,
+        'SaveFredData': SaveFredData,
+        'DataStart': DataStart,
+        'StartDate': StartDate,
+        'EndDate': EndDate,
+        'EndDateStr': EndDateStr,
+        'SeriesList': SeriesList,
+        'Findex': Findex,
+        'CADict': CADict,
+        "NLQ_Source": Inputs.loc['NLQ Source'].at['Additional FRED Data'],
+        'ExtraAssets': ExtraAssets,
+        'RightLabel': RightLabel,
+        'FirstDSName': FirstDSName,
+        'BS_Series': BS_Series,
+        'SavePath': grampa+fdel+"User_Data"+fdel+'NLQ_Data',
+    }
+    return ctx
+
+def process_nlq_data(ctx: dict):
+    """Process raw data context to compute NLQ series and return processed data.
+
+    This uses the existing get_nlq_data implementation which expects several
+    module-level globals to be present; get_nlq_raw ensures those exist.
+    """
+    # Ensure required globals are set for legacy functions
+    global SeriesDict, DataStart, EndDateStr
+    SeriesDict = {}
+    DataStart = ctx['DataStart']; EndDateStr = ctx['EndDateStr']
+
+    # Pull fred series (fills SeriesDict global) using existing helper
+    # Set globals expected by legacy functions
+    StartDate = ctx.get('StartDate')
+    EndDate = ctx.get('EndDate')
+    BS_Series = ctx.get('BS_Series')
+    # expose them as module globals for legacy code paths
+    globals()['StartDate'] = StartDate
+    globals()['EndDate'] = EndDate
+    globals()['BS_Series'] = BS_Series
+
+    SeriesDict = fred_series(ctx['SeriesList'], SaveFredData=ctx['SaveFredData'])
+
+    # Compute NLQ series using existing get_nlq_data function (which expects SeriesDict and globals)
+    NetLiquidity, NetLiquidity2, NetLiquidity3, USD_NetLiq, FedBal, TGA_FRED, RevRep, TGA_Daily_Series = get_nlq_data(ctx['Findex'], BS_Series=BS_Series, SeriesDict=SeriesDict)
+
+    return {
+        'NetLiquidity': NetLiquidity,
+        'NetLiquidity2': NetLiquidity2,
+        'NetLiquidity3': NetLiquidity3,
+        'USD_NetLiq': USD_NetLiq,
+        'FedBal': FedBal,
+        'TGA_FRED': TGA_FRED,
+        'RevRep': RevRep,
+        'TGA_Daily_Series': TGA_Daily_Series,
+        'SeriesDict': SeriesDict,
+        'CADict': ctx['CADict'],
+        'FirstDSName': ctx['FirstDSName'],
+        'Findex': ctx['Findex'],
+    }
+
+def get_tga_data():
+    """Fetch TGA data from Treasury API and update local Excel file if needed.
+
+    Returns:
+        pd.Series: Daily TGA balance series in billions of dollars.
+    """
+    ############ Use daily Treasury general data from the US Treasury instead of the weekly data from FRED ##################
     TGA_Past = pd.read_excel(grampa+fdel+"User_Data"+fdel+'TreasuryData'+fdel+'TGA_Since2005.xlsx')   #Loading most of the data from a pre-compiled excel file...
     dtIndex = pd.DatetimeIndex(TGA_Past['record_date']); dtIndex = pd.DatetimeIndex(dtIndex.date)
     TGA_Past.set_index(dtIndex,inplace=True); 
@@ -201,12 +344,50 @@ def get_nlq_data(Findex: pd.DatetimeIndex):
     if len(Index.difference(TGA_Daily_Series.index)) > 0:
         TGA_PastRS = PriceImporter.ReSampleToRefIndex(TGA_Daily_Series.copy(),Index,'D') 
     TGA_Daily_Series /= 1000 # TGA account balance is in millions $ from the Treasury, convert to Billions $.  
+
+    return TGA_Daily_Series
+
+def get_nlq_data(Findex: pd.DatetimeIndex, BS_Series: str = 'total', SeriesDict: dict = None):
+    """Download datasets to construct NLQ series and compute it. 
+    Parameters:
+    Findex: pd.DatetimeIndex - date index to resample all series to
+    BS_Series: str - which Fed balance sheet series to use, either 'total' or 'QE'
+    """
+    StartDate = Findex[0]; EndDate = Findex[len(Findex)-1]
+
+    if SeriesDict is None:
+        print("SeriesDict not provided, cannot compute NLQ data.")
+        return None
+    
+    # Normalize BS_Series (may come from Excel as literal 'nan' or similar strings)
+    QEStr = 'qe'; TotStr = 'total'
+
+    try:
+        bs_raw = BS_Series
+    except NameError:
+        bs_raw = None
+    if isinstance(bs_raw, str):
+        s = bs_raw.strip()
+        if s == '' or s.lower() in ('nan', 'none'):
+            bs_val = 'total'
+        else:
+            bs_val = s
+    else:
+        if pd.isna(bs_raw):
+            bs_val = 'total'
+        else:
+            bs_val = bs_raw
+    # expose normalized value locally as BS_Series_val
+    BS_Series_val = bs_val
+    
+    ## Get TGA data from Treasury API
+    TGA_Daily_Series = get_tga_data()
     TGA_Daily_Series = TGA_Daily_Series[StartDate:EndDate]
     print('TGA series, start & end dates: ',TGA_Daily_Series.index[0],TGA_Daily_Series.index[len(TGA_Daily_Series)-1])
-        
+
     ##### Calculate the FED net liquidity as defined by crew such as the legend Darius Dale of 42 Macro. #########
     ### All of this below reindexes the 3 main series to have the same indexes with daily frequency.  
-    if BS_Series == 'nan'or BS_Series.upper() == TotStr.upper():
+    if BS_Series_val == 'nan' or str(BS_Series_val).upper() == TotStr.upper():
         FedBal = pd.DataFrame(SeriesDict['WALCL'][1])   #Use the total fed balance sheet in the calculation. 
         NetLiquidity = (SeriesDict['WALCL'][1]-SeriesDict['WTREGEN'][1]-SeriesDict['RRPONTSYD'][1]) #Weekly net liq calculation. No reindexing. Weekly and daily data combos, all FRED data. 
         NetLiquidity = pd.Series(NetLiquidity,name='Fed net liq 1 (Bil $)'); NetLiquidity.dropna(inplace=True)
@@ -240,244 +421,14 @@ def get_nlq_data(Findex: pd.DatetimeIndex):
     #NetLiquidity.sort_index(inplace=True); FirstDS.sort_index(inplace=True)
     return NetLiquidity, NetLiquidity2, NetLiquidity3, USD_NetLiq, FedBal, TGA_FRED, RevRep, TGA_Daily_Series
 
-def get_cb_bs_data(bs_dict: dict, nlq: pd.Series, nlq2: pd.Series, nlq3: pd.Series, data_start: str, savePath: str):
-    NoString = 'no'; outName = 'US_NLQ'; cb_bal_sheets = {}; saveAt = grampa+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'CB_Bal_Sheets.xlsx'; i = 0
-    for bs in bs_dict.keys():
-        if pd.isna(bs_dict[bs][0]) or str(bs_dict[bs][0]).upper() == NoString.upper():  
-            pass
-        else:
-            bal_sheet, CB_SeriesInfo, BSData, FXData = PriceImporter.GetCBAssets_USD(bs_dict[bs][1],bs_dict[bs][2],data_start, SerName= bs_dict[bs][3])
-            cb_bal_sheets[bs_dict[bs][3]] = bal_sheet
-            nlq = pd.Series((nlq+bal_sheet),name='Net liq. agg.')
-            nlq2 = pd.Series((nlq2+bal_sheet),name='Net liq. agg.')
-            nlq3 = pd.Series((nlq3+bal_sheet),name='Net liq. agg.')
-            if os.path.exists(saveAt):
-                with pd.ExcelWriter(saveAt, engine='openpyxl', mode='a', if_sheet_exists="overlay") as saver:
-                    bal_sheet.to_excel(saver, sheet_name=bs_dict[bs][3])
-            else:    
-                bal_sheet.to_excel(saveAt, sheet_name=bs_dict[bs][3])
-
-            outName += bs_dict[bs][4]
-            with pd.ExcelWriter(savePath, engine='openpyxl', mode='a', if_sheet_exists="overlay") as writer:  
-                nlq.to_excel(writer, sheet_name='Weekly_plus'+bs_dict[bs][3])
-                nlq2.to_excel(writer, sheet_name='Resamp_plus'+bs_dict[bs][3])
-                nlq3.to_excel(writer, sheet_name='TGAData_Plus'+bs_dict[bs][3])       
-    return nlq, nlq2, nlq3, outName, cb_bal_sheets
-
-if __name__ == "__main__":
-    ########### Actual script starts from here down #######################################################################
-    NoString = 'no'
-    myFredAPI_key = Inputs.loc['API Key'].at['Additional FRED Data']
-    if pd.isna(myFredAPI_key):
-        keys = Utilities.api_keys()
-        myFredAPI_key = keys.keys['fred']
-    SaveFREDData = Inputs.loc['SaveFREDData'].at['Additional FRED Data']
-    NLQ_Color = Inputs.loc['NLQ_Color'].at['Additional FRED Data']
-    print('FRED API key: ',myFredAPI_key,', Save FRED data to: ',str(grampa+fdel+"User_Data"+fdel+'FRED_Data'))
-    if pd.isna(SaveFREDData) or str(SaveFREDData).upper() == NoString.upper():    #Optional save FRED series data to disk. 
-        SaveFredData = False
-    else:  
-        SaveFredData = True 
-    savePath = grampa+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'NLQ_Data.xlsx'    
-
-    ## Pull FRED series for net liquidity curve calculation ############# All the important parameters are set here. 
-    BS_Series = str(Inputs.loc['Fed_BS_Full_Or_QE'].at['Additional FRED Data']); QEStr = 'qe'; TotStr = 'total'
-    SeriesList = ["WALCL","RRPONTSYD",'WTREGEN'] #These are the 3 main series from FRED for the net lqiuidity curve calculation.
-    if BS_Series.upper() == QEStr.upper():
-        SeriesList.append('RESPPNTNWW')
-    for i in range(1,6,1):
-        ExtraSeries = Inputs.loc[i].at['Additional FRED Data']         ###Extra series are optionally added to be pulled from FRED. 
-        Display = Inputs.loc[i].at['Display Individually']
-        if pd.isna(ExtraSeries):
-            pass
-        else: 
-            SeriesList.append((ExtraSeries,Display))
-    print('FRED data series to pull: ',SeriesList)        
-
-    SeriesDict = {} #Code below gets the starting and ending dates for all data. 
-    DayOne = Inputs.loc['Start date'].at['Additional FRED Data']; LastDay = Inputs.loc['End date'].at['Additional FRED Data']
-    print('Data start from input file: ',DayOne,', end: ',LastDay)
-    if pd.isna(DayOne) is True:
-        print('You must specify the starting date to pull data for in the inputs .xlsx file.')
-        quit()
+def plot_nlq(data: tuple, CADict: dict, Inputs: pd.DataFrame):
+    """ This function plots the net liquidity data along with the comparison asset #1 and other optional charts as set in the inputs file. """
+    if data is None:
+        print("No data available for plotting.")
+        return
     else:
-        DataStart = str(DayOne); split = DataStart.split(' '); DataStart = split[0]
-        StartDate = datetime.datetime.strptime(DataStart,'%Y-%m-%d').date()
-
-    if pd.isna(LastDay) is True:
-        EndDate = datetime.date.today(); EndDateStr = EndDate.strftime('%Y-%m-%d')
-    else:
-        EndDateStr = str(LastDay); split = EndDateStr.split(' '); EndDateStr = split[0]
-        EndDate = datetime.datetime.strptime(EndDateStr,'%Y-%m-%d').date()
-    TimeLength=(EndDate-StartDate).days
-    print('Pulling data for date range: ',DataStart,' to ',EndDateStr,', number of days: ',TimeLength)
-    print('Start date:',StartDate,', end date: ',EndDate)
-    Findex = pd.date_range(StartDate,EndDate,freq='D')
-
-    ############# Pull data from FRED. ###########################################
-    NLQ_source = Inputs.loc['NLQ Source'].at['Additional FRED Data']
-
-    CADict, ExtraAssets, RightLabel, FirstDSName = pull_comp_asset_data(Inputs)
-    FirstDS = CADict[FirstDSName][0]
-    SeriesDict = fred_series(SeriesList, SaveFredData=SaveFREDData)
-    if NLQ_source == "load_latest":
-        loadPath = grampa+fdel+"User_Data"+fdel+"NLQ_Data"+fdel+"NLQ_Data.xlsx"
-        NetLiquidity = pd.read_excel(loadPath, sheet_name = "Weekly",index_col=0).squeeze()
-        NetLiquidity2 = pd.read_excel(loadPath, sheet_name = "Resampled2Daily",index_col=0).squeeze()
-        NetLiquidity3 = pd.read_excel(loadPath, sheet_name = "Daily_TGAData",index_col=0).squeeze()
-        FedBal = pd.read_excel(loadPath, sheet_name='Fed_Bal_Sheet', index_col=0).squeeze()
-        RevRep = pd.read_excel(loadPath, sheet_name='RRP', index_col=0).squeeze()
-        TGA_Daily_Series = pd.read_excel(loadPath, sheet_name='TGA', index_col=0).squeeze()
-        cb_bal_sheets = pd.read_excel(grampa+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'CB_Bal_Sheets.xlsx', sheet_name=None, index_col=0)
-        USD_NetLiq = FedBal - RevRep - TGA_Daily_Series
-        print('NLQ loaded from file rather than updating data. Loaded from: ', grampa+fdel+"User_Data"+fdel+"NLQ_Data"+fdel+"NLQ_Data.xlsx")
-        
-    else:
-        NetLiquidity, NetLiquidity2, NetLiquidity3, USD_NetLiq, FedBal, TGA_FRED, RevRep, TGA_Daily_Series = get_nlq_data(Findex)
-
-    for key in SeriesDict.keys():    #Plot all of the fed series along wih comparison asset #1. 
-        DataPull = SeriesDict[key]
-        if len(DataPull) > 2:
-            SeriesInfo = DataPull[0]; SeriesData = DataPull[1]; display = DataPull[2]
-        else:
-            SeriesInfo = DataPull[0]; SeriesData = DataPull[1] 
-        if pd.isna(display) or str(display).upper() == NoString.upper():
-            pass
-        else:
-            Charting.FedFig(SeriesData,SeriesInfo,RightSeries=FirstDS,rightlab=FirstDSName) 
-
-    ################ Add the weekly remittances from Fed to TGA to the NLQ series if desired ##################################################   
-    AddFedBills = Inputs.loc['Include_Remit'].at['Additional FRED Data'] 
-    ChartFedBills = Inputs.loc['FED remittances'].at['Additional FRED Data'] 
-    filePath = grampa+fdel+'User_Data'+fdel+'SavedData'+fdel+'RESPPLLOPNWW.xlsx'
-
-    if AddFedBills == 'yes':
-        print("Getting weekly Fed TGA remittances from FRED.")
-        if ChartFedBills == 'yes':
-            FedBills, plot = PriceImporter.GetFedBillData(filePath,StartDate,SepPlot=True)
-        else:
-            FedBills = PriceImporter.GetFedBillData(filePath,StartDate)
-        FedBills = pd.Series(FedBills,name='Weekly remittances FED -> TGA')
-        FedBills /= 7
-        lastVal = FedBills[len(FedBills)-1]
-        FedBills[pd.Timestamp(EndDate)] = lastVal
-        FedBills = FedBills.resample('D').mean()
-        FedBills = PriceImporter.ReSampleToRefIndex(FedBills, Findex, freq = 'D')
-        FedBills.fillna(0, inplace=True)
-        FedBills.fillna(method='ffill', inplace=True)
-        FedBills.to_excel(grampa+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'Fed_Remittances.xlsx')
-        if NLQ_source != 'load_latest':
-            NetLiquidity3 -= FedBills
-
-    ########## Load data for other CB balance sheets to calculate a global liquidity index in USD terms ###########################
-    LoadECB = Inputs.loc['Include_ECB'].at['Additional FRED Data']
-    LoadBOJ = Inputs.loc['Include_BOJ'].at['Additional FRED Data']
-    LoadPBOC = Inputs.loc['Include_PboC'].at['Additional FRED Data']
-    LoadBOE = Inputs.loc['Include_BoE'].at['Additional FRED Data']
-    LoadSNB = Inputs.loc['Include_SNB'].at['Additional FRED Data']      ####Add Swiss National bank CB - not yet added. 
-
-    bs_dict = {"Include_ECB": (LoadECB, ",ECBASSETSW", "FX,EURUSD", 'ECB', "_ECB"), 'Include_BOJ': (LoadBOJ, "ECONOMICS,JPCBBS","FX_IDC,JPYUSD", 'BOJ', "_BOJ"),
-                'Include_PboC': (LoadPBOC, "ECONOMICS,CNCBBS","FX_IDC,CNYUSD", 'PBoC', "_PBoC"), 'Include_BoE': (LoadBOE, "ECONOMICS,GBCBBS","FX,GBPUSD", 'BoE', "_BoE"), 
-                'Include_SNB': (LoadSNB, "ECONOMICS,CHBBS","FX_IDC,CHFUSD", 'SNB', "_SNB")}
-    
-    if NLQ_source != 'load_latest':
-        NetLiquidity, NetLiquidity2, NetLiquidity3, outName, cb_bal_sheets  = get_cb_bs_data(bs_dict, NetLiquidity, NetLiquidity2, NetLiquidity3, 
-                                                                            data_start=DataStart, savePath=savePath) 
-
-    Get_DXY = Inputs.loc['Get_DXY'].at['Additional FRED Data']  #Get DXY and divide the foreign CB bal sheets by DXY to norm. for dollar strength. 
-    if pd.isna(Get_DXY) or str(Get_DXY).upper() == NoString.upper():
-        Norm2DXY = False
-    else:
-        DXY = Pull_Data.dataset("yfinance","DX-Y.NYB", DataStart,endDate=EndDateStr).data  #Plot the series from FRED along with asset #1. 
-        DXY = PriceImporter.ReSampleToRefIndex(DXY,Findex,'D') 
-        Norm2DXY = True
-        NetLiquidity3 = NetLiquidity3/(1/DXY)
-
-    if Inputs.loc['Include_Deficit'].at['Additional FRED Data'] == 'yes':
-        print("Getting US budget deficit data from FRED.")
-        deficit_info, deficit = PriceImporter.PullFredSeries("MTSDS133FMS",myFredAPI_key,start=DataStart,end=EndDateStr,Con2Bil=True)
-        last_value = pd.Series([deficit.iloc[-1]], index=[deficit.index[-1] + pd.offsets.MonthEnd(1)])
-        deficit = pd.concat([deficit, last_value])  
-        deficit_d = deficit.resample('D').ffill()
-        # Divide each month's data by the number of days in that month
-        deficit_d = deficit_d.groupby(deficit_d.index.to_period('M')).transform(lambda x: x / len(x))
-        # deficit_cs = deficit_d.cumsum()
-        deficit_de = PriceImporter.ReSampleToRefIndex(deficit_d,Findex,'D') 
-        NetLiquidity3 -= deficit_de
-    
-        deficit.to_excel(grampa+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'US_Budget_Deficit.xlsx', sheet_name='Data')
-        with pd.ExcelWriter(grampa+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'US_Budget_Deficit.xlsx', engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:  
-            deficit_info.to_excel(writer, sheet_name='SeriesInfo')
-            deficit_d.to_excel(writer, sheet_name='Daily_Avg')
-        MainLabel += '\n+ Gov. deficit'    
-        if Inputs.loc['Fed_Deficit'].at['Additional FRED Data'] == 'yes':
-            left = {"Fed_Def": (deficit_d,"red",1.5)}
-            red_hole_fig = Charting.TwoAxisFig(left, "linear", "USD (bil. of $)", "U.S Gov getting deep in the red son...., daily resample")
-
-    if Inputs.loc['Include_BTFP'].at['Additional FRED Data'] == 'yes':
-        print("Getting BTFP balance data from FRED.")
-        btfp_meta, btfp = PriceImporter.PullFredSeries("H41RESPPALDKNWW",myFredAPI_key,start=DataStart,end=EndDateStr,Con2Bil=True)
-        btfp_d = btfp.resample('D').ffill()
-        btfp_d = PriceImporter.ReSampleToRefIndex(btfp_d,Findex,'D') 
-        NetLiquidity3 += btfp_d
-        MainLabel += ' + BTFP'
-        if Inputs.loc['BTFP'].at['Additional FRED Data'] == 'yes':
-            left = {"BTFP_Bal": (btfp_d,"black",1.5)}
-            btfp_fig = Charting.TwoAxisFig(left, "linear", "USD (bil. of $)", "Bank Term Funding Program balance, daily resample")
-
-    #################  Chuck on a moving average of NLQ if requested by user. ############################################
-    NLQ_MA = Inputs.loc['NLQ_MA (days)'].at['Additional FRED Data']; FaceColor = Inputs.loc['MainFig FaceColor'].at['Additional FRED Data']
-    Smooth = Inputs.loc['Use_Smoothed'].at['Additional FRED Data']
-    if pd.isna(Smooth) or Smooth == 'no':
-        Use_Smoothed = False
-    else:
-        Use_Smoothed = True
-    if pd.isna(NLQ_MA):
-        NLQMA1 = None; NLQMA2 = None; NLQMA3 = None
-        pass
-    elif pd.isna(NLQ_MA) is False and Use_Smoothed is True:
-        NLQMA1 = pd.Series(NetLiquidity).rolling(NLQ_MA).mean(); NLQMA2 = pd.Series(NetLiquidity2).rolling(NLQ_MA).mean(); NLQMA3 = pd.Series(NetLiquidity3).rolling(NLQ_MA).mean()
-        NetLiquidity = NLQMA1.copy(); NetLiquidity2 = NLQMA2.copy(); NetLiquidity3 = NLQMA3.copy()
-        MainLabel += ' '+str(NLQ_MA)+' MA '
-    else:
-        NLQMA1 = pd.Series(NetLiquidity).rolling(NLQ_MA).mean(); NLQMA2 = pd.Series(NetLiquidity2).rolling(NLQ_MA).mean(); NLQMA3 = pd.Series(NetLiquidity3).rolling(NLQ_MA).mean()
-
-    print("Moving average for Net liquidity trace: ",NLQ_MA,' days.')
-
-    ############### SAVE FINAL DATA ##########################################################
-    if NLQ_source != 'load_latest':
-        dic = {"id":"Net Liquidity",'title':"Net liquidity = WALCL - WTREGEN - RRPONTSYD","units_short":"USD-$",'frequency':'Weekly'}
-        dic2 = {"id":"TGA balance",'title':"Treasury General Account Balance (billions of USD)","units_short":"bil. of USD-$",'frequency':'Daily'}
-        Info = pd.Series(dic)
-        Info2 = pd.Series(dic2)
-        NLQ_Info = {"id":"CB bal. sheets",'title':"Central bank Balance sheet aggregate","units_short":"bil. of USD-$",
-                    'frequency':'Daily', 'Source': 'SavedData', 'LegendName': MainLabel, 'name': outName}
-        
-        NetLiquidity.to_excel(savePath,sheet_name='Weekly')
-        with pd.ExcelWriter(savePath, engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:  
-            NetLiquidity2.to_excel(writer, sheet_name='Resampled2Daily')
-            NetLiquidity3.to_excel(writer, sheet_name='Daily_TGAData')
-            FedBal.to_excel(writer, sheet_name='Fed_Bal_Sheet')
-            RevRep.to_excel(writer, sheet_name='RRP')
-            TGA_Daily_Series.to_excel(writer, sheet_name='TGA')
-
-        ########  Export_Series to macro_chartist as well
-        savePath_2 = grampa+fdel+'User_Data'+fdel+'SavedData'+fdel+outName+'.xlsx'
-        print('Saving aggregated NLQ as: ',savePath)
-
-        # Output main NLQ series to macro_chartist hdf5 file
-        # Only svae the data to update....
-        store = pd.HDFStore(grampa+fdel+'User_Data'+fdel+"hd5s"+fdel+"nlq.hd5")
-        store["NLQ"] = NetLiquidity3
-        store["metadata"] = pd.Series(NLQ_Info, name = "Net Liquidity metadata")
-
-        NetLiquidity3.to_excel(savePath_2,sheet_name='Closing_Price')
-        
-        with pd.ExcelWriter(savePath_2, engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:  
-            pd.Series(NLQ_Info).to_excel(writer, sheet_name='SeriesInfo')
-
-######### MATPLOTLIB RELATED CODE BELOW HERE ################################################################################
-    ##### This is the code for plotting the original weekly series with all data sourced from FRED ########################
+        NetLiquidity, NetLiquidity2, NetLiquidity3, USD_NetLiq, FedBal, TGA_FRED, RevRep, TGA_Daily_Series = data
+    ############# Plotting section ##########################################################
     FontFamily = Inputs.loc['FontFamily'].at['Additional FRED Data']
     DisMF1 = Inputs.loc['MainFig (Weekly)'].at['Additional FRED Data']              ##These variable choose whether or not to display the various charts. 
     DisMF2 = Inputs.loc['MainFig (DailyResample)'].at['Additional FRED Data']
@@ -501,8 +452,8 @@ if __name__ == "__main__":
     if pd.isna(DisMF1) or str(DisMF1).upper() == NoString.upper():
         pass
     else:
-        NLQ1 = Charting.MainFig(NetLiquidity,CADict,CorrDF,FirstDS,'Net Liquidity Fed weekly (USD)',CorrString,Mainlabel=MainLabel,LYScale=LYScale,RYScale=RYScale,NLQ_Color=NLQ_Color,\
-        NLQMA=NLQMA1,background=FaceColor,RightLabel=RightLabel,YAxLabPrefix='$',NLQ_MAPer=NLQ_MA)
+        NLQ1 = Charting.MainFig(NetLiquidity,CADict,CorrDF,FirstDS,'Net Liquidity Fed weekly (USD)',CorrString,Mainlabel=MainLabel,LYScale=LYScale,RYScale=RYScale,NLQ_Color=ctx["NLQ_Color"],\
+        NLQMA=NLQMA1,background=FaceColor,RightLabel=ctx["RightLabel"],YAxLabPrefix='$',NLQ_MAPer=NLQ_MA)
 
     Corrs2 = PriceImporter.AssCorr(NetLiquidity2,FirstDS,periodsList) # Calculate Pearson correlation coefficients between NLQ and asset #1.
     Corrs3 = PriceImporter.AssCorr(NetLiquidity3,FirstDS,periodsList)
@@ -513,7 +464,7 @@ if __name__ == "__main__":
     if pd.isna(NLQSimp) or str(NLQSimp).upper() == NoString.upper():
         pass
     else:
-        LiqFig = Charting.FedFig(NetLiquidity,Info,RightSeries=FirstDS,rightlab=FirstDSName)  #Plot the series from FRED along with asset #1. 
+        LiqFig = Charting.FedFig(NetLiquidity,Info,RightSeries=FirstDS,rightlab=ctx["RightLabel"])  #Plot the series from FRED along with asset #1. 
     if pd.isna(TGA_D) or str(TGA_D).upper() == NoString.upper():
         pass
     else:
@@ -550,7 +501,7 @@ if __name__ == "__main__":
                 pass    
             #print('YoY change transformed asset price history data: ',Asset.tail(54))
             CADict[key] = (Asset,Entry[1])
-            if key == FirstDSName:
+            if key == ctx["FirstDSName"]:
                 FirstDS = Asset.copy()
         RightYMax = Inputs.loc['Right Ax Ymax'].at['Additional FRED Data']; print('YoY mode, Max of Right axis: ',RightYMax)
         if pd.isna(RightYMax):
@@ -565,25 +516,209 @@ if __name__ == "__main__":
             pass
         else:
             NLQ2 = Charting.MainFig(NetLiquidity2,CADict,CorrDF2,FirstDS,r'Net Liquidity Fed resampled to daily (YoY $\Delta$%)',CorrString2,\
-                NLQ_Color=NLQ_Color,background=FaceColor,RightLabel=FirstDSName+r' YoY $\Delta$%',Xmin=NetLiquidity2.index[0],Xmax=NetLiquidity2.index[len(NetLiquidity2)-1],\
+                NLQ_Color=ctx["NLQ_Color"],background=FaceColor,RightLabel=ctx["FirstDSName"]+r' YoY $\Delta$%',Xmin=NetLiquidity2.index[0],Xmax=NetLiquidity2.index[len(NetLiquidity2)-1],\
                     RYMin=FirstDS.min(),RYMax=RyMax,LYScale=LYScale,RYScale=RYScale,Mainlabel=MainLabel,NLQ_MAPer=NLQ_MA)
         if pd.isna(DisMF3) or str(DisMF3).upper() == NoString.upper(): 
             print('Permission display strings: ',str(display).upper(),NoString.upper())   
             pass
         else:
             NLQ3 = Charting.MainFig(NetLiquidity3,CADict,CorrDF3,FirstDS,r'Net Liquidity Fed using daily data from Treasury (YoY $\Delta$%)',CorrString3,\
-                NLQ_Color=NLQ_Color,background=FaceColor,RightLabel=FirstDSName+r' YoY $\Delta$%',Xmin=NetLiquidity3.index[0],Xmax=NetLiquidity3.index[len(NetLiquidity3)-1],\
+                NLQ_Color=ctx["NLQ_Color"],background=FaceColor,RightLabel=ctx["FirstDSName"]+r' YoY $\Delta$%',Xmin=NetLiquidity3.index[0],Xmax=NetLiquidity3.index[len(NetLiquidity3)-1],\
                     RYMin=FirstDS.min(),RYMax=RyMax,YLabel=r'YoY $\Delta$%',LYScale=LYScale,RYScale=RYScale,Mainlabel=MainLabel,NLQ_MAPer=NLQ_MA)        
     else:
         ## Main figures ######
         if pd.isna(DisMF2) or str(DisMF2).upper() == NoString.upper():
             pass
         else:
-            NLQ2 = Charting.MainFig(NetLiquidity2,CADict,CorrDF2,FirstDS,'Net Liquidity Fed resampled to daily (USD)',CorrString2,LYScale=LYScale,RYScale=RYScale,NLQ_Color=NLQ_Color,\
-                NLQMA=NLQMA2,RightLabel=RightLabel,background=FaceColor,YAxLabPrefix='$',Mainlabel=MainLabel,NLQ_MAPer=NLQ_MA)
+            NLQ2 = Charting.MainFig(NetLiquidity2,CADict,CorrDF2,FirstDS,'Net Liquidity Fed resampled to daily (USD)',CorrString2,LYScale=LYScale,RYScale=RYScale,NLQ_Color=ctx["NLQ_Color"],\
+                NLQMA=NLQMA2,RightLabel=ctx["RightLabel"],background=FaceColor,YAxLabPrefix='$',Mainlabel=MainLabel,NLQ_MAPer=NLQ_MA)
         if pd.isna(DisMF3) or str(DisMF3).upper() == NoString.upper():
             pass
         else:
             NLQ3 = Charting.MainFig(NetLiquidity3,CADict,CorrDF3,FirstDS,'Net Liquidity Fed using daily data from Treasury (USD)',CorrString3,LYScale=LYScale,RYScale=RYScale,\
-                NLQ_Color=NLQ_Color,RightLabel=RightLabel,NLQMA=NLQMA3,background=FaceColor,YAxLabPrefix='$',Mainlabel=MainLabel,NLQ_MAPer=NLQ_MA)        
+                NLQ_Color=ctx["NLQ_Color"],RightLabel=ctx["RightLabel"],NLQMA=NLQMA3,background=FaceColor,YAxLabPrefix='$',Mainlabel=MainLabel,NLQ_MAPer=NLQ_MA)        
     plt.show() # Show figure/s. Function will remain running until you close the figure.
+
+
+def get_cb_bs_data(bs_dict: dict, nlq: pd.Series, nlq2: pd.Series, nlq3: pd.Series, data_start: str, savePath: str):
+    NoString = 'no'; outName = 'US_NLQ'; cb_bal_sheets = {}; saveAt = grampa+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'CB_Bal_Sheets.xlsx'; i = 0
+    for bs in bs_dict.keys():
+        if pd.isna(bs_dict[bs][0]) or str(bs_dict[bs][0]).upper() == NoString.upper():  
+            pass
+        else:
+            bal_sheet, CB_SeriesInfo, BSData, FXData = PriceImporter.GetCBAssets_USD(bs_dict[bs][1],bs_dict[bs][2],data_start, SerName= bs_dict[bs][3])
+            cb_bal_sheets[bs_dict[bs][3]] = bal_sheet
+            nlq = pd.Series((nlq+bal_sheet),name='Net liq. agg.')
+            nlq2 = pd.Series((nlq2+bal_sheet),name='Net liq. agg.')
+            nlq3 = pd.Series((nlq3+bal_sheet),name='Net liq. agg.')
+            if os.path.exists(saveAt):
+                with pd.ExcelWriter(saveAt, engine='openpyxl', mode='a', if_sheet_exists="overlay") as saver:
+                    bal_sheet.to_excel(saver, sheet_name=bs_dict[bs][3])
+            else:    
+                bal_sheet.to_excel(saveAt, sheet_name=bs_dict[bs][3])
+
+            outName += bs_dict[bs][4]
+            with pd.ExcelWriter(savePath, engine='openpyxl', mode='a', if_sheet_exists="overlay") as writer:  
+                nlq.to_excel(writer, sheet_name='Weekly_plus'+bs_dict[bs][3])
+                nlq2.to_excel(writer, sheet_name='Resamp_plus'+bs_dict[bs][3])
+                nlq3.to_excel(writer, sheet_name='TGAData_Plus'+bs_dict[bs][3])       
+    return nlq, nlq2, nlq3, outName, cb_bal_sheets
+
+if __name__ == "__main__":
+    # Script entrypoint: run the full flow using the modular helpers
+    ctx = get_nlq_raw()
+    processed = process_nlq_data(ctx)
+    NetLiquidity = processed['NetLiquidity']
+    NetLiquidity2 = processed['NetLiquidity2']
+    NetLiquidity3 = processed['NetLiquidity3']
+    USD_NetLiq = processed['USD_NetLiq']
+    FedBal = processed['FedBal']
+    TGA_FRED = processed['TGA_FRED']
+    RevRep = processed['RevRep']
+    TGA_Daily_Series = processed['TGA_Daily_Series']
+
+    for key in SeriesDict.keys():    #Plot all of the fed series along wih comparison asset #1. 
+        DataPull = SeriesDict[key]
+        if len(DataPull) > 2:
+            SeriesInfo = DataPull[0]; SeriesData = DataPull[1]; display = DataPull[2]
+        else:
+            SeriesInfo = DataPull[0]; SeriesData = DataPull[1] 
+        if pd.isna(display) or str(display).upper() == NoString.upper():
+            pass
+        else:
+            Charting.FedFig(SeriesData,SeriesInfo,RightSeries=SeriesDict[ctx['FirstDSName']],rightlab=ctx['FirstDSName']) 
+
+    ################ Add the weekly remittances from Fed to TGA to the NLQ series if desired ##################################################   
+    AddFedBills = Inputs.loc['Include_Remit'].at['Additional FRED Data'] 
+    ChartFedBills = Inputs.loc['FED remittances'].at['Additional FRED Data'] 
+    filePath = grampa+fdel+'User_Data'+fdel+'SavedData'+fdel+'RESPPLLOPNWW.xlsx'
+
+    if AddFedBills == 'yes':
+        print("Getting weekly Fed TGA remittances from FRED.")
+        if ChartFedBills == 'yes':
+            FedBills, plot = PriceImporter.GetFedBillData(filePath,StartDate,SepPlot=True)
+        else:
+            FedBills = PriceImporter.GetFedBillData(filePath,StartDate)
+        FedBills = pd.Series(FedBills,name='Weekly remittances FED -> TGA')
+        FedBills /= 7
+        lastVal = FedBills[len(FedBills)-1]
+        FedBills[pd.Timestamp(EndDate)] = lastVal
+        FedBills = FedBills.resample('D').mean()
+        FedBills = PriceImporter.ReSampleToRefIndex(FedBills, ctx["Findex"], freq = 'D')
+        FedBills.fillna(0, inplace=True)
+        FedBills.fillna(method='ffill', inplace=True)
+        FedBills.to_excel(grampa+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'Fed_Remittances.xlsx')
+        if ctx["NLQ_Source"] != 'load_latest':
+            NetLiquidity3 -= FedBills
+
+    ########## Load data for other CB balance sheets to calculate a global liquidity index in USD terms ###########################
+    LoadECB = Inputs.loc['Include_ECB'].at['Additional FRED Data']
+    LoadBOJ = Inputs.loc['Include_BOJ'].at['Additional FRED Data']
+    LoadPBOC = Inputs.loc['Include_PboC'].at['Additional FRED Data']
+    LoadBOE = Inputs.loc['Include_BoE'].at['Additional FRED Data']
+    LoadSNB = Inputs.loc['Include_SNB'].at['Additional FRED Data']      ####Add Swiss National bank CB - not yet added. 
+
+    bs_dict = {"Include_ECB": (LoadECB, ",ECBASSETSW", "FX,EURUSD", 'ECB', "_ECB"), 'Include_BOJ': (LoadBOJ, "ECONOMICS,JPCBBS","FX_IDC,JPYUSD", 'BOJ', "_BOJ"),
+                'Include_PboC': (LoadPBOC, "ECONOMICS,CNCBBS","FX_IDC,CNYUSD", 'PBoC', "_PBoC"), 'Include_BoE': (LoadBOE, "ECONOMICS,GBCBBS","FX,GBPUSD", 'BoE', "_BoE"), 
+                'Include_SNB': (LoadSNB, "ECONOMICS,CHBBS","FX_IDC,CHFUSD", 'SNB', "_SNB")}
+    
+    if ctx["NLQ_Source"] != 'load_latest':
+        NetLiquidity, NetLiquidity2, NetLiquidity3, outName, cb_bal_sheets  = get_cb_bs_data(bs_dict, NetLiquidity, NetLiquidity2, NetLiquidity3, 
+                                                                            data_start=DataStart, savePath=ctx['SavePath']) 
+
+    Get_DXY = Inputs.loc['Get_DXY'].at['Additional FRED Data']  #Get DXY and divide the foreign CB bal sheets by DXY to norm. for dollar strength. 
+    if pd.isna(Get_DXY) or str(Get_DXY).upper() == NoString.upper():
+        Norm2DXY = False
+    else:
+        DXY = Pull_Data.dataset("yfinance","DX-Y.NYB", DataStart,endDate=EndDateStr).data  #Plot the series from FRED along with asset #1. 
+        DXY = PriceImporter.ReSampleToRefIndex(DXY,ctx["Findex"],'D') 
+        Norm2DXY = True
+        NetLiquidity3 = NetLiquidity3/(1/DXY)
+
+    if Inputs.loc['Include_Deficit'].at['Additional FRED Data'] == 'yes':
+        print("Getting US budget deficit data from FRED.")
+        deficit_info, deficit = PriceImporter.PullFredSeries("MTSDS133FMS",myFredAPI_key,start=DataStart,end=EndDateStr,Con2Bil=True)
+        last_value = pd.Series([deficit.iloc[-1]], index=[deficit.index[-1] + pd.offsets.MonthEnd(1)])
+        deficit = pd.concat([deficit, last_value])  
+        deficit_d = deficit.resample('D').ffill()
+        # Divide each month's data by the number of days in that month
+        deficit_d = deficit_d.groupby(deficit_d.index.to_period('M')).transform(lambda x: x / len(x))
+        # deficit_cs = deficit_d.cumsum()
+        deficit_de = PriceImporter.ReSampleToRefIndex(deficit_d,ctx["Findex"],'D') 
+        NetLiquidity3 -= deficit_de
+    
+        deficit.to_excel(grampa+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'US_Budget_Deficit.xlsx', sheet_name='Data')
+        with pd.ExcelWriter(grampa+fdel+"User_Data"+fdel+'NLQ_Data'+fdel+'US_Budget_Deficit.xlsx', engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:  
+            deficit_info.to_excel(writer, sheet_name='SeriesInfo')
+            deficit_d.to_excel(writer, sheet_name='Daily_Avg')
+        MainLabel += '\n+ Gov. deficit'    
+        if Inputs.loc['Fed_Deficit'].at['Additional FRED Data'] == 'yes':
+            left = {"Fed_Def": (deficit_d,"red",1.5)}
+            red_hole_fig = Charting.TwoAxisFig(left, "linear", "USD (bil. of $)", "U.S Gov getting deep in the red son...., daily resample")
+
+    if Inputs.loc['Include_BTFP'].at['Additional FRED Data'] == 'yes':
+        print("Getting BTFP balance data from FRED.")
+        btfp_meta, btfp = PriceImporter.PullFredSeries("H41RESPPALDKNWW",myFredAPI_key,start=DataStart,end=EndDateStr,Con2Bil=True)
+        btfp_d = btfp.resample('D').ffill()
+        btfp_d = PriceImporter.ReSampleToRefIndex(btfp_d,ctx["Findex"],'D') 
+        NetLiquidity3 += btfp_d
+        MainLabel += ' + BTFP'
+        if Inputs.loc['BTFP'].at['Additional FRED Data'] == 'yes':
+            left = {"BTFP_Bal": (btfp_d,"black",1.5)}
+            btfp_fig = Charting.TwoAxisFig(left, "linear", "USD (bil. of $)", "Bank Term Funding Program balance, daily resample")
+
+    #################  Chuck on a moving average of NLQ if requested by user. ############################################
+    NLQ_MA = Inputs.loc['NLQ_MA (days)'].at['Additional FRED Data']; FaceColor = Inputs.loc['MainFig FaceColor'].at['Additional FRED Data']
+    Smooth = Inputs.loc['Use_Smoothed'].at['Additional FRED Data']
+    if pd.isna(Smooth) or Smooth == 'no':
+        Use_Smoothed = False
+    else:
+        Use_Smoothed = True
+    if pd.isna(NLQ_MA):
+        NLQMA1 = None; NLQMA2 = None; NLQMA3 = None
+        pass
+    elif pd.isna(NLQ_MA) is False and Use_Smoothed is True:
+        NLQMA1 = pd.Series(NetLiquidity).rolling(NLQ_MA).mean(); NLQMA2 = pd.Series(NetLiquidity2).rolling(NLQ_MA).mean(); NLQMA3 = pd.Series(NetLiquidity3).rolling(NLQ_MA).mean()
+        NetLiquidity = NLQMA1.copy(); NetLiquidity2 = NLQMA2.copy(); NetLiquidity3 = NLQMA3.copy()
+        MainLabel += ' '+str(NLQ_MA)+' MA '
+    else:
+        NLQMA1 = pd.Series(NetLiquidity).rolling(NLQ_MA).mean(); NLQMA2 = pd.Series(NetLiquidity2).rolling(NLQ_MA).mean(); NLQMA3 = pd.Series(NetLiquidity3).rolling(NLQ_MA).mean()
+
+    print("Moving average for Net liquidity trace: ",NLQ_MA,' days.')
+
+    ############### SAVE FINAL DATA ##########################################################
+    if ctx["NLQ_Source"] != 'load_latest':
+        dic = {"id":"Net Liquidity",'title':"Net liquidity = WALCL - WTREGEN - RRPONTSYD","units_short":"USD-$",'frequency':'Weekly'}
+        dic2 = {"id":"TGA balance",'title':"Treasury General Account Balance (billions of USD)","units_short":"bil. of USD-$",'frequency':'Daily'}
+        Info = pd.Series(dic)
+        Info2 = pd.Series(dic2)
+        NLQ_Info = {"id":"CB bal. sheets",'title':"Central bank Balance sheet aggregate","units_short":"bil. of USD-$",
+                    'frequency':'Daily', 'Source': 'SavedData', 'LegendName': MainLabel, 'name': outName}
+
+        NetLiquidity.to_excel(ctx["SavePath"],sheet_name='Weekly')
+        with pd.ExcelWriter(ctx["SavePath"], engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:
+            NetLiquidity2.to_excel(writer, sheet_name='Resampled2Daily')
+            NetLiquidity3.to_excel(writer, sheet_name='Daily_TGAData')
+            FedBal.to_excel(writer, sheet_name='Fed_Bal_Sheet')
+            RevRep.to_excel(writer, sheet_name='RRP')
+            TGA_Daily_Series.to_excel(writer, sheet_name='TGA')
+
+        ########  Export_Series to macro_chartist as well
+        savePath_2 = grampa+fdel+'User_Data'+fdel+'SavedData'+fdel+outName+'.xlsx'
+        print('Saving aggregated NLQ as: ',ctx["SavePath"])
+
+        # Output main NLQ series to macro_chartist hdf5 file
+        # Only svae the data to update....
+        store = pd.HDFStore(grampa+fdel+'User_Data'+fdel+"hd5s"+fdel+"nlq.hd5")
+        store["NLQ"] = NetLiquidity3
+        store["metadata"] = pd.Series(NLQ_Info, name = "Net Liquidity metadata")
+
+        NetLiquidity3.to_excel(savePath_2,sheet_name='Closing_Price')
+        
+        with pd.ExcelWriter(savePath_2, engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:  
+            pd.Series(NLQ_Info).to_excel(writer, sheet_name='SeriesInfo')
+
+######### MATPLOTLIB RELATED CODE BELOW HERE ################################################################################
+    ##### This is the code for plotting the original weekly series with all data sourced from FRED ########################
+
+    plot_nlq((NetLiquidity, NetLiquidity2, NetLiquidity3, USD_NetLiq, FedBal, TGA_FRED, RevRep, TGA_Daily_Series))

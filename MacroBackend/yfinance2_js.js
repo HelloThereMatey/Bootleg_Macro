@@ -1,8 +1,12 @@
+<<<<<<< HEAD
 const YahooFinance = require('yahoo-finance2');
 // Initialize with v3 API - suppress deprecation notice for historical() -> chart() mapping
 const yahooFinance = new YahooFinance.default({
     suppressNotices: ['ripHistorical']
 });
+=======
+const yahooFinance = require('yahoo-finance2').default;
+>>>>>>> origin/liquidityRevamp
 
 async function searchSymbols(searchTerm) {
     try {

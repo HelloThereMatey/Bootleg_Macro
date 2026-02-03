@@ -53,12 +53,16 @@ def UpdateGNMetrics(APIKey:str) -> pd.DataFrame: #Use this to occaisonally updat
     #make API request
     res = requests.get("https://api.glassnode.com/v1/metadata/metrics", params={'a': 'BTC', 'api_key': APIKey})
     #convert to pandas dataframe
+<<<<<<< HEAD
     print("Raw response text from Glassnode API for metrics list: ", res.text[:500])  #Print first 500 characters of response text for debugging
+=======
+>>>>>>> origin/liquidityRevamp
     df = pd.read_json(io.StringIO(res.text), convert_dates=['t'])
     print('File updated, here is a preview:', df)
     return df
 
 ########### Active code below ###################################
+<<<<<<< HEAD
 def SearchMetrics(MetricsList: pd.DataFrame, SearchString:str): 
     if isinstance(MetricsList, str):  
         if not os.path.isfile(MetricsList):
@@ -72,6 +76,14 @@ def SearchMetrics(MetricsList: pd.DataFrame, SearchString:str):
             df.index.rename('Index',inplace=True)
     elif isinstance(MetricsList, pd.DataFrame):
         df = MetricsList
+=======
+def SearchMetrics(MetricsList, SearchString:str): 
+    if str(type(MetricsList) =="<class 'str'>"):  
+        df = pd.read_csv(MetricsList, index_col=0)  #Load the GNMetrics list as pandas dataframe. 
+        df.index.rename('Index',inplace=True) 
+    elif str(type(MetricsList) == "<class 'pandas.core.frame.DataFrame'>"):
+        pass
+>>>>>>> origin/liquidityRevamp
     else:
         print('List must be supplied as a dataframe or as a str containing a path to an excel file to load the dataframe from.')    
         quit()
@@ -85,7 +97,11 @@ def SearchMetrics(MetricsList: pd.DataFrame, SearchString:str):
 def GetMetric(path:str,APIKey:str = None, params:dict=None, format: str='json'):
     split = path.split('/'); name = split[len(split)-1]
     print('Getting data for GN metric, ',name,', from Glassnode API.')
+<<<<<<< HEAD
     url = 'https://api.glassnode.com/v1/metrics'+path
+=======
+    url = 'https://api.glassnode.com'+path
+>>>>>>> origin/liquidityRevamp
     print('Making request to url: ',url)
 
     if params is not None:
@@ -99,7 +115,10 @@ def GetMetric(path:str,APIKey:str = None, params:dict=None, format: str='json'):
         r = requests.get(url, params)
     else:    
         r = requests.get(url, params={'a': 'BTC', 'api_key': APIKey, 'f': format})
+<<<<<<< HEAD
     
+=======
+>>>>>>> origin/liquidityRevamp
     if r.status_code != 200:
         print('Failure! What went wrong?',r.status_code, r.reason)
         print("If you have an error code in the 400's, the error is probably due to an invalid API key.\n\

@@ -2,5 +2,9 @@
     "fred": "XXXXXXXXXXXX",
     "glassnode": "XXXXXXXXXXXXXXX",
     "bea": "XXXXXXXXXXXXXX",
+<<<<<<< HEAD
     "nasdaq": "XXXXXXXXXXXXXXX"
+=======
+    "quandl": "XXXXXXXXXXXXXXX"
+>>>>>>> origin/liquidityRevamp
 }

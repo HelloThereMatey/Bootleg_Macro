@@ -1,2 +1,3 @@
-from .Plot_GM2 import *
-from .Update_GM2 import *
+from .gm2_data_handler import Global_M2
+
+__all__ = ['Global_M2']

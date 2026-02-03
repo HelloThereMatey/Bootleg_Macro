@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
     "OS": "win32",
     "USER": "TotaBilcat",
     "Screen_width": 1728,
@@ -14,5 +15,22 @@
         "size": 9,
         "char_width (pixels)": 7,
         "char_height (pixels)": 15
+=======
+    "OS": "darwin",
+    "USER": "jamesbishop",
+    "Screen_width": 1680,
+    "Screen_height": 1050,
+    "Pixel size (mm)": 0.127,
+    "Screen width (cm)": 21.336000000000002,
+    "Screen height (cm)": 13.334999999999999,
+    "Char_width": 18,
+    "Char_height": 22,
+    "Def_font": {
+        "name": "TkDefaultFont",
+        "family": ".AppleSystemUIFont",
+        "size": 13,
+        "char_width (pixels)": 9,
+        "char_height (pixels)": 16
+>>>>>>> origin/liquidityRevamp
     }
 }

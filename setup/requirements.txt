@@ -3,19 +3,38 @@ pandas
 pandas-datareader
 numpy
 matplotlib
+<<<<<<< HEAD
 plotly
 openpyxl
 yfinance
 Nasdaq-Data-Link
 scipy
 PyQt6
+=======
+seaborn
+plotly
+altair
+openpyxl
+yfinance
+yahoofinancials==1.18
+Nasdaq-Data-Link
+scipy
+quandl
+customtkinter
+PyQt6
+streamlit
+>>>>>>> origin/liquidityRevamp
 fuzzywuzzy
 levenshtein
 ipywidgets
 beautifulsoup4
 selenium
+<<<<<<< HEAD
 tedata
 readabs
 pydantic
 customtkinter
 seaborn
+=======
+tedata
+>>>>>>> origin/liquidityRevamp
