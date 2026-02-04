@@ -13,7 +13,7 @@ import time
 
 from MacroBackend import Utilities, PriceImporter, js_funcs, Glassnode, Pull_Data
 from MacroBackend.BEA_Data import bea_data_mate
-from MacroBackend.ABS_backend import abs_series_by_r
+from MacroBackend.ABS_backend import abs_series_by_r, readabs_py
 import Macro_Chartist.chartist as mbchart
 from MacroBackend import watchlist
 
@@ -36,8 +36,8 @@ sources = {'fred': PriceImporter.FREDSearch,
         'abs_tables': abs_tables_path,
         'abs_series': abs_index_path,
         'bea': bea_data_mate.BEA_API_backend.bea_search_metadata,
-        "rba_tables": abs_series_by_r.browse_rba_tables,
-        "rba_series": abs_series_by_r.browse_rba_series,
+        "rba_tables": readabs_py.browse_rba_tables,
+        "rba_series": readabs_py.browse_rba_series,
         "tedata": Pull_Data.tedata_search}
 
 # Source details for searching specific columns in each source and could add other source specific flags in hee later on..

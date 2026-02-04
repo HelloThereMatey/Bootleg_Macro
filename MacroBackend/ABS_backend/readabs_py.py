@@ -1,16 +1,22 @@
 """
-Python readabs backend for downloading ABS data series.
+Python readabs backend for downloading ABS and RBA data series.
 
-This module provides a Python-based interface to the ABS data using the Python
+This module provides a Python-based interface to the ABS and RBA data using the Python
 readabs package, replacing the R-based implementation that had issues with series
 ID handling.
 
-Main functions:
+Main ABS functions:
 - search_series_by_id(): Search for a series by its ABS series ID
 - search_series_by_catalog(): Search for series within a catalog number
 - get_series_metadata(): Retrieve metadata for a series
 - download_series_data(): Download data for a specific series
 - get_series_by_id(): High-level function to get series data and metadata by ID
+
+Main RBA functions:
+- get_rba_catalogue(): Get RBA catalogue of available tables
+- browse_rba_tables(): Search RBA tables by keyword
+- browse_rba_series(): Search RBA series within tables by keyword
+- get_rba_series(): Download RBA series data by series ID
 """
 
 import os
@@ -439,10 +445,302 @@ def get_metadata_from_index(series_id: str, catalog_num: str) -> Optional[pd.Ser
     else:
         return None
 
+
+# ============================================================================
+# RBA FUNCTIONS - PYTHON READABS
+# ============================================================================
+
+def get_rba_catalogue(verbose: bool = False) -> Optional[pd.DataFrame]:
+    """
+    Get the complete RBA catalogue listing of available tables.
+    
+    Parameters:
+    -----------
+    verbose : bool
+        Print debug information if True
+        
+    Returns:
+    --------
+    pd.DataFrame or None
+        DataFrame with RBA catalogue information containing table numbers and descriptions
+    """
+    try:
+        if verbose:
+            print("Retrieving RBA catalogue")
+        
+        catalogue = ra.rba_catalogue()
+        return catalogue
+    
+    except Exception as e:
+        print(f"Error getting RBA catalogue: {e}")
+        return None
+
+
+def browse_rba_tables(searchterm: str = "rate", verbose: bool = False) -> Optional[pd.DataFrame]:
+    """
+    Search RBA tables by keyword using Python readabs package.
+    
+    Parameters:
+    -----------
+    searchterm : str
+        Keyword to search for in table names/descriptions
+    verbose : bool
+        Print debug information if True
+        
+    Returns:
+    --------
+    pd.DataFrame or None
+        DataFrame with matching RBA tables (renamed to have 'id' and 'title' columns)
+    """
+    try:
+        if verbose:
+            print(f"Searching RBA tables for: {searchterm}")
+        
+        # Get the full RBA catalogue
+        catalogue = ra.rba_catalogue()
+        
+        if catalogue is None or catalogue.empty:
+            if verbose:
+                print("No RBA catalogue data available")
+            return None
+        
+        # Search in table descriptions
+        # RBA catalogue typically has columns like 'table_no', 'table_title', etc.
+        mask = catalogue.astype(str).apply(
+            lambda x: x.str.contains(searchterm, case=False, na=False)
+        ).any(axis=1)
+        
+        results = catalogue[mask]
+        
+        if results.empty:
+            if verbose:
+                print(f"No tables found matching '{searchterm}'")
+            return None
+        
+        # Rename columns to standardized 'id' and 'title' format
+        # Adjust these column names based on actual RBA catalogue structure
+        if 'table_no' in results.columns and 'table_title' in results.columns:
+            results = results.rename(columns={'table_no': 'id', 'table_title': 'title'})
+        
+        if verbose:
+            print(f"Found {len(results)} matching tables")
+        
+        return results
+    
+    except Exception as e:
+        print(f"Error browsing RBA tables: {e}")
+        return None
+
+
+def browse_rba_series(
+    searchterm: str = "rate", 
+    table_filter: Optional[str] = None,
+    max_tables: int = 20,
+    verbose: bool = False
+) -> Optional[pd.DataFrame]:
+    """
+    Search RBA series by keyword within specified tables using Python readabs package.
+    
+    Note: This function can be slow as it needs to download and read RBA tables.
+    Use table_filter to narrow down which tables to search, or use browse_rba_tables()
+    first to find relevant tables.
+    
+    Parameters:
+    -----------
+    searchterm : str
+        Keyword to search for in series names/descriptions
+    table_filter : str, optional
+        Filter tables by description before searching (e.g., "interest" to only search interest rate tables)
+    max_tables : int
+        Maximum number of tables to search (default 20 to avoid long wait times)
+    verbose : bool
+        Print debug information if True
+        
+    Returns:
+    --------
+    pd.DataFrame or None
+        DataFrame with matching RBA series with columns 'id', 'title', 'table_no', 'table_title'
+    """
+    import warnings
+    
+    try:
+        if verbose:
+            print(f"Searching RBA series for: {searchterm}")
+        
+        # Get the RBA catalogue first
+        catalogue = ra.rba_catalogue()
+        
+        if catalogue is None or catalogue.empty:
+            if verbose:
+                print("No RBA catalogue available")
+            return None
+        
+        # Filter catalogue if table_filter provided
+        if table_filter:
+            desc_col = 'Description' if 'Description' in catalogue.columns else 'table_title'
+            if desc_col in catalogue.columns:
+                mask = catalogue[desc_col].str.contains(table_filter, case=False, na=False)
+                catalogue = catalogue[mask]
+                if verbose:
+                    print(f"Filtered to {len(catalogue)} tables matching '{table_filter}'")
+        
+        # Limit number of tables to search
+        catalogue = catalogue.head(max_tables)
+        
+        all_series = []
+        tables_searched = 0
+        
+        # Suppress warnings about print areas and xlrd
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=UserWarning)
+            
+            # Iterate through tables to find series
+            for idx, row in catalogue.iterrows():
+                try:
+                    table_no = idx if isinstance(idx, str) else (row.get('table_no') or row.get('id') or idx)
+                    
+                    # Read the table to get its series (suppress errors for old .xls files)
+                    table_data, _ = ra.read_rba_table(table=str(table_no))
+                    tables_searched += 1
+                    
+                    if table_data is not None and not table_data.empty:
+                        # Extract series information from the table
+                        for col in table_data.columns:
+                            col_str = str(col)
+                            if searchterm.lower() in col_str.lower():
+                                all_series.append({
+                                    'id': col,
+                                    'title': col,
+                                    'table_no': table_no,
+                                    'table_title': row.get('Description', row.get('table_title', ''))
+                                })
+                except Exception:
+                    # Silently skip tables that can't be read (old formats, errors, etc.)
+                    continue
+        
+        if verbose:
+            print(f"Searched {tables_searched} tables")
+        
+        if not all_series:
+            if verbose:
+                print(f"No series found matching '{searchterm}'")
+            return None
+        
+        results_df = pd.DataFrame(all_series)
+        
+        if verbose:
+            print(f"Found {len(results_df)} matching series")
+        
+        return results_df
+    
+    except Exception as e:
+        print(f"Error browsing RBA series: {e}")
+        return None
+
+
+def get_rba_series(
+    series_id: str,
+    table_no: Optional[str] = None,
+    verbose: bool = False
+) -> Tuple[Optional[pd.Series], Optional[pd.Series]]:
+    """
+    Download RBA series data using Python readabs package.
+    
+    Parameters:
+    -----------
+    series_id : str
+        RBA series ID (column name in RBA table)
+    table_no : str, optional
+        RBA table number. If not provided, will search all tables
+    verbose : bool
+        Print debug information if True
+        
+    Returns:
+    --------
+    Tuple[pd.Series or None, pd.Series or None]
+        (data_series, metadata_series) where:
+        - data_series: pd.Series with the time series data
+        - metadata_series: pd.Series with metadata about the series
+        Returns (None, None) if series not found
+    """
+    try:
+        if verbose:
+            print(f"Getting RBA series {series_id}")
+        
+        # If table number provided, read that specific table
+        if table_no:
+            table_data, _ = ra.read_rba_table(table=table_no)
+            
+            if table_data is None or table_data.empty:
+                if verbose:
+                    print(f"No data found in table {table_no}")
+                return None, None
+            
+            # Find the series in the table
+            if series_id in table_data.columns:
+                data_series = table_data[series_id]
+            else:
+                if verbose:
+                    print(f"Series {series_id} not found in table {table_no}")
+                return None, None
+        else:
+            # Search all tables for the series
+            catalogue = ra.rba_catalogue()
+            
+            if catalogue is None or catalogue.empty:
+                if verbose:
+                    print("No RBA catalogue available")
+                return None, None
+            
+            data_series = None
+            table_no = None
+            
+            for idx, row in catalogue.iterrows():
+                try:
+                    tbl_no = row.get('table_no') or row.get('id') or idx
+                    table_data, _ = ra.read_rba_table(table=str(tbl_no))
+                    
+                    if table_data is not None and series_id in table_data.columns:
+                        data_series = table_data[series_id]
+                        table_no = tbl_no
+                        break
+                except Exception as e:
+                    if verbose:
+                        print(f"Warning: Could not read table {tbl_no}: {e}")
+                    continue
+            
+            if data_series is None:
+                if verbose:
+                    print(f"Series {series_id} not found in any RBA table")
+                return None, None
+        
+        # Create metadata series
+        metadata_series = pd.Series({
+            'series_id': series_id,
+            'title': series_id,
+            'table_no': table_no,
+            'source': 'RBA',
+            'frequency': 'Unknown'  # RBA tables may have different frequencies
+        })
+        
+        # Ensure the data series has the series_id as its name
+        data_series.name = series_id
+        
+        if verbose:
+            print(f"Successfully retrieved series {series_id} from table {table_no}")
+            print(f"Data shape: {data_series.shape}")
+        
+        return data_series, metadata_series
+    
+    except Exception as e:
+        print(f"Error getting RBA series {series_id}: {e}")
+        return None, None
+
+
 if __name__ == "__main__":
     # Example usage
-    print("ABS Python readabs wrapper module")
-    print("Available functions:")
+    print("ABS & RBA Python readabs wrapper module")
+    print("\nABS Functions:")
     print("  - search_series_by_id()")
     print("  - search_series_by_catalog()")
     print("  - get_series_metadata()")
@@ -450,3 +748,8 @@ if __name__ == "__main__":
     print("  - get_series_by_id()")
     print("  - search_by_description()")
     print("  - get_abs_catalogue()")
+    print("\nRBA Functions:")
+    print("  - get_rba_catalogue()")
+    print("  - browse_rba_tables()")
+    print("  - browse_rba_series()")
+    print("  - get_rba_series()")
