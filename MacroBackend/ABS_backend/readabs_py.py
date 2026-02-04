@@ -20,14 +20,18 @@ Main RBA functions:
 """
 
 import os
+import sys
 import pandas as pd
 from typing import Optional, Tuple, Dict, Any
 import readabs as ra
-from MacroBackend.Utilities import Search_DF_np
 
 wd = os.path.dirname(os.path.abspath(__file__))
 fdel = os.sep
-parent = os.path.dirname(wd)
+parent = os.path.dirname(wd); grampa = os.path.dirname(parent)
+
+sys.path.append(grampa)  # Adds MacroBackend to path
+
+from MacroBackend.Utilities import Search_DF_np
 
 
 def search_series_by_id(series_id: str, catnum: Optional[float] =  None, verbose: bool = False) -> Optional[Dict[str, Any]]:
@@ -559,7 +563,7 @@ def browse_rba_series(
     Returns:
     --------
     pd.DataFrame or None
-        DataFrame with matching RBA series with columns 'id', 'title', 'table_no', 'table_title'
+        DataFrame with matching RBA series with columns 'id', 'title', 'description', 'table_no', 'table_title'
     """
     import warnings
     
@@ -599,18 +603,31 @@ def browse_rba_series(
                 try:
                     table_no = idx if isinstance(idx, str) else (row.get('table_no') or row.get('id') or idx)
                     
-                    # Read the table to get its series (suppress errors for old .xls files)
-                    table_data, _ = ra.read_rba_table(table=str(table_no))
+                    # Read the table to get both data and metadata
+                    table_data, metadata = ra.read_rba_table(table=str(table_no))
                     tables_searched += 1
                     
-                    if table_data is not None and not table_data.empty:
-                        # Extract series information from the table
-                        for col in table_data.columns:
-                            col_str = str(col)
-                            if searchterm.lower() in col_str.lower():
+                    if table_data is not None and not table_data.empty and metadata is not None:
+                        # Search in both series IDs and titles/descriptions
+                        for series_id in table_data.columns:
+                            series_id_str = str(series_id)
+                            
+                            # Get the title from metadata if available
+                            if series_id in metadata.index:
+                                series_title = metadata.loc[series_id, 'Title'] if 'Title' in metadata.columns else series_id_str
+                                series_description = metadata.loc[series_id, 'Description'] if 'Description' in metadata.columns else ''
+                            else:
+                                series_title = series_id_str
+                                series_description = ''
+                            
+                            # Check if searchterm matches series ID, title, or description
+                            if (searchterm.lower() in series_id_str.lower() or 
+                                searchterm.lower() in str(series_title).lower() or
+                                searchterm.lower() in str(series_description).lower()):
                                 all_series.append({
-                                    'id': col,
-                                    'title': col,
+                                    'id': series_id,
+                                    'title': series_title,
+                                    'description': series_description,
                                     'table_no': table_no,
                                     'table_title': row.get('Description', row.get('table_title', ''))
                                 })

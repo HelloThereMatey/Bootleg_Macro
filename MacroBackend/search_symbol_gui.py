@@ -595,6 +595,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                         pass
             
                 elif self.source_function is not None:
+                    print(f"Searching {self.selected_source} for '{term}', please wait...")
                     if self.selected_source == 'fred':
                         results = self.source_function(term, keys['fred'], save_output=False)
                     elif self.selected_source == 'tv':    
@@ -628,7 +629,8 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                 else:
                     print("No source table selected")
                     return
-            if results.empty:   # If no results are found, display a message
+            # Check if results is None or empty
+            if results is None or results.empty:   # If no results are found, display a message
                 print("No results found, check search terms.")
                 results = pd.DataFrame(["No results found, check search terms.",\
                 "The search uses regex to match words exactly so spelling mistakes etc. are not tolerated."], columns = ["Result"], index=[0, 1])
