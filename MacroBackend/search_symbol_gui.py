@@ -612,6 +612,12 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                     elif self.selected_source == 'bea':
                         results =  self.source_function(term, keys['bea'])
                         results.rename(columns = {'TableId': 'id', "LineDescription": "title", "SeriesCode": "symbol"}, inplace=True)
+                        dataset_col = 'DatasetName' if 'DatasetName' in results.columns else ('datasetname' if 'datasetname' in results.columns else None)
+                        if dataset_col is None:
+                            results['DatasetName'] = 'NIPA'
+                            dataset_col = 'DatasetName'
+                        results['exchange'] = results['symbol'].astype(str)
+                        results['id'] = results[dataset_col].astype(str) + '|' + results['id'].astype(str) + '|' + results['symbol'].astype(str)
                     elif self.selected_source == 'rba_tables':
                         results =  self.source_function(term)
                         #results.rename(columns = {'id': 'name', "title": "title", "source": "source"}, inplace=True)    

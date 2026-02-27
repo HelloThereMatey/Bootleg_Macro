@@ -203,7 +203,7 @@ class BEA_Data(pybea.client.BureauEconomicAnalysisClient):
             dtI = idx.to_timestamp(freq=frequency, how='start')
             category.set_index(dtI,inplace=True)
             catSeries = pd.Series(category["DataValue"],name=cat)
-            names.append(cat); codes.append(str(category['SeriesCode'][0]))
+            names.append(cat); codes.append(str(category['SeriesCode'].iloc[0]))
 
             if i == 0:
                 FinalData = catSeries.copy()

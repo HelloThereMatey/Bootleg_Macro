@@ -18,7 +18,8 @@ import time
 wd = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(wd)
 fdel = os.path.sep
-sys.path.append(wd)
+sys.path.append(parent); sys.path.append(wd); 
+print("Current working directory: ", wd, "\nParent directory: ", parent)
 
 from tvDatafeedz import TvDatafeed, Interval #This package 'tvDatafeed' is not available through pip, ive included in the project folder. 
 from MacroBackend import Utilities
@@ -479,17 +480,8 @@ def Search_TV(tv: TvDatafeed = None, searchstr: str = "", exchange: str = ''):
     for res in results:
         line = pd.Series(res)
         result_df = pd.concat([result_df, line], axis = 1)
-    # result_df = result_df.T.set_index("symbol", drop = True) 
-    # result_df.drop(result_df.index[0], inplace = True)
 
-    # theOne = result_df[(result_df.index == searchstr) & (result_df['exchange'] == exchange)]
-    # if len(theOne) == 1:    
-    #     best_res = theOne
-    # elif len(result_df) == 1:
-    #     best_res = result_df
-    # else:
-    #     best_res = "Couldn't automatically get a best result for serach, choose manually amoungst results."    
-    return result_df#, best_res
+    return result_df
 
 class tv_data(object):
 

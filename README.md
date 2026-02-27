@@ -103,6 +103,42 @@ It may be necessary to first make the script executable prior to running it:
   ```
   - You'll want to add the Bootleg_Macro directory to your Python > Analysis > Extra_paths in settings in vscode (if using vscode). This will provide vscode access to the files for popup documentation and syntax coloring. 
 
+#### BEA source in `Pull_Data.dataset`
+
+BEA is now available directly through `Pull_Data.dataset.get_data(source="bea", ...)`.
+
+- Recommended `data_code` format:
+  - `Dataset|TableId|SeriesCode`
+  - Example: `NIPA|T10101|A191RX`
+- Also supported:
+  - `TableId|SeriesCode`
+  - `Dataset:TableId:SeriesCode`
+  - `TableId,SeriesCode[,Dataset]`
+
+`data_freq` accepts monthly/quarterly/annual aliases and maps to BEA frequencies (`M`, `Q`, `A`).
+
+```python
+from MacroBackend import Pull_Data
+
+ds = Pull_Data.dataset()
+ds.get_data(
+    source="bea",
+    data_code="NIPA|T10101|A191RX",  # dataset|table|series_code
+    start_date="2000-01-01",
+    end_date="2025-12-31",
+    data_freq="Q",    # or quarterly / monthly / annual
+    dtype="close"
+)
+
+print(ds.data.tail())
+print(ds.SeriesInfo)
+```
+
+Notes:
+- BEA API usually returns full tables; Bootleg caches table pulls and then extracts your requested series.
+- Cache location: `User_Data/BEA/bea_tables/bea_table_cache.h5s`.
+- BEA source requires a valid `bea` API key in `MacroBackend/SystemInfo/API_Keys.json`.
+
 
 ### USD NET LIQUIDITY SCRIPT:
 The net lqiuidity metric (NLQ) was originally formulated by Darius Dale and 42Macro, much respect DD, 42 Macro is best in class.

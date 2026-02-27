@@ -10,6 +10,7 @@ from typing import Literal
 
 ## This is one of my custom scripts holding functions for pulling price data from APIs. Your IDE might not find it before running script. 
 from MacroBackend import PriceImporter, Utilities, js_funcs
+from MacroBackend.BEA_Data import bea_data_mate
 from MacroBackend.ABS_backend import abs_series_by_r
 from MacroBackend.Glassnode import GlassNode_API
 import datetime
@@ -76,6 +77,151 @@ class dataset(object):
             return None
         else:
             return    
+
+    @staticmethod
+    def _sanitize_hdf_key(key: str) -> str:
+        cleaned = ''.join(ch if ch.isalnum() or ch == '_' else '_' for ch in str(key))
+        while '__' in cleaned:
+            cleaned = cleaned.replace('__', '_')
+        if cleaned and not (cleaned[0].isalpha() or cleaned[0] == '_'):
+            cleaned = '_' + cleaned
+        return cleaned
+
+    def _map_bea_frequency(self, freq: str = None) -> str:
+        if freq is None:
+            return 'M'
+        f = str(freq).strip().lower()
+        mapping = {
+            'a': 'A', 'annual': 'A', 'yearly': 'A', '1y': 'A',
+            'q': 'Q', 'quarterly': 'Q', '1q': 'Q',
+            'm': 'M', 'monthly': 'M', '1m': 'M'
+        }
+        return mapping.get(f, 'M')
+
+    def _normalize_bea_dataset(self, dataset_name: str = None) -> str:
+        ds = 'NIPA' if dataset_name is None else str(dataset_name).strip()
+        ds_l = ds.lower()
+        mapping = {
+            'nipa': 'NIPA',
+            'niunderlyingdetail': 'NIPA_Details',
+            'nipa_details': 'NIPA_Details',
+            'nipa-details': 'NIPA_Details',
+            'fixedassets': 'FixedAsset',
+            'fixedasset': 'FixedAsset'
+        }
+        return mapping.get(ds_l, ds)
+
+    def _parse_bea_request(self) -> dict:
+        raw = str(self.data_code).strip()
+        dataset = None
+        table_code = raw
+        series_code = None
+        line_description = None
+
+        if '|' in raw:
+            parts = [p.strip() for p in raw.split('|') if str(p).strip() != '']
+            if len(parts) >= 3:
+                dataset, table_code, series_code = parts[0], parts[1], parts[2]
+                if len(parts) >= 4:
+                    line_description = parts[3]
+            elif len(parts) == 2:
+                table_code, series_code = parts
+        elif ':' in raw:
+            parts = [p.strip() for p in raw.split(':') if str(p).strip() != '']
+            if len(parts) >= 3:
+                dataset, table_code, series_code = parts[0], parts[1], parts[2]
+                if len(parts) >= 4:
+                    line_description = parts[3]
+        elif ',' in raw:
+            parts = [p.strip() for p in raw.split(',') if str(p).strip() != '']
+            if len(parts) >= 2:
+                table_code, series_code = parts[0], parts[1]
+                if len(parts) >= 3:
+                    dataset = parts[2]
+
+        if (series_code is None or str(series_code).strip() == '') and self.exchange_code not in [None, '', 'N/A', 'nan']:
+            series_code = str(self.exchange_code).strip()
+
+        return {
+            'dataset': self._normalize_bea_dataset(dataset),
+            'table_code': str(table_code).strip(),
+            'series_code': None if series_code is None else str(series_code).strip(),
+            'line_description': line_description,
+            'frequency': self._map_bea_frequency(self.data_freq)
+        }
+
+    def _bea_cache_path(self) -> str:
+        cache_dir = parent + fdel + 'User_Data' + fdel + 'BEA' + fdel + 'bea_tables'
+        os.makedirs(cache_dir, exist_ok=True)
+        return cache_dir + fdel + 'bea_table_cache.h5s'
+
+    def _load_bea_table(self, dataset_name: str, table_code: str, frequency: str) -> tuple[pd.DataFrame, pd.Series]:
+        cache_path = self._bea_cache_path()
+        key_root = self._sanitize_hdf_key(f"{dataset_name}_{table_code}_{frequency}")
+        data_key = f"bea_{key_root}_data"
+        meta_key = f"bea_{key_root}_meta"
+
+        if os.path.isfile(cache_path):
+            try:
+                cached_data = pd.read_hdf(cache_path, key=data_key)
+                cached_meta_df = pd.read_hdf(cache_path, key=meta_key)
+                cached_meta = cached_meta_df.squeeze(axis=1) if isinstance(cached_meta_df, pd.DataFrame) else pd.Series(cached_meta_df)
+                cached_data.index = pd.DatetimeIndex(cached_data.index)
+                print(f"Loaded BEA table from cache: {dataset_name}, {table_code}, {frequency}")
+                return cached_data, pd.Series(cached_meta, dtype='object')
+            except Exception:
+                pass
+
+        info_path = wd + fdel + 'BEA_Data' + fdel + 'Datasets' + fdel + 'BEAAPI_Info.xlsx'
+        bea = bea_data_mate.BEA_API_backend.BEA_Data(api_key=self.api_keys['bea'], BEA_Info_filePath=info_path)
+        bea.Get_BEA_Data(dataset=dataset_name, tCode=table_code, frequency=frequency, year='ALL')
+        if bea.Data is None:
+            raise get_data_failure(f"BEA table pull failed for dataset={dataset_name}, table={table_code}, frequency={frequency}")
+
+        table_data = pd.DataFrame(bea.Data['Series_Split']).copy()
+        table_data.index = pd.DatetimeIndex(table_data.index)
+        table_meta = pd.Series(bea.Data.get('SeriesInfo', pd.Series(dtype='object')), dtype='object')
+
+        try:
+            table_data.to_hdf(cache_path, key=data_key, mode='a')
+            table_meta.to_frame(name='value').to_hdf(cache_path, key=meta_key, mode='a')
+        except Exception as e:
+            print(f"Warning: failed to persist BEA cache for {table_code}. Error: {e}")
+
+        return table_data, table_meta
+
+    @staticmethod
+    def _extract_bea_series(table_data: pd.DataFrame, table_meta: pd.Series, series_code: str = None,
+                            line_description: str = None) -> tuple[pd.Series, str]:
+        selected_col = None
+
+        if line_description is not None and line_description in table_data.columns:
+            selected_col = line_description
+
+        if selected_col is None and series_code is not None:
+            target = str(series_code).strip().upper()
+            direct = [col for col in table_data.columns if str(col).strip().upper() == target]
+            if direct:
+                selected_col = direct[0]
+            else:
+                mapped = [idx for idx, val in table_meta.items()
+                          if str(val).strip().upper() == target and str(idx) in table_data.columns]
+                if mapped:
+                    selected_col = mapped[0]
+
+        if selected_col is None:
+            if len(table_data.columns) == 1:
+                selected_col = table_data.columns[0]
+            else:
+                sample_codes = [str(v) for v in table_meta.values[:12]]
+                raise get_data_failure(
+                    f"Unable to resolve BEA series_code '{series_code}'. "
+                    f"Available table columns: {list(table_data.columns[:12])}. "
+                    f"Sample BEA series codes: {sample_codes}"
+                )
+
+        series = pd.Series(table_data[selected_col], name=str(selected_col))
+        return series, str(selected_col)
         
     def pull_data(self):
 
@@ -265,8 +411,41 @@ class dataset(object):
             ### End ABS block ######
 
         elif self.source.lower() == 'bea':
-            print("Currently working on BEA data source, not yet implemented into this method. You can use 'bea_data_mate' module instead.")
-            return None
+            req = self._parse_bea_request()
+            print(f"Pulling BEA series. dataset={req['dataset']}, table={req['table_code']}, series={req['series_code']}, freq={req['frequency']}")
+
+            table_data, table_meta = self._load_bea_table(req['dataset'], req['table_code'], req['frequency'])
+            series, line_desc = self._extract_bea_series(
+                table_data=table_data,
+                table_meta=table_meta,
+                series_code=req['series_code'],
+                line_description=req['line_description']
+            )
+
+            series = series.sort_index()
+            series = series[self.start_date:self.end_date]
+            self.data = pd.Series(series, name=line_desc)
+            self.dataName = f"{req['dataset']}|{req['table_code']}|{req['series_code'] or line_desc}"
+
+            units = table_meta.get('CL_UNIT') if isinstance(table_meta, pd.Series) else None
+            if units is None:
+                units = table_meta.get('METRIC_NAME') if isinstance(table_meta, pd.Series) else None
+
+            self.SeriesInfo = pd.Series({
+                'id': self.dataName,
+                'title': line_desc,
+                'source': 'bea',
+                'original_source': 'Bureau of Economic Analysis',
+                'Datasetname': req['dataset'],
+                'TableName': req['table_code'],
+                'Frequency': req['frequency'],
+                'frequency': req['frequency'],
+                'Series Code': req['series_code'],
+                'units': units,
+                'start_date': self.data.index.min().date() if len(self.data) else None,
+                'end_date': self.data.index.max().date() if len(self.data) else None,
+                'length': int(self.data.dropna().shape[0])
+            }, dtype='object')
 
         elif self.source.lower() == 'rba_tables':
             print("This source will return a pandas dataframe, not a series. It is therefore not suitable for this method. Use 'rba_series' instead.")
