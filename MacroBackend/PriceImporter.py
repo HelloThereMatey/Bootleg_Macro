@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import matplotlib.dates as mdates
 import datetime
-import pandas_datareader as pdr
 import yfinance as yf
 import os
 import sys 
@@ -156,21 +155,6 @@ def getCoinID(Coin:str,InputTablePath = None):   #This will get the ticker and c
 # def getNASDAQData(Ticker):
 #     mydata = nasdaqdatalink.get(Ticker)        
 #     print(mydata, type(mydata),type(mydata.index))
-
-def DataReaderAllSources(ticker,DataStart,DataEnd=datetime.date.today()):    ### Try all sources using pandas datareader, slow, use when api not pre-specified.
-    ### DataStart is str in YYYY-MM-DD format. Default dataEnd date is today. 
-    expected_source = ["yahoo","iex","iex-tops","iex-last","iex-last","bankofcanada","stooq","iex-book","enigma","fred","famafrench","oecd",\
-        "eurostat","nasdaq","quandl","moex","tiingo","yahoo-actions","yahoo-dividends","av-forex","av-forex-daily","av-daily","av-daily-adjusted",\
-            "av-weekly","av-weekly-adjusted","av-monthly","av-monthly-adjusted","av-intraday","econdb","naver"]
-    for source in expected_source:
-        try:
-            AssetData = pd.DataFrame(pdr.DataReader(ticker,source,start=DataStart,end=DataEnd))
-        except:
-            print('Could not get data for '+ticker+' from '+source+' using DataReader.')  
-        else:
-            print('Successfully pulled data for '+ticker+' from '+source+' using DataReader.') 
-            break 
-    return AssetData  
 
 def GetIndiciiSame(data1,data2):   # Takes only pandas dataframe or series and gets them same length with same datetime index, padding nans.
     print('Running index resampler...',type(data1.index),type(data2.index),len(data1.index),len(data2.index))

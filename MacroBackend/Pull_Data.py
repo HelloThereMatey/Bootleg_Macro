@@ -15,13 +15,21 @@ from MacroBackend.ABS_backend import abs_series_by_r
 from MacroBackend.Glassnode import GlassNode_API
 import datetime
 import pandas as pd
-import pandas_datareader as pdr
 import nasdaqdatalink as ndl
 import tedata as ted ##This is my package that scrapes data from Trading Economics
 import json
 import concurrent.futures
 
 def tedata_search(searchstr: str = "gdp", wait_time: int = 5):
+    """Search Trading Economics for data series matching a keyword.
+
+    Args:
+        searchstr: Search term to query Trading Economics with.
+        wait_time: Seconds to wait for the browser-driven search to complete.
+
+    Returns:
+        pd.DataFrame: Table of matching search results.
+    """
     ted.find_active_drivers()
     search = ted.search_TE(use_existing_driver=True)
     search.search_trading_economics(searchstr, wait_time=wait_time)
@@ -32,6 +40,7 @@ def tedata_search(searchstr: str = "gdp", wait_time: int = 5):
 
 ####### CLASSES ######################################################
 class get_data_failure(Exception):
+    """Raised when a data pull from any source fails or returns no data."""
     pass
       
 class dataset(object):
@@ -43,23 +52,14 @@ class dataset(object):
         Attributes:
         - supported_sources (list): A list of supported data sources.
         - added_sources (list): A list of sources that have been added.
-        - pd_dataReader (list): A list of data sources that have not been added.
         - keySources (list): A list of sources that need api-key to access.
         - keyz (Utilities): An instance of the Utilities.api_keys class that should have access to your keys.
         - api_keys (dict): A dictionary containing API keys.
         - data (None): Placeholder for the pulled data.
         """
-        self.supported_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko','glassnode',
-                                    'abs_series', 'abs_tables', 'bea', 'yahoo','iex-tops', 'iex-last', 'bankofcanada', 'stooq', 'iex-book',
-                                    'enigma', 'famafrench', 'oecd', 'eurostat', 'nasdaq',
-                                 'tiingo', 'yahoo-actions', 'yahoo-dividends', 'av-forex',
-                                    'av-forex-daily', 'av-daily', 'av-daily-adjusted', 'av-weekly', 'av-weekly-adjusted',
-                                    'av-monthly', 'av-monthly-adjusted', 'av-intraday', 'econdb', 'naver', 'rba_tables', 'rba_series', 
-                                    'saveddata', "hdfstores", "tedata"]
         self.added_sources = ['fred', 'yfinance', 'yfinance2', 'tv', 'coingecko', 'nasdaq', 'glassnode', 'abs_series', 
-                              'abs_tables', 'bea', 'rba_tables', 'rba_series', 'saveddata', "hdfstores", "tedata"]
-
-        self.pd_dataReader = list(set(self.supported_sources) - set(self.added_sources))
+                      'abs_tables', 'bea', 'rba_tables', 'rba_series', 'saveddata', "hdfstores", "tedata"]
+        self.supported_sources = list(self.added_sources)
         self.keySources = ['fred', 'bea', 'glassnode', 'nasdaq']
 
         self.keyz = Utilities.api_keys(JSONpath=parent + fdel + 'MacroBackend' + fdel + 'SystemInfo')
@@ -67,6 +67,11 @@ class dataset(object):
         self.data = None
 
     def check_key(self):
+        """Verify that the required API key exists for the current source.
+
+        If the key is missing, prompts the user interactively to paste it in.
+        Sets nothing if the key is already present.
+        """
         # print("Checking API keys: ", self.api_keys)
         if self.source in self.keySources and self.source not in self.api_keys.keys():
             print("No API key found for your source: ", self.source, "do you have the key at hand ready to paste into terminal?")
@@ -80,6 +85,17 @@ class dataset(object):
 
     @staticmethod
     def _sanitize_hdf_key(key: str) -> str:
+        """Sanitize a string so it is a valid HDF5 store key.
+
+        Replaces non-alphanumeric characters with underscores, collapses
+        consecutive underscores, and ensures the key starts with a letter or '_'.
+
+        Args:
+            key: Raw key string to sanitize.
+
+        Returns:
+            str: Cleaned key safe for use in pd.HDFStore.
+        """
         cleaned = ''.join(ch if ch.isalnum() or ch == '_' else '_' for ch in str(key))
         while '__' in cleaned:
             cleaned = cleaned.replace('__', '_')
@@ -88,6 +104,15 @@ class dataset(object):
         return cleaned
 
     def _map_bea_frequency(self, freq: str = None) -> str:
+        """Map a user-supplied frequency string to a BEA API frequency code.
+
+        Args:
+            freq: Frequency hint such as 'quarterly', 'Q', 'annual', etc.
+                  Defaults to 'M' (monthly) when None.
+
+        Returns:
+            str: One of 'A', 'Q', or 'M'.
+        """
         if freq is None:
             return 'M'
         f = str(freq).strip().lower()
@@ -99,6 +124,15 @@ class dataset(object):
         return mapping.get(f, 'M')
 
     def _normalize_bea_dataset(self, dataset_name: str = None) -> str:
+        """Normalize a BEA dataset name to its canonical API form.
+
+        Args:
+            dataset_name: Raw dataset name (e.g. 'nipa', 'fixedassets').
+                          Defaults to 'NIPA' when None.
+
+        Returns:
+            str: Canonical dataset name such as 'NIPA', 'NIPA_Details', or 'FixedAsset'.
+        """
         ds = 'NIPA' if dataset_name is None else str(dataset_name).strip()
         ds_l = ds.lower()
         mapping = {
@@ -112,6 +146,20 @@ class dataset(object):
         return mapping.get(ds_l, ds)
 
     def _parse_bea_request(self) -> dict:
+        """Parse ``self.data_code`` into BEA request components.
+
+        Supports several delimiter formats:
+          - ``Dataset|TableCode|SeriesCode[|LineDescription]``
+          - ``TableCode|SeriesCode``
+          - Colon or comma-separated equivalents
+
+        Falls back to ``self.exchange_code`` for the series code when
+        the data_code string contains only a table code.
+
+        Returns:
+            dict: Keys 'dataset', 'table_code', 'series_code',
+                  'line_description', 'frequency'.
+        """
         raw = str(self.data_code).strip()
         dataset = None
         table_code = raw
@@ -151,11 +199,34 @@ class dataset(object):
         }
 
     def _bea_cache_path(self) -> str:
+        """Return the file path for the BEA HDF5 table cache, creating the directory if needed.
+
+        Returns:
+            str: Absolute path to ``bea_table_cache.h5s``.
+        """
         cache_dir = parent + fdel + 'User_Data' + fdel + 'BEA' + fdel + 'bea_tables'
         os.makedirs(cache_dir, exist_ok=True)
         return cache_dir + fdel + 'bea_table_cache.h5s'
 
     def _load_bea_table(self, dataset_name: str, table_code: str, frequency: str) -> tuple[pd.DataFrame, pd.Series]:
+        """Load a full BEA table, using the HDF5 cache when available.
+
+        On a cache miss the table is fetched from the BEA API via
+        ``BEA_Data.Get_BEA_Data()`` and then persisted to the cache.
+
+        Args:
+            dataset_name: Canonical BEA dataset (e.g. 'NIPA').
+            table_code: Table identifier (e.g. 'T10101').
+            frequency: BEA frequency code — 'A', 'Q', or 'M'.
+
+        Returns:
+            tuple[pd.DataFrame, pd.Series]: (table_data, table_meta) where
+                table_data has DatetimeIndex rows and one column per series,
+                and table_meta maps series codes to descriptions.
+
+        Raises:
+            get_data_failure: If the BEA API returns no data.
+        """
         cache_path = self._bea_cache_path()
         key_root = self._sanitize_hdf_key(f"{dataset_name}_{table_code}_{frequency}")
         data_key = f"bea_{key_root}_data"
@@ -193,6 +264,27 @@ class dataset(object):
     @staticmethod
     def _extract_bea_series(table_data: pd.DataFrame, table_meta: pd.Series, series_code: str = None,
                             line_description: str = None) -> tuple[pd.Series, str]:
+        """Extract a single series from a cached BEA table DataFrame.
+
+        Resolution order:
+          1. Exact match on *line_description* in column names.
+          2. Exact match on *series_code* in column names (case-insensitive).
+          3. Reverse-lookup *series_code* through table_meta values.
+          4. If the table has only one column, use it.
+          5. Raise ``get_data_failure`` with available columns/codes.
+
+        Args:
+            table_data: DataFrame of the full BEA table (columns = series).
+            table_meta: Series mapping internal keys to BEA series codes.
+            series_code: BEA series code to look up (e.g. 'A191RL').
+            line_description: Human-readable line description to match.
+
+        Returns:
+            tuple[pd.Series, str]: (extracted_series, column_name_used).
+
+        Raises:
+            get_data_failure: If the series cannot be resolved.
+        """
         selected_col = None
 
         if line_description is not None and line_description in table_data.columns:
@@ -224,6 +316,15 @@ class dataset(object):
         return series, str(selected_col)
         
     def pull_data(self):
+        """Execute the data pull for the currently configured source.
+
+        Reads ``self.source``, ``self.data_code``, ``self.start_date``,
+        ``self.end_date``, ``self.data_freq``, etc. and populates
+        ``self.data``, ``self.SeriesInfo``, and ``self.dataName``.
+
+        Called internally by ``get_data()`` inside a timeout-wrapped thread.
+        Not intended to be called directly — use ``get_data()`` instead.
+        """
 
         if self.source == 'fred':
             SeriesInfo, TheData = PriceImporter.PullFredSeries(self.data_code, self.api_keys['fred'],
@@ -347,11 +448,6 @@ class dataset(object):
             else:
                 print("Data pulled from Glassnode is not series or dataframe. Returning data for you to look at. ")
                 return self.data
-
-        elif self.source in self.pd_dataReader:
-            print("Attempting to pull data from source: ", self.source, ', for ticker; ', self.data_code, 'using pandas datareader.')
-            data = pdr.DataReader(self.data_code, self.source, start = self.start_date, end = self.end_date)
-            print(data)
 
         elif self.source.lower() == 'abs_tables':
             print("This source will return a pandas dataframe, not a series. It is therefore not suitable for this method. Use 'abs_series' instead.")
@@ -556,6 +652,18 @@ class dataset(object):
             self.data.columns = self.data.columns.str.capitalize()
 
     def filterData(self, TheData: pd.DataFrame):
+        """Filter a multi-column OHLCV DataFrame down based on ``self.d_type``.
+
+        Depending on the requested dtype:
+          - 'OHLCV': keeps Open/High/Low/Close/Volume columns.
+          - 'close': extracts just the Close column as a named pd.Series.
+          - anything else: keeps the full DataFrame.
+
+        The result is stored in ``self.data``.
+
+        Args:
+            TheData: Raw price DataFrame with capitalizable column names.
+        """
         TheData.columns = TheData.columns.str.capitalize()
         columns_to_keep = ['Open', 'High', 'Low', 'Close', 'Volume']
         columns_to_keep = list(set(TheData.columns) & set(columns_to_keep))
@@ -569,15 +677,27 @@ class dataset(object):
         else:
             self.data = TheData        
 
-class glassnode_data(object):   ## One can use this class to get data from Glassnode without using dataset class. 
-    """ A class for getting data from Glassnode API."""
+class glassnode_data(object):
+    """Standalone helper for pulling on-chain crypto data from the Glassnode API.
+
+    Can be used independently of the ``dataset`` class.  Loads the master
+    metrics list on init and exposes ``chosen_met()`` + ``get_data()`` to
+    select a metric and fetch its time-series.
+    """
 
     def __init__(self):
+        """Load the Glassnode metrics catalogue and API keys."""
         self.metric_df = pd.read_csv(wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv", index_col=0)
         self.metric_list = pd.Series([str(path).split("/")[-1] for path in self.metric_df["path"]])
         self.keys = Utilities.api_keys().keys
 
     def chosen_met(self, metric):
+        """Select a Glassnode metric and resolve its path, supported assets, and resolutions.
+
+        Args:
+            metric: Short metric name (e.g. 'price_usd_ohlc', 'sopr').
+                    Must match an entry in the GN_MetricsList catalogue.
+        """
         self.metric = metric
         metIndex = (self.metric_list == metric).idxmax()
         self.metric_path = self.metric_df['path'].iloc[metIndex]
@@ -590,6 +710,18 @@ class glassnode_data(object):   ## One can use this class to get data from Glass
         self.met_domain = [dom for dom in dom_json.values()]
 
     def get_data(self, asset: str = "BTC", tier: int = 1, resolution: str = '24h', format: str = 'csv', paramsDomain: str = "a"):
+        """Fetch time-series data for the currently selected Glassnode metric.
+
+        Populates ``self.data`` with the returned DataFrame/Series and
+        ``self.seriesInfo`` with descriptive metadata.
+
+        Args:
+            asset: Crypto asset ticker (e.g. 'BTC', 'ETH').
+            tier: Glassnode API tier level.
+            resolution: Time resolution string (e.g. '24h', '1h', '10m').
+            format: Response format — 'csv' or 'json'.
+            paramsDomain: Domain parameter for the Glassnode API.
+        """
         params = {'a': asset,'i': resolution,'f': format,'api_key': self.keys['glassnode']} 
         self.data = GlassNode_API.GetMetric(path = self.metric_path, APIKey = self.keys['glassnode'], params = params)
         self.seriesInfo = pd.Series({"source": "glassnode", "metric_short": self.metric, "metric_full": self.metric_path, "asset": asset,

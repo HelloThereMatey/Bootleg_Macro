@@ -5,6 +5,7 @@ import datetime
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from fuzzywuzzy import fuzz, process
 
 # Ensure repo root is importable when run from examples/
 wd = os.path.dirname(__file__)
@@ -15,47 +16,105 @@ if repo_root not in sys.path:
 from MacroBackend import Pull_Data
 
 
-def _pick_two_series(table_df: pd.DataFrame, table_meta: pd.Series) -> tuple[tuple[str, str], tuple[str, str]]:
+def _fuzzy_match_column(search_str: str, columns: list[str], score_cutoff: int = 40) -> str | None:
+    """Find the best fuzzy match for a search string among column names.
+
+    Args:
+        search_str: Query string to match against column names.
+        columns: List of column name candidates.
+        score_cutoff: Minimum fuzzywuzzy score (0-100) to accept a match.
+
+    Returns:
+        Best matching column name, or None if no match exceeds the cutoff.
     """
-    Pick two BEA series from a pulled table.
-    Returns ((left_series_code, left_title), (right_series_code, right_title)).
-    Prefers GDP + Personal Consumption if available; otherwise first two columns.
+    result = process.extractOne(search_str, columns, scorer=fuzz.token_set_ratio, score_cutoff=score_cutoff)
+    if result is None:
+        return None
+    match, score, *_ = result
+    print(f"  Fuzzy match: '{search_str}' → '{match}' (score {score})")
+    return match
+
+
+def _pick_two_series(table_df: pd.DataFrame, table_meta: pd.Series,
+                     left_series: str = None, right_series: str = None
+                     ) -> tuple[tuple[str, str], tuple[str, str]]:
+    """Pick two BEA series from a pulled table.
+
+    When *left_series* / *right_series* are supplied they are matched against
+    the table's column names.  An exact match is tried first; on failure a
+    fuzzy search (fuzzywuzzy token_set_ratio) selects the best candidate.
+
+    When either parameter is None the original heuristic is used: prefer
+    "Gross domestic product" (left) and "Personal consumption" (right),
+    falling back to the first two columns.
+
+    Args:
+        table_df: Full BEA table DataFrame (columns = series line descriptions).
+        table_meta: Series mapping line descriptions to BEA series codes.
+        left_series: Column name or search string for the left-axis series.
+        right_series: Column name or search string for the right-axis series.
+
+    Returns:
+        ((left_series_code, left_title), (right_series_code, right_title))
     """
-    line_to_code = {}
+    # Build line_desc → series_code lookup
+    line_to_code: dict[str, str] = {}
     if isinstance(table_meta, pd.Series):
         for line_desc, code in table_meta.items():
             if str(line_desc) in table_df.columns:
                 line_to_code[str(line_desc)] = str(code)
 
-    preferred_left = None
-    preferred_right = None
+    columns = [str(c) for c in table_df.columns]
 
-    for line_desc, series_code in line_to_code.items():
-        l = line_desc.lower()
-        if preferred_left is None and "gross domestic product" in l:
-            preferred_left = (series_code, line_desc)
-        elif preferred_right is None and "personal consumption" in l:
-            preferred_right = (series_code, line_desc)
+    def _resolve(search: str | None, fallback_keyword: str | None) -> tuple[str, str] | None:
+        """Resolve a search string to (series_code, column_name)."""
+        if search is not None:
+            # 1) exact match
+            if search in columns:
+                col = search
+            else:
+                # 2) fuzzy match
+                col = _fuzzy_match_column(search, columns)
+            if col is not None:
+                code = line_to_code.get(col, col)
+                return (code, col)
+            print(f"  Warning: no match found for '{search}'")
+            return None
 
-    if preferred_left is not None and preferred_right is not None:
-        return preferred_left, preferred_right
+        # No search string → keyword heuristic
+        if fallback_keyword:
+            for line_desc, series_code in line_to_code.items():
+                if fallback_keyword in line_desc.lower():
+                    return (series_code, line_desc)
+        return None
 
-    # Fallback: first two columns from table
-    cols = [str(c) for c in table_df.columns]
-    if len(cols) < 2:
+    left_result = _resolve(left_series, "gross domestic product")
+    right_result = _resolve(right_series, "personal consumption")
+
+    if left_result is not None and right_result is not None:
+        return left_result, right_result
+
+    # Fallback: first two columns
+    if len(columns) < 2:
         raise RuntimeError("BEA table returned fewer than 2 series columns.")
 
-    left_col, right_col = cols[0], cols[1]
-    left_code = str(line_to_code.get(left_col, left_col))
-    right_code = str(line_to_code.get(right_col, right_col))
-    return (left_code, left_col), (right_code, right_col)
+    if left_result is None:
+        left_col = columns[0]
+        left_result = (line_to_code.get(left_col, left_col), left_col)
+    if right_result is None:
+        right_col = columns[1] if columns[1] != left_result[1] else columns[0]
+        right_result = (line_to_code.get(right_col, right_col), right_col)
+
+    return left_result, right_result
 
 
-def main():
+    
+if __name__ == "__main__":
+    
     dataset_name = "NIPA"
-    table_code = "T10101"
-    frequency = "Q"
-    start_date = "2000-01-01"
+    table_code = "T10103"
+    frequency = "M"
+    start_date = "1900-01-01"
     end_date = datetime.date.today().strftime("%Y-%m-%d")
 
     # 1) Pull full table once (download or cache)
@@ -63,7 +122,14 @@ def main():
     table_df, table_meta = cache_loader._load_bea_table(dataset_name, table_code, frequency)
 
     # 2) Choose two series from the downloaded table
-    (left_code, left_title), (right_code, right_title) = _pick_two_series(table_df, table_meta)
+    #    Pass left_series / right_series as search strings (fuzzy matched) or exact column names.
+    #    Set to None to fall back to the GDP / PCE heuristic.
+
+    (left_code, left_title), (right_code, right_title) = _pick_two_series(
+        table_df, table_meta,
+        left_series="gross domestic product",   # fuzzy search example
+        right_series="personal consumption",    # fuzzy search example
+    )
     print(f"Chosen left series:  {left_code} ({left_title})")
     print(f"Chosen right series: {right_code} ({right_title})")
 
@@ -118,7 +184,3 @@ def main():
     fig.update_yaxes(title_text=right_title, secondary_y=True)
 
     fig.show()
-
-
-if __name__ == "__main__":
-    main()

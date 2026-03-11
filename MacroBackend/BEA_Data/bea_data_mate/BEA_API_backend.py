@@ -12,7 +12,7 @@ import requests
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import matplotlib.colors as mcolors
-from typing import Union
+from typing import Union, Optional
 import customtkinter as ctk
 import tkinter as tk
 import tkinter.font as tkFont
@@ -37,6 +37,8 @@ Mycolors = ['aqua','black', 'blue', 'blueviolet', 'brown'
  'peru', 'plum', 'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon', 'sandybrown', 'seagreen', 
  'sienna', 'silver', 'skyblue', 'slateblue', 'slategray', 'slategrey', 'springgreen', 'steelblue', 'tan', 'teal', 'tomato', 
  'turquoise', 'violet','yellowgreen']
+
+BEA_INDEX_PATH_DEFAULT = ancestor + fdel + "User_Data" + fdel + "BEA" + fdel + "BEA_Series_Index.h5s"
 
 # Function to convert numbers with commas to integers
 def convert_to_float_with_commas(value):
@@ -637,6 +639,179 @@ def bea_search_metadata(searchstr: str, bea_key: str, metadata_store = parent+fd
     elapsed_time = end_time - start_time  # Calculate the elapsed time
     print(f"Script execution time: {elapsed_time:.2f} seconds")
     return search
+
+
+def _safe_text(value) -> str:
+    """Convert any value to a stripped string, returning empty string for null-like values."""
+    if value is None:
+        return ""
+    if isinstance(value, float) and np.isnan(value):
+        return ""
+    return str(value).strip()
+
+
+def build_bea_series_index(
+    bea_key: str,
+    save_path: str = BEA_INDEX_PATH_DEFAULT,
+    datasets: Optional[list[tuple[str, str]]] = None,
+    frequency: str = "Q",
+    max_tables_per_dataset: Optional[int] = None,
+) -> pd.DataFrame:
+    """Build a local BEA master series index and save it to HDF5.
+
+    The output table is designed for fast local searching in the symbol GUI.
+
+    Args:
+        bea_key: BEA API key.
+        save_path: Target ``.h5s`` file path.
+        datasets: List of ``(bea_dataset_param, pull_data_dataset_name)`` pairs.
+            Defaults to NIPA, NIUnderlyingDetail, and FixedAssets.
+        frequency: Frequency to use when pulling NIPA-type tables ('A', 'Q', 'M').
+        max_tables_per_dataset: Optional cap for development/testing runs.
+
+    Returns:
+        pd.DataFrame: Consolidated BEA series index.
+    """
+    if datasets is None:
+        datasets = [
+            ("NIPA", "NIPA"),
+            ("NIUnderlyingDetail", "NIPA_Details"),
+            ("FixedAssets", "FixedAsset"),
+        ]
+
+    out_dir = os.path.dirname(save_path)
+    if out_dir and not os.path.exists(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+
+    info_path = parent + fdel + "Datasets" + fdel + "BEAAPI_Info.xlsx"
+    if not os.path.isfile(info_path):
+        info_path = ""
+
+    bea = BEA_Data(api_key=bea_key, BEA_Info_filePath=info_path)
+    all_rows: list[pd.DataFrame] = []
+
+    for dataset_param, pull_name in datasets:
+        print(f"Building BEA index for dataset: {dataset_param}")
+
+        try:
+            tables_df = bea.GetParamVals(dataset=dataset_param, parameterName="TableName")
+        except Exception as e:
+            print(f"Failed to list tables for dataset {dataset_param}: {e}")
+            continue
+
+        if tables_df is None or tables_df.empty:
+            print(f"No tables returned for dataset {dataset_param}.")
+            continue
+
+        table_codes = [str(idx) for idx in tables_df.index.to_list()]
+        if isinstance(max_tables_per_dataset, int) and max_tables_per_dataset > 0:
+            table_codes = table_codes[:max_tables_per_dataset]
+
+        for table_code in table_codes:
+            try:
+                if pull_name == "FixedAsset":
+                    bea.Get_BEA_Data(dataset=pull_name, tCode=table_code, year="ALL")
+                else:
+                    bea.Get_BEA_Data(dataset=pull_name, tCode=table_code, frequency=frequency, year="ALL")
+
+                if bea.Data is None:
+                    continue
+
+                raw = pd.DataFrame(bea.Data.get("Data", pd.DataFrame()))
+                if raw.empty:
+                    continue
+
+                cols = [c for c in ["SeriesCode", "LineDescription", "LineNumber", "TableName", "CL_UNIT", "METRIC_NAME"] if c in raw.columns]
+                table_rows = raw[cols].drop_duplicates().copy()
+
+                if "TableName" not in table_rows.columns:
+                    table_rows["TableName"] = ""
+                if "LineNumber" not in table_rows.columns:
+                    table_rows["LineNumber"] = ""
+                if "CL_UNIT" not in table_rows.columns:
+                    table_rows["CL_UNIT"] = ""
+                if "METRIC_NAME" not in table_rows.columns:
+                    table_rows["METRIC_NAME"] = ""
+
+                table_rows["DatasetName"] = pull_name
+                table_rows["TableId"] = str(table_code)
+                table_rows["Frequency"] = frequency
+
+                # Human-friendly title used by GUI list.
+                table_rows["title"] = table_rows["LineDescription"].astype(str)
+
+                # Canonical ID format used by Pull_Data BEA parser.
+                table_rows["id"] = (
+                    table_rows["DatasetName"].astype(str)
+                    + "|"
+                    + table_rows["TableId"].astype(str)
+                    + "|"
+                    + table_rows["SeriesCode"].astype(str)
+                )
+
+                # Keep code in exchange for parity with other GUI paths.
+                table_rows["exchange"] = table_rows["SeriesCode"].astype(str)
+                table_rows["source"] = "bea"
+
+                all_rows.append(table_rows)
+                print(f"Indexed BEA table {dataset_param}:{table_code} -> {len(table_rows)} rows")
+
+            except Exception as e:
+                print(f"Skipping table {dataset_param}:{table_code}. Error: {e}")
+                continue
+
+    if all_rows:
+        master = pd.concat(all_rows, axis=0, ignore_index=True)
+        master = master.drop_duplicates(subset=["DatasetName", "TableId", "SeriesCode", "LineDescription"]) 
+    else:
+        master = pd.DataFrame(
+            columns=[
+                "DatasetName", "TableId", "TableName", "SeriesCode", "LineDescription",
+                "LineNumber", "CL_UNIT", "METRIC_NAME", "Frequency", "title", "id", "exchange", "source",
+            ]
+        )
+
+    # Normalize text columns for robust local regex searching.
+    for col in master.columns:
+        if master[col].dtype == object:
+            master[col] = master[col].map(_safe_text)
+
+    master.to_hdf(save_path, key="data", mode="w")
+    pd.Series(
+        {
+            "created_utc": pd.Timestamp.utcnow().isoformat(),
+            "rows": int(len(master)),
+            "datasets": ",".join([d[0] for d in datasets]),
+            "frequency": frequency,
+        },
+        name="meta",
+    ).to_hdf(save_path, key="meta", mode="a")
+
+    print(f"BEA master index saved to: {save_path}. Rows: {len(master)}")
+    return master
+
+
+def ensure_bea_series_index(
+    bea_key: str,
+    index_path: str = BEA_INDEX_PATH_DEFAULT,
+    force_refresh: bool = False,
+    frequency: str = "Q",
+) -> str:
+    """Ensure local BEA series index exists on disk.
+
+    Args:
+        bea_key: BEA API key.
+        index_path: Target ``.h5s`` file path.
+        force_refresh: If True, rebuild even when file exists.
+        frequency: Frequency used when rebuilding.
+
+    Returns:
+        str: Resolved index file path.
+    """
+    if force_refresh or not os.path.isfile(index_path):
+        print(f"Creating BEA local index at: {index_path}")
+        build_bea_series_index(bea_key=bea_key, save_path=index_path, frequency=frequency)
+    return index_path
 
 if __name__ == "__main__":
     keyz = Utilities.api_keys(JSONpath=grampa+fdel+'SystemInfo')

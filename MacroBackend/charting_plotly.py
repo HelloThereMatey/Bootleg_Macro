@@ -417,7 +417,7 @@ def plotly_multiline(df: pd.DataFrame,
     
     return fig
 
-def dual_axis_plot(left_traces: dict, right_traces: dict, 
+def dual_axis_plot(left_traces: dict, right_traces: dict = None, 
                    title: str = "", width: int = 1600, height: int = 500,
                    left_yaxis_title: str = "", right_yaxis_title: str = "") -> go.Figure:
     """
@@ -465,8 +465,9 @@ def dual_axis_plot(left_traces: dict, right_traces: dict,
         process_trace(name, trace, secondary_y=False)
         
     # Add right axis traces  
-    for name, trace in right_traces.items():
-        process_trace(name, trace, secondary_y=True)
+    if right_traces is not None:
+        for name, trace in right_traces.items():
+            process_trace(name, trace, secondary_y=True)
 
     fig.update_layout(
         title=title,

@@ -24,6 +24,7 @@ abs_tables_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Tables_Index.h5s"
 cG_allshitsPath = wd+fdel+"AllCG.csv"
 metricsListPath = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv"
 bea_path = wd+fdel+"BEA_Data"+fdel+"Datasets"+fdel+"BEA_First3_Datasets.csv"
+bea_index_path = parent+fdel+"User_Data"+fdel+"BEA"+fdel+"BEA_Series_Index.h5s"
 watchlists_path_def = parent+fdel+"User_Data"+fdel+"Watchlists"
 
 ### The data sources dict. This has references to functions to help with searching each source
@@ -35,7 +36,7 @@ sources = {'fred': PriceImporter.FREDSearch,
         'glassnode': metricsListPath, 
         'abs_tables': abs_tables_path,
         'abs_series': abs_index_path,
-        'bea': bea_data_mate.BEA_API_backend.bea_search_metadata,
+        'bea': bea_index_path,
         "rba_tables": readabs_py.browse_rba_tables,
         "rba_series": readabs_py.browse_rba_series,
         "tedata": Pull_Data.tedata_search}
@@ -478,6 +479,11 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.clear_button.setGeometry(QtCore.QRect(960, 8, 100, 40))
         font = QtGui.QFont(); font.setPointSize(12)
 
+        self.refresh_bea_button = QtWidgets.QPushButton("Refresh BEA Index", parent=self.centralwidget)
+        self.refresh_bea_button.setGeometry(QtCore.QRect(1065, 8, 145, 40))
+        self.refresh_bea_button.setFont(font)
+        self.refresh_bea_button.setObjectName("refresh_bea_button")
+
         self.watchlists = QtWidgets.QComboBox(self.centralwidget)
         self.watchlists.setGeometry(QtCore.QRect(275, 540, 211, 31))
         self.watchlists.setFont(font)
@@ -518,6 +524,7 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
         self.source_dropdown.currentIndexChanged.connect(self.dropdown_changed)
         self.run_search.clicked.connect(self.run_search_df)
         self.clear_button.clicked.connect(self.clear_results)
+        self.refresh_bea_button.clicked.connect(self.refresh_bea_index)
         self.results.doubleClicked.connect(self.select_row)
         self.save_watchlist_button.clicked.connect(self.save_watchlist)
         self.watchlists.currentIndexChanged.connect(self.choose_watchlist)
@@ -526,6 +533,20 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
     
     def update_searchstr(self):
         self.searchstr = self.searchstr_entry.toPlainText()
+
+    def refresh_bea_index(self):
+        """Force rebuild the local BEA series index used by GUI search."""
+        try:
+            bea_data_mate.BEA_API_backend.ensure_bea_series_index(
+                bea_key=keys['bea'],
+                index_path=bea_index_path,
+                force_refresh=True,
+            )
+            print(f"BEA index refreshed successfully: {bea_index_path}")
+            if self.selected_source == 'bea':
+                self.source_table_path = bea_index_path
+        except Exception as e:
+            print(f"Failed to refresh BEA index. Error: {e}")
 
     def dropdown_changed(self):
         self.selected_source = self.source_dropdown.currentText()
@@ -561,6 +582,19 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
             else:
                 if self.source_table_path is not None:
                     print("Loading index of time-series data for source: ", self.selected_source, " to dataframe from: ", self.source_table_path)
+
+                    # BEA local index: create it on first use if missing.
+                    if self.selected_source == 'bea' and not os.path.isfile(self.source_table_path):
+                        try:
+                            self.source_table_path = bea_data_mate.BEA_API_backend.ensure_bea_series_index(
+                                bea_key=keys['bea'],
+                                index_path=self.source_table_path,
+                                force_refresh=False,
+                            )
+                        except Exception as e:
+                            print(f"Failed to build local BEA index. Error: {e}")
+                            return
+
                     ext = self.source_table_path.split(".")[-1]
                     if ext == "csv":
                         df = pd.read_csv(self.source_table_path, index_col=0)
@@ -588,6 +622,26 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                         results['title'] = results['id'].copy()
                     elif not results.empty and self.selected_source == 'abs_series':
                         results.rename(columns = {'Unnamed: 0': 'line_number', "Series ID": "id", "Data Item Description": "title"}, inplace=True)
+                    elif not results.empty and self.selected_source == 'bea':
+                        # Normalize columns to GUI conventions and preserve Pull_Data BEA id format.
+                        if 'LineDescription' in results.columns and 'title' not in results.columns:
+                            results['title'] = results['LineDescription'].astype(str)
+                        if 'SeriesCode' in results.columns and 'symbol' not in results.columns:
+                            results['symbol'] = results['SeriesCode'].astype(str)
+                        if 'TableId' in results.columns and 'id' not in results.columns:
+                            dataset_col = 'DatasetName' if 'DatasetName' in results.columns else None
+                            if dataset_col is None:
+                                results['DatasetName'] = 'NIPA'
+                                dataset_col = 'DatasetName'
+                            results['id'] = (
+                                results[dataset_col].astype(str)
+                                + '|'
+                                + results['TableId'].astype(str)
+                                + '|'
+                                + results['symbol'].astype(str)
+                            )
+                        if 'exchange' not in results.columns and 'symbol' in results.columns:
+                            results['exchange'] = results['symbol'].astype(str)
                     # elif not results.empty and self.selected_source == 'abs_tables':
                     #     results
                         #results.rename(columns = {'Unnamed: 0': 'line_number', "Series ID": "id", "Data Item Description": "title"}, inplace=True)
