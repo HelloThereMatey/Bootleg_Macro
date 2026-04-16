@@ -276,11 +276,26 @@ def get_abs_series_from_excel(
     # Create metadata series
     metadata_series = metadata_raw.copy().astype('object')
     metadata_series.name = series_id
-    
-    if 'title' not in metadata_series.index:
-        metadata_series['title'] = series_name
-    elif len(str(metadata_series['title'])) < len(series_name):
-        metadata_series['title'] = series_name
+
+    title_candidates = [
+        metadata_series.get('title', None),
+        metadata_series.get('Title', None),
+        metadata_series.get('Data Item Description', None),
+        metadata_series.get('did', None),
+    ]
+    resolved_title = None
+    for candidate in title_candidates:
+        if candidate is None:
+            continue
+        candidate_str = str(candidate).strip()
+        if candidate_str and candidate_str.lower() != 'nan':
+            resolved_title = candidate_str
+            break
+
+    if not resolved_title:
+        resolved_title = series_name
+
+    metadata_series['title'] = resolved_title
     
     if verbose:
         print(f"[Excel] Created series '{series_name}' with {len(data_series)} observations")
@@ -346,7 +361,7 @@ def browse_rba_tables(searchterm: str = "rate") -> pd.DataFrame:
     rba_script_path = os.path.join(module_dir, "read_rba.r")
     
     input_dict = {
-        "function": "browse_tables",
+        "func": "browse_tables",
         "searchterm": searchterm
     }
     
@@ -385,7 +400,7 @@ def browse_rba_series(searchterm: str = "rate") -> pd.DataFrame:
     rba_script_path = os.path.join(module_dir, "read_rba.r")
     
     input_dict = {
-        "function": "browse_series",
+        "func": "browse_series",
         "searchterm": searchterm
     }
     
@@ -436,7 +451,7 @@ def get_rba_series(
     rba_script_path = os.path.join(module_dir, "read_rba.r")
     
     input_dict = {
-        "function": "get_series",
+        "func": "get_series",
         "series_id": series_id,
         "rba_path": save_path
     }

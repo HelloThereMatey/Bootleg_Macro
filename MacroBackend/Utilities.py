@@ -757,7 +757,9 @@ def Search_DF(df: Union[pd.DataFrame, pd.Series], searchTerm: str):
     finalMatchDF = innerSearch(df, search_regexes)
     return finalMatchDF
 
-def Search_DF_np(df: Union[pd.DataFrame, pd.Series], searchTerm: str, use_cols: list = None, verbose: bool = True) -> Union[pd.DataFrame, pd.Series]:
+def Search_DF_np(df: Union[pd.DataFrame, pd.Series], searchTerm: str,
+                 index_or_cols: str = 'index', 
+                 use_cols: list = None, verbose: bool = True) -> Union[pd.DataFrame, pd.Series]:
     """
     This function runs a search through a DataFrame or Series for one or more search terms,
     returning rows that match all search terms. It uses NumPy for efficient processing.
@@ -767,9 +769,25 @@ def Search_DF_np(df: Union[pd.DataFrame, pd.Series], searchTerm: str, use_cols: 
     :param searchTerm: Description
     :type searchTerm: str
     :param use_cols: Description
-    :type use_cols: list
+    :type use_cols: list - The columns to search through. If None, will search through all columns (or index if index_or_cols is 'index').
+    :param index_or_cols: Description
+    :type index_or_cols: str - Search index or columns. Default is 'index'. If 'columns', will search through
+    those columns only listed in use_cols. If use_cols omitted will search all cols. If 'index', will search through index.
     """
     # Slice DataFrame to only specified columns if use_cols is provided
+
+    if index_or_cols not in ['index', 'columns']:
+        raise ValueError("index_or_cols must be either 'index' or 'columns'")
+    elif index_or_cols == 'index':
+        if searchTerm in df.index:
+            if len(df.loc[[searchTerm]]) == 1:
+                return df.loc[searchTerm] #see if a single match and then return as a series
+            else:
+                return df.loc[searchTerm].iloc[0] #if multiple matches return the first match as a series.
+        else:
+            return None
+    else:
+        pass
     
     if use_cols is not None:
         # Validate that all columns exist in the DataFrame

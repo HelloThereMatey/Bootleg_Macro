@@ -410,9 +410,17 @@ def get_catalogue_num_for_series(series_id: str) -> str:
         str
             The catalogue number associated with the series ID
         """
-        masterIndex = pd.read_hdf(wd+fdel+"abs_master_index.h5s", key='data')
-        result = Search_DF_np(masterIndex, series_id, use_cols=['Data Item Description', "Series ID"], verbose=False)
-        catalog_num = result.iloc[0]['Catalogue number'] if result is not None and not result.empty else None
+        masterIndex = pd.read_hdf(wd+fdel+"abs_master_index.h5", key='data')
+        result = Search_DF_np(masterIndex, series_id, verbose=False)
+        if result is not None and not result.empty:
+            if isinstance(result, pd.DataFrame):
+                catalog_num = result.loc['Catalogue number'].iloc[0]
+            elif isinstance(result, pd.Series):
+                catalog_num = result.loc['Catalogue number']
+            else:
+                catalog_num = None
+        else:
+            catalog_num = None
 
         if catalog_num is None:
             raise ValueError(f"Series ID {series_id} not found in any catalog")
@@ -433,7 +441,7 @@ def get_metadata_from_index(series_id: str, catalog_num: str) -> Optional[pd.Ser
     pd.Series or None
         Series containing metadata for the specified series, or None if not found
     """
-    masterIndex = pd.read_hdf(wd+fdel+"abs_master_index.h5s", key='data')
+    masterIndex = pd.read_hdf(wd+fdel+"abs_master_index.h5", key='data')
 
     if catalog_num is not None:
         result = masterIndex[(masterIndex['Catalogue number'] == catalog_num) & (masterIndex['Series ID'] == series_id)]

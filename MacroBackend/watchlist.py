@@ -232,7 +232,7 @@ FIELD_ALIASES = {
     'max_value': ['max_value', 'maximum', 'max'],
     'length': ['length', 'count', 'observations', 'No. Obs.', 'No. Obs'],
     'units_short': ['units_short', 'unit_short', 'symbol', 'seasonal_adjustment_short'],
-    'title': ['title', 'name', 'longName', 'shortName', 'label', 'shortname', 'series', 'Datasetname', 'TableName', 'metric_full'],
+    'title': ['title', 'name', 'longName', 'shortName', 'label', 'shortname', 'series', 'Datasetname', 'TableName', 'metric_full', 'Data Item Description', 'Title'],
     'id': ['id', 'symbol', 'Ticker', 'Series ID', 'series_id', 'metric_short', 'path'],
     # Additional specialized fields that don't have direct CommonMetadata equivalents but could be useful
     'exchange': ['exchange', 'Exchange', 'exchDisp', 'fullExchange']
@@ -699,15 +699,28 @@ class Watchlist(dict):
                 exchag = str(meta.loc["exchange", i]).strip()
             except Exception:
                 exchag = None
+
+            if sauce == "abs_series" and (exchag is None or str(exchag).strip().lower() in ["", "nan", "none", "n/a"]):
+                for cat_row in ["Catalogue", "Catalogue number", "catalog_num"]:
+                    try:
+                        cat_val = meta.loc[cat_row, i]
+                        if cat_val is not None and not pd.isna(cat_val):
+                            cat_str = str(cat_val).strip()
+                            if cat_str and cat_str.lower() not in ["nan", "none", "n/a"]:
+                                exchag = cat_str
+                                break
+                    except Exception:
+                        continue
             print(f"Attempting data pull for series id: {eyed}, from source: {sauce},\n start_date: {start_date}), exchange_code: {exchag}")
             
             # Initialize variables for this iteration
             series_meta = None
             ds_data = None
+            last_error = None
             
             # Windows-compatible timeout using threading
             def pull_data_with_timeout():
-                nonlocal series_meta, ds_data
+                nonlocal series_meta, ds_data, last_error
                 try:
                     ds = Pull_Data.dataset()
                     ds.get_data(sauce, eyed, start_date, exchange_code=exchag, timeout=timeout)
@@ -716,6 +729,7 @@ class Watchlist(dict):
                     return True
                 except Exception as e:
                     print(f"Error in data pull thread for {eyed}: {e}")
+                    last_error = e
                     return False
             
             # Create and start thread
@@ -733,7 +747,7 @@ class Watchlist(dict):
             if ds_data is None:
                 print(f"Data pull failed for {eyed} from {sauce}.")
                 data[str(i)] = pd.Series(["Data pull failed for this series.", "Devo bro....", 
-                                        "Check the error messages above"], name=f"Error_{eyed}", index=[0, 1, 2])
+                                        f"Error: {last_error if last_error is not None else 'Unknown error'}"], name=f"Error_{eyed}", index=[0, 1, 2])
                 continue  # Skip metadata processing for failed pulls
             
             # Data pull was successful
@@ -842,19 +856,29 @@ class Watchlist(dict):
                         print(f"Skipping this one {key}, it is a DataFrame with more than one columns,", series.columns)
                         continue
             
-                # Get the title from metadata, use series.name or key as fallback
+                # Prefer canonical metadata title, then full_metadata title, then series name/key fallback
+                title = None
                 try:
-                    metadata_title = self["full_metadata"][key].loc["title"]
-                    if pd.isna(metadata_title) or metadata_title == "" or metadata_title is None:
-                        # Use series name if available, otherwise use the key
-                        title = series.name if series.name is not None and series.name != "" else key
-                        print(f"Title was NaN/empty for {key}, using fallback title: {title}")
-                    else:
-                        title = metadata_title
-                except:
-                    # Title not found in metadata, use series name or key as fallback
-                    title = series.name if series is not None and series.name != "" else key
-                    #print(f"Title not found in metadata for {key}, using fallback title: {title}")
+                    if "metadata" in self and "title" in self["metadata"].index and key in self["metadata"].columns:
+                        metadata_title = self["metadata"].loc["title", key]
+                        if metadata_title is not None and not pd.isna(metadata_title) and str(metadata_title).strip() != "":
+                            title = str(metadata_title)
+                except Exception:
+                    pass
+
+                if title is None:
+                    try:
+                        full_meta = self["full_metadata"].get(key)
+                        if isinstance(full_meta, pd.Series):
+                            if "title" in full_meta.index and full_meta.loc["title"] is not None and not pd.isna(full_meta.loc["title"]):
+                                full_title = str(full_meta.loc["title"]).strip()
+                                if full_title:
+                                    title = full_title
+                    except Exception:
+                        pass
+
+                if title is None:
+                    title = series.name if series is not None and series.name not in [None, ""] else key
                 
                 # Rename the series to have the proper title
                 try:
@@ -1045,12 +1069,13 @@ class Watchlist(dict):
         # Normalize metadata index to canonical CommonMetadata fields after batch rename
         self["metadata"] = self["metadata"].reindex(METADATA_INDEX)
 
-    def plot_watchlist(self, left: list, right: list, template: str = "seaborn", plot_title: str = None,
+    def plot_watchlist(self, left: list, right: list = None, template: str = "seaborn", plot_title: str = None,
                        left_axis_title: str = None, right_axis_title: str = None, other_series: dict = None, x_start_date: str = None,
                        margin: dict = None, figsize: tuple = (12,6), dpi: int = 110, width: int = None, height: int = None, source_str: str = None,
                        align_zeros: bool = False, plotly_kwargs: dict = None,
                        # logo options: path to image file (PNG/JPG). If provided, will inset bottom-right.
-                       logo_path: str = None, logo_size: float = 0.12, logo_opacity: float = 1.0, logo_x_offset: int = 8, logo_y_offset: int = 6):
+                       logo_path: str = None, logo_size: float = 0.12, logo_opacity: float = 1.0, logo_x_offset: int = 8, logo_y_offset: int = 6,
+                       source_x: float = 0.0, source_y: float = -0.12):
         """
         Plot selected datasets in this watchlist on a dual-axis chart.
 
@@ -1075,13 +1100,21 @@ class Watchlist(dict):
         - logo_opacity: float, default 1.0 - Opacity of the logo (0.0 to 1.0)
         - logo_x_offset: int, default 8 - Horizontal offset in pixels from the right edge
         - logo_y_offset: int, default 6 - Vertical offset in pixels from the bottom edge
+        - source_x: float, default 0.0 - Source annotation x-position in paper coordinates
+        - source_y: float, default -0.12 - Source annotation y-position in paper coordinates
         """
 
         if not self.get("watchlist_datasets"):
             print("No datasets loaded. Use get_watchlist_data() or load_watchlist_data() first.")
             return None
 
+        left = left or []
+        right = right or []
+
         full_list = left + right
+        if len(full_list) == 0:
+            print("Nothing to plot. Provide at least one series id in left or right.")
+            return None
         charted = self['watchlist'].loc[full_list]
         sources = charted["source"].unique()
         # Build a string of source labels for all unique sources in the chart
@@ -1118,7 +1151,7 @@ class Watchlist(dict):
 
         # De-duplicate ids if any appear in both lists (prefer right axis)
         left_ids = [i for i in (left or []) if i not in (right or [])]
-        right_ids = right or []
+        right_ids = right
 
         primary_data = build_series_map(left_ids)
         secondary_data = build_series_map(right_ids)
@@ -1328,7 +1361,7 @@ class Watchlist(dict):
         fig.add_annotation(
             text="Source: " + source_str,  # Your custom text
             xref="paper", yref="paper",  # Relative to the entire figure
-            x=0.0, y=-0.12,  # Bottom left position (adjust if needed)
+            x=source_x, y=source_y,
             font=dict(size=14, color="black"),  # Small font, black color
             showarrow=False, 
             align="left",  # Left-align text

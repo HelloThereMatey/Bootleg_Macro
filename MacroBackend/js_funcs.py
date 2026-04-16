@@ -8,11 +8,15 @@ import os
 wd = os.path.dirname(os.path.abspath(__file__))
 fdel = os.path.sep
 
-# Get the global node_modules directory
-node_path = subprocess.check_output('npm root -g', shell=True).decode().strip()
+# Get the global node_modules directory (best-effort)
+try:
+    node_path = subprocess.check_output('npm root -g', shell=True).decode().strip()
+except Exception:
+    node_path = ''
 
-# Add the global node_modules directory to the NODE_PATH environment variable
-os.environ['NODE_PATH'] = node_path
+# Add the global node_modules directory to the NODE_PATH environment variable when available
+if node_path:
+    os.environ['NODE_PATH'] = node_path
 
 #print(os.environ['NODE_PATH'])
 
@@ -25,7 +29,8 @@ def js_search_tv(searchstr: str) -> dict:
 
     # Prepare environment with NODE_PATH
     env = os.environ.copy()
-    env['NODE_PATH'] = node_path
+    if node_path:
+        env['NODE_PATH'] = node_path
 
     # Run Node.js process and pass data with UTF-8 encoding
     result = subprocess.run(['node', wd+fdel+'searchTV_js.js'], 
@@ -60,7 +65,8 @@ def js_search_yf(searchstr: str) -> str:
 
     # Prepare environment with NODE_PATH
     env = os.environ.copy()
-    env['NODE_PATH'] = node_path
+    if node_path:
+        env['NODE_PATH'] = node_path
 
     # Run Node.js process and pass data with UTF-8 encoding
     result = subprocess.run(['node', wd+fdel+'yfinance2_js.js'], 
@@ -112,7 +118,8 @@ def js_search_yf_enhanced(searchstr: str) -> dict:
 
     # Prepare environment with NODE_PATH
     env = os.environ.copy()
-    env['NODE_PATH'] = node_path
+    if node_path:
+        env['NODE_PATH'] = node_path
 
     # Run Node.js process and pass data via stdin with UTF-8 encoding
     result = subprocess.run(['node', wd+fdel+'yfinance2_js.js'], 

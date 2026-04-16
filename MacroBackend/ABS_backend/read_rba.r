@@ -8,9 +8,17 @@ input_json <- args[1]
 input_list <- fromJSON(input_json)
 #print(input_list)
 
-# The function to be called put it in input as something like: 
+# The function to be called put it in input as something like:
 # {"func": "get_series", "series_id": "ABS_C16", "rba_path": "path/to/save"}
+# Backward compatibility: also accept legacy key "function".
 function_name <- input_list$func
+if (is.null(function_name) || length(function_name) == 0) {
+    function_name <- input_list$function
+}
+
+if (is.null(function_name) || length(function_name) == 0) {
+    stop("Missing function selector. Provide 'func' (preferred) or 'function'.")
+}
 cur_hist = c("current", "historical")
 
 if (function_name == "get_series") {

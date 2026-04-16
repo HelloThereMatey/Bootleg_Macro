@@ -19,7 +19,7 @@ from MacroBackend import watchlist
 
 ###### GLOBAL slash module level Variables #####################################################
 keys = Utilities.api_keys().keys
-abs_index_path = wd+fdel+"ABS_backend"+fdel+"abs_master_index.h5s"
+abs_index_path = wd+fdel+"ABS_backend"+fdel+"abs_master_index.h5"
 abs_tables_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"ABS_Tables_Index.h5s"
 cG_allshitsPath = wd+fdel+"AllCG.csv"
 metricsListPath = wd+fdel+"Glassnode"+fdel+"Saved_Data"+fdel+"GN_MetricsList.csv"
@@ -600,16 +600,16 @@ class Ui_MainWindow(QtWidgets.QMainWindow):
                         df = pd.read_csv(self.source_table_path, index_col=0)
                     elif ext == "xlsx":
                         df = pd.read_excel(self.source_table_path, index_col=0)
-                    elif ext == "h5s":
+                    elif ext == "h5" or ext == "h5s":
                         df = pd.read_hdf(self.source_table_path, key='data')
                     else:
                         print("File extension not recognized, please use .csv, .xlsx or .h5s")
                         return
                     
                     if search_these_cols == "all":
-                        results = Utilities.Search_DF_np(df, term)
+                        results = Utilities.Search_DF_np(df, term, index_or_cols='cols')
                     else:
-                        results = Utilities.Search_DF_np(df, term, search_these_cols)
+                        results = Utilities.Search_DF_np(df, term, index_or_cols='cols', use_cols = search_these_cols)
 
                     if results.empty:
                         print("No results found, check search terms.")

@@ -456,6 +456,9 @@ class dataset(object):
         ##### Start ABS block ######   
         elif self.source.lower() == 'abs_series'.lower():  
             abs_path = parent+fdel+"User_Data"+fdel+"ABS"+fdel+"Full_Sheets"
+            abs_catalog = None
+            if self.exchange_code not in [None, "", "N/A", "nan"]:
+                abs_catalog = str(self.exchange_code).strip()
             #Data codes for abs_series are input in the format: series_id,catalog_num, where catalog_num is the ABS catalogue number
             # Alternatively: series_id,excel_file_name for local Excel files
             # Supply id in the form of tuple like that in order to load an excel file from the Full_Sheets folder instead of getting data from ABS. 
@@ -493,7 +496,11 @@ class dataset(object):
 
                 except Exception as e:
                     print(f"R script readabs failed, falling back to python readabs: {e}")
-                    series, SeriesInfo = abs_series_by_r.get_abs_series_python(series_id=self.data_code, verbose=False)
+                    series, SeriesInfo = abs_series_by_r.get_abs_series_python(
+                        series_id=self.data_code,
+                        catalog_num=abs_catalog,
+                        verbose=False
+                    )
             
             # Data obtained now process it
             self.data = series
@@ -501,9 +508,23 @@ class dataset(object):
             self.SeriesInfo = self.SeriesInfo.astype('object')  # Ensure object dtype
             self.dataName = series.name if hasattr(series, 'name') else self.data_code
             
-            # Enhance SeriesInfo with more detailed information
-            if hasattr(series, 'name') and series.name:
-                self.SeriesInfo['title'] = series.name
+            # Ensure a title exists, but do not overwrite descriptive metadata titles
+            existing_title = self.SeriesInfo.get('title', None) if isinstance(self.SeriesInfo, pd.Series) else None
+            if existing_title is None or str(existing_title).strip() == "" or str(existing_title).lower() == "nan":
+                resolved_title = None
+                if isinstance(self.SeriesInfo, pd.Series):
+                    for candidate_key in ["Data Item Description", "Title", "did", "series"]:
+                        candidate = self.SeriesInfo.get(candidate_key, None)
+                        if candidate is None:
+                            continue
+                        candidate_str = str(candidate).strip()
+                        if candidate_str and candidate_str.lower() != "nan":
+                            resolved_title = candidate_str
+                            break
+                if resolved_title is None and hasattr(series, 'name') and series.name:
+                    resolved_title = str(series.name)
+                if resolved_title is not None:
+                    self.SeriesInfo['title'] = resolved_title
             ### End ABS block ######
 
         elif self.source.lower() == 'bea':

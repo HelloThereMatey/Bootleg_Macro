@@ -4,6 +4,9 @@ from plotly.subplots import make_subplots
 import plotly.express as px
 import numpy as np
 from typing import Union
+import base64
+
+from MacroBackend import watchlist
 
 
 if __name__ == '__main__':
@@ -802,6 +805,385 @@ def dual_axis_basic_plot(primary_data=None, secondary_data=None,
     fig.update_layout(template=template)
     return fig
 
+def plot_watchlist_generic(left: list, right: list = None, template: str = "seaborn", plot_title: str = None,
+                           left_axis_title: str = None, right_axis_title: str = None, x_start_date: str = None,
+                           margin: dict = None, figsize: tuple = (12, 6), dpi: int = 110,
+                           width: int = None, height: int = None, source_str: str = None,
+                           plotly_kwargs: dict = None,
+                           logo_path: str = None, logo_size: float = 0.12, logo_opacity: float = 1.0,
+                           logo_x_offset: int = 8, logo_y_offset: int = 6):
+    """
+    Generic watchlist-style dual-axis plot builder.
+
+    Parameters:
+    - left: list of tuples [(metadata, series), ...] for the left axis
+    - right: list of tuples [(metadata, series), ...] for the right axis
+    - metadata: dict-like or pd.Series, used for axis/source/title fallbacks
+    - series: pd.Series or single-column pd.DataFrame
+    - template, plot_title, axis-title, sizing, logo options: same behavior as plot_watchlist
+
+    Notes:
+    - other_series and align_zeros are intentionally not part of this generic interface.
+    - Legend labels prefer series.name, then metadata title/id fallback.
+    """
+
+    def _meta_value(meta, candidates):
+        if meta is None:
+            return None
+        for key in candidates:
+            try:
+                if isinstance(meta, pd.Series):
+                    val = meta.get(key, None)
+                elif isinstance(meta, dict):
+                    val = meta.get(key, None)
+                else:
+                    val = getattr(meta, key, None)
+                if val is None:
+                    continue
+                sval = str(val).strip()
+                if sval and sval.lower() != "nan":
+                    return sval
+            except Exception:
+                continue
+        return None
+
+    def _coerce_series(item, axis_name="left", pos=0):
+        if not isinstance(item, (tuple, list)) or len(item) != 2:
+            print(f"Warning: {axis_name}[{pos}] must be (metadata, series). Skipping.")
+            return None, None
+
+        metadata, ser = item
+        if isinstance(ser, pd.DataFrame):
+            if ser.shape[1] == 1:
+                ser = ser.squeeze()
+            else:
+                first_col = ser.columns[0]
+                print(f"Info: {axis_name}[{pos}] series is DataFrame with multiple columns. Using first column: {first_col}")
+                ser = ser[first_col]
+
+        if not isinstance(ser, pd.Series):
+            print(f"Warning: {axis_name}[{pos}] series is not a pandas Series. Skipping.")
+            return None, None
+
+        return metadata, ser
+
+    def _build_axis_data(items, axis_name="left"):
+        out = {}
+        norm = []
+        for i, item in enumerate(items or []):
+            meta, ser = _coerce_series(item, axis_name=axis_name, pos=i)
+            if ser is None:
+                continue
+
+            label = str(ser.name).strip() if getattr(ser, "name", None) is not None else ""
+            if not label:
+                label = _meta_value(meta, ["title", "Title", "Data Item Description", "id", "series_id"])
+            if not label:
+                label = f"{axis_name.title()} Series {len(out) + 1}"
+
+            original_label = label
+            counter = 1
+            while label in out:
+                label = f"{original_label} ({counter})"
+                counter += 1
+
+            out[label] = ser
+            norm.append((meta, ser, label))
+
+        return out, norm
+
+    primary_data, left_norm = _build_axis_data(left, axis_name="left")
+    secondary_data, right_norm = _build_axis_data(right, axis_name="right")
+
+    if not primary_data and not secondary_data:
+        print("Nothing to plot. Check left/right tuple inputs.")
+        return None
+
+    if plot_title is None:
+        if left_norm:
+            plot_title = left_norm[0][2]
+        else:
+            plot_title = "Watchlist Plot"
+
+    if left_axis_title is None:
+        left_meta = left_norm[0][0] if left_norm else None
+        left_axis_title = _meta_value(left_meta, ["units", "Unit", "unit", "units_short", "Units"])
+        if not left_axis_title:
+            left_axis_title = "Primary Axis"
+
+    if right_axis_title is None:
+        right_meta = right_norm[0][0] if right_norm else None
+        right_axis_title = _meta_value(right_meta, ["units", "Unit", "unit", "units_short", "Units"])
+        if not right_axis_title:
+            right_axis_title = "Secondary Axis"
+
+    if source_str is None:
+        sources = []
+        for meta, _, _ in left_norm + right_norm:
+            src = _meta_value(meta, ["source", "Source", "original_source", "provider"])
+            if src:
+                sources.append(src)
+        if sources:
+            source_str = ", ".join(pd.unique(pd.Series(sources)).tolist())
+        else:
+            source_str = "Mixed"
+
+    if x_start_date:
+        try:
+            start_dt = pd.to_datetime(x_start_date)
+            for title, series in primary_data.items():
+                if isinstance(series.index, pd.DatetimeIndex):
+                    primary_data[title] = series.loc[start_dt:]
+            for title, series in secondary_data.items():
+                if isinstance(series.index, pd.DatetimeIndex):
+                    secondary_data[title] = series.loc[start_dt:]
+            print(f"Sliced all series to start from: {x_start_date}")
+        except Exception as e:
+            print(f"Warning: Could not parse x_start_date '{x_start_date}' for slicing: {e}")
+
+    if margin is None:
+        margin = {"t": 60, "b": 40, "l": 70, "r": 10}
+
+    fig = dual_axis_basic_plot(
+        primary_data,
+        secondary_data=secondary_data,
+        title=plot_title,
+        template=template,
+        primary_yaxis_title=left_axis_title,
+        secondary_yaxis_title=right_axis_title,
+    )
+
+    layout_kwargs = {}
+    if width is not None:
+        try:
+            layout_kwargs['width'] = int(width)
+        except Exception:
+            pass
+    if height is not None:
+        try:
+            layout_kwargs['height'] = int(height)
+        except Exception:
+            pass
+
+    if ('width' not in layout_kwargs or 'height' not in layout_kwargs) and figsize is not None:
+        try:
+            w_in, h_in = figsize
+            if 'width' not in layout_kwargs:
+                layout_kwargs['width'] = int(w_in * dpi)
+            if 'height' not in layout_kwargs:
+                layout_kwargs['height'] = int(h_in * dpi)
+        except Exception:
+            pass
+
+    default_layout = dict(
+        margin=margin,
+        legend=dict(orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5)
+    )
+    default_layout.update(layout_kwargs)
+
+    if isinstance(plotly_kwargs, dict):
+        merged_layout = {**default_layout, **plotly_kwargs}
+    else:
+        merged_layout = default_layout
+
+    fig.update_layout(**merged_layout)
+
+    fig.add_annotation(
+        text="Source: " + source_str,
+        xref="paper", yref="paper",
+        x=0.0, y= 0.01,
+        font=dict(size=14, color="black"),
+        showarrow=False,
+        align="left",
+        bgcolor="white",
+        bordercolor="black",
+        borderwidth=1
+    )
+
+    if logo_path:
+        fig = add_logo_on_fig(
+            fig,
+            merged_layout=merged_layout,
+            logo_path=logo_path,
+            logo_size=logo_size,
+            logo_x_offset=logo_x_offset,
+            logo_y_offset=logo_y_offset,
+            logo_opacity=logo_opacity,
+        )
+
+    return fig
+
+def add_logo_on_fig(fig: go.Figure, 
+                    merged_layout: dict = None, 
+                    logo_path: str = None, 
+                    logo_size: float = 0.12, 
+                    logo_x_offset: int = 8, logo_y_offset: int = 6,
+                    logo_opacity: float = 1.0) -> go.Figure:
+    """ 
+    Add optional inset logo if provided. Default behaviour: interpret logo_x_offset/logo_y_offset
+    as pixel offsets from the figure origin (bottom-left, i.e. paper (0,0)) and anchor the image's
+    bottom-left corner there. This places the image in the margin when offsets are small or
+    inside the plot if offsets push it into the plot area. If layout width/height can't be
+    determined, falls back to paper fractions.
+
+    **Parameters:**
+
+        - fig: go.Figure - the figure to which the logo will be added
+        - merged_layout: dict - the layout dict containing figure dimensions (width, height) for pixel offset calculations
+        - logo_path: str - path to the logo image file (PNG/JPG)
+        - logo_size: float - relative size of the logo (0 < logo_size <= 1), default 0.12
+        - logo_x_offset: int - horizontal offset of the logo from the figure origin (pixels), default 8
+        - logo_y_offset: int - vertical offset of the logo from the figure origin (pixels), default 6
+        - logo_opacity: float - opacity of the logo (0.0 to 1.0), default 1.0
+    """
+
+    try:
+        # read and base64-encode the image so plotly can embed it
+        with open(logo_path, 'rb') as _f:
+            raw = _f.read()
+        b64 = base64.b64encode(raw).decode('ascii')
+        src = f"data:image/png;base64,{b64}"
+
+        # determine layout width/height (pixels) to convert pixel offsets
+        layout_w = merged_layout.get('width') if isinstance(merged_layout, dict) else None
+        layout_h = merged_layout.get('height') if isinstance(merged_layout, dict) else None
+
+        try:
+            # fallback to fig.layout values if not found in merged_layout
+            if not layout_w and getattr(fig.layout, 'width', None):
+                layout_w = fig.layout.width
+            if not layout_h and getattr(fig.layout, 'height', None):
+                layout_h = fig.layout.height
+        except Exception:
+            pass
+
+        # Compute image size in pixels and preserve aspect ratio when possible
+        img_px_w = None
+        img_px_h = None
+        if layout_w:
+            try:
+                img_px_w = float(logo_size) * float(layout_w)
+            except Exception:
+                img_px_w = None
+
+        # Try to obtain image aspect using Pillow if available
+        img_aspect = None
+        try:
+            from PIL import Image as _PILImage
+            with _PILImage.open(logo_path) as _im:
+                iw, ih = _im.size
+                img_aspect = float(ih) / float(iw) if iw and ih else None
+        except Exception:
+            img_aspect = None
+
+        if img_px_w is not None and img_aspect is not None:
+            img_px_h = img_px_w * img_aspect
+        elif img_px_w is not None:
+            # fallback to square if aspect unknown
+            img_px_h = img_px_w
+
+        # Convert pixel sizes to paper fraction sizes (sizex, sizey)
+        if layout_w and layout_h and img_px_w is not None and img_px_h is not None:
+            sizex = img_px_w / float(layout_w)
+            sizey = img_px_h / float(layout_h)
+        else:
+            # fallback to using logo_size for both dimensions (fractional)
+            sizex = float(logo_size)
+            sizey = float(logo_size)
+
+        # Compute desired position: pixel offsets from bottom-left of figure
+        if layout_w and layout_h:
+            x_pos = float(logo_x_offset) / float(layout_w)
+            y_pos = float(logo_y_offset) / float(layout_h)
+        else:
+            # fallback: interpret offsets as paper fractions if layout unknown
+            x_pos = float(logo_x_offset)
+            y_pos = float(logo_y_offset)
+
+        # clamp to reasonable range (allow small negative y to place in margin)
+        x_pos = max(-1.0, min(1.0, x_pos))
+        y_pos = max(-1.0, min(1.0, y_pos))
+
+        fig.add_layout_image(dict(
+            source=src,
+            xref="paper", yref="paper",
+            x=x_pos, y=y_pos,
+            xanchor="left", yanchor="bottom",
+            sizex=sizex, sizey=sizey,
+            sizing="contain",
+            opacity=float(logo_opacity),
+            layer="above"
+        ))
+    except Exception as e:
+        print(f"Warning: could not add logo from '{logo_path}': {e}")
+    return fig
+
+def add_vlines_and_pct_change(fig: go.Figure, 
+                              date1, date2, 
+                              series_name: str, 
+                              color='red', 
+                              date_format=None,
+                              summary_x: float = 0.92,
+                              summary_y: float = 1.03):
+    """
+    Add two vertical lines at date1 and date2 to fig and compute % change for series_id.
+    Uses fig.add_vline to draw vertical lines.
+    Parameters:
+    - fig: go.Figure - the figure to modify
+    - date1, date2: str or datetime - the two dates to mark on the x-axis
+    - series_name: str - the name of the series in fig.data to analyze for % change
+    - color: str - color for the vertical lines and annotations (default 'red')
+    - date_format: str - optional date format string for annotations (e.g. "%Y-%m-%d"). If None, defaults to showing just the date part.
+    - summary_x: float - x position of the summary annotation in paper coordinates (default 0.92)
+    - summary_y: float - y position of the summary annotation in paper coordinates (default 1.03)
+    """
+    
+    d1 = pd.to_datetime(date1)
+    d2 = pd.to_datetime(date2)
+
+
+    for tr in fig.data:
+        name = getattr(tr, "name", "")
+        if name == series_name or series_name in str(name):
+            x = pd.to_datetime(np.array(tr.x))
+            y = np.array(tr.y, dtype=float)
+            s =  pd.Series(y, index=x).dropna()
+            break
+    else:
+        raise KeyError(f"Series '{series_name}' not found in figure traces.")
+
+    v1 = _value_at_or_nearest(s, d1)
+    v2 = _value_at_or_nearest(s, d2)
+    pct = (v2 / v1 - 1) * 100 if v1 != 0 else float("inf")
+
+    # add vertical lines using add_vline; ensure they are drawn above traces
+    fig.add_vline(x=d1, line=dict(color=color, dash="dash", width=1), layer='above')
+    fig.add_vline(x=d2, line=dict(color=color, dash="dash", width=1), layer='above')
+
+    fmt = (lambda dt: pd.to_datetime(dt).strftime(date_format)) if date_format else (lambda dt: str(pd.to_datetime(dt).date()))
+    fig.add_annotation(x=d1, xref="x", y=0.03, yref="paper",
+                       text=f"{fmt(d1)}", showarrow=False, bgcolor="white", font=dict(color=color), yanchor="top")
+    fig.add_annotation(x=d2, xref="x", y=0.03, yref="paper",
+                       text=f"{fmt(d2)}", showarrow=False, bgcolor="white", font=dict(color=color), yanchor="top")
+
+    summary_text = f"{series_name} change: {pct:+.2f}% ({v1:.2f} → {v2:.2f})"
+    fig.add_annotation(x=summary_x, xref="paper", y=summary_y, yref="paper",
+                       text=summary_text, showarrow=False, bgcolor="white",
+                       xanchor="right", font=dict(color=color))
+
+    return fig, {"value_at_date1": v1, "value_at_date2": v2, "pct_change": pct}
+
+def _value_at_or_nearest(series, dt):
+    dt = pd.to_datetime(dt)
+    if dt in series.index:
+        return float(series.loc[dt])
+    before = series.loc[:dt].dropna()
+    if not before.empty:
+        return float(before.iloc[-1])
+    after = series.loc[dt:].dropna()
+    if not after.empty:
+        return float(after.iloc[0])
+    raise ValueError(f"No valid data in series around {dt}")
 
 if __name__ == '__main__':
     # Load the data
