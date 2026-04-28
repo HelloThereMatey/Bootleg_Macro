@@ -12,7 +12,7 @@ from . import stats
 from .BEA_Data import bea_data_mate
 from .Glassnode import GN_Control
 
-_LAZY_SUBMODULES = {"search_symbol_gui", "watchlist"}
+_LAZY_SUBMODULES = {"search_symbol_gui", "watchlist", "AgentSandbox"}
 
 
 def __getattr__(name):
