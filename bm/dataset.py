@@ -351,15 +351,16 @@ class Dataset:
         """
         from .sources.nasdaq_source import pull_nasdaq as _pull_nasdaq
 
+        api_key = self.get_api_key('nasdaq')
         return _pull_nasdaq(
             symbol=symbol,
             start_date=start_date,
             end_date=end_date,
+            api_key=api_key,
         )
 
     # -------------------------------------------------------------------------
-    # Glassnode source (placeholder)
-    # -------------------------------------------------------------------------
+    # Glassnode source
 
     def pull_glassnode(
         self,
@@ -400,22 +401,35 @@ class Dataset:
         )
 
     # -------------------------------------------------------------------------
-    # Trading Economics source (placeholder)
+    # Trading Economics source (tedata)
     # -------------------------------------------------------------------------
 
     def pull_tedata(
         self,
-        series_id: str,
+        url: str,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        browser: str = "auto",
     ) -> StandardSeries:
-        """Pull data from Trading Economics.
+        """Pull data from Trading Economics via Selenium scraping.
 
         Args:
-            series_id: Trading Economics series ID
+            url: Trading Economics chart URL (full URL or path portion)
+            start_date: Optional start date filter (YYYY-MM-DD)
+            end_date: Optional end date filter (YYYY-MM-DD)
+            browser: Browser preference ('firefox', 'chrome', or 'auto') — default 'auto'
 
         Returns:
             StandardSeries with data and metadata
         """
-        raise NotImplementedError("Trading Economics source not yet implemented")
+        from .sources.tedata_source import pull_tedata as _pull_tedata
+
+        return _pull_tedata(
+            url=url,
+            start_date=start_date,
+            end_date=end_date,
+            browser=browser,
+        )
 
     # -------------------------------------------------------------------------
     # Generic pull method

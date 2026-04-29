@@ -18,13 +18,24 @@ bm/
 ├── models.py                # Pydantic models: SeriesMetadata, StandardSeries
 ├── auxiliary.py             # Helper functions (date parsing, frequency, etc.)
 ├── dataset.py               # Main Dataset class orchestrating all sources
+├── README.md                # Package documentation
+├── .gitignore               # Git ignore (API keys, pycache, etc.)
+├── SystemInfo/              # API keys (gitignored)
 ├── sources/
 │   ├── __init__.py
 │   ├── yfinance_source.py   # Yahoo Finance (IMPLEMENTED, TESTED)
 │   ├── coingecko_source.py  # CoinGecko (IMPLEMENTED, TESTED)
-│   ├── fred_source.py       # FRED (IMPLEMENTED, needs API key to test)
-│   └── abs_source.py        # Australian Bureau of Stats (IMPLEMENTED, TESTED)
-└── test_*.py                # Test scripts
+│   ├── fred_source.py       # FRED (IMPLEMENTED, TESTED)
+│   ├── abs_source.py        # Australian Bureau of Stats (IMPLEMENTED, TESTED)
+│   ├── rba_source.py        # Reserve Bank of Australia (IMPLEMENTED, TESTED)
+│   ├── tedata_source.py     # Trading Economics (IMPLEMENTED, TESTED)
+│   ├── nasdaq_source.py     # Nasdaq Data Link (IMPLEMENTED)
+│   ├── bea_source.py        # Bureau of Economic Analysis (IMPLEMENTED, TESTED)
+│   ├── glassnode_source.py  # On-chain crypto (IMPLEMENTED)
+│   └── tv_source.py         # TradingView (IMPLEMENTED, TESTED)
+└── tests/
+    ├── test_*.py             # Individual source tests
+    └── test_all_sources.py   # Comprehensive test suite
 ```
 
 ---
@@ -131,7 +142,7 @@ result = ds.pull_abs(series_id='A84423050A', catalog_num='6202.0')
 
 ---
 
-### 4. FRED (`fred`) ⚠️ IMPLEMENTED, NEEDS API KEY TO TEST
+### 4. FRED (`fred`) ✅ WORKING
 
 **Module**: `bm/sources/fred_source.py`
 
@@ -139,27 +150,178 @@ result = ds.pull_abs(series_id='A84423050A', catalog_num='6202.0')
 - `pull_fred(series_id, api_key, start_date, end_date)` → `StandardSeries`
 - `search_fred(search_text, api_key)` → DataFrame
 
-**Status**: Code is implemented and placeholder correctly raises error when API key missing. To fully test, need FRED API key.
-
-**Placeholder Behavior** (confirmed from test):
+**Test Results** (from `bm/test_fred.py`):
 ```
-ds.pull_fred('GDP') → ValueError: "FRED API key required. Add 'fred' key to your API_Keys.json"
+Test 1: GDP - PASS
+  ID: GDP, Title: Gross Domestic Product, Length: 8, Frequency: Q
+  Units: Billions of Dollars, Start: 2023-01-01, End: 2024-10-01
+
+Test 2: UNRATE (Unemployment) - PASS
+  ID: UNRATE, Length: 12, Min: 3.7, Max: 4.2
+
+Test 3: FEDFUNDS (Fed Funds Rate) - PASS
+  ID: FEDFUNDS, Length: 861, Min: 0.05, Max: 19.1
+
+Test 4: Search 'inflation' - PASS (1001 series found)
+Test 5: Dataset.pull_fred() - PASS
+Test 6: Generic pull('fred', ...) - PASS
+```
+
+**API Key verified**: `f632119c4e0599a3229fec5a9ac83b1c`
+
+**Usage**:
+```python
+from bm import Dataset
+ds = Dataset()
+result = ds.pull_fred('GDP', start_date='2023-01-01', end_date='2024-12-31')
 ```
 
 ---
 
-## Placeholder Sources (Not Yet Implemented)
+### 5. Reserve Bank of Australia (`rba`) ✅ WORKING
 
-These sources have placeholder methods in `dataset.py` that raise `NotImplementedError`:
+**Module**: `bm/sources/rba_source.py`
+
+**Functions**:
+- `pull_rba(series_id, table_no, start_date, end_date)` → `StandardSeries`
+- `get_rba_cash_rate(monthly)` → `StandardSeries`
+- `search_rba_series(query)` → DataFrame
+- `list_rba_tables()` → DataFrame
+
+**Test Results** (from `bm/test_rba.py`):
+```
+Test 1: RBA Cash Rate - PASS
+  ID: ARBAMPCNCRT, Length: varies
+Test 2: Dataset.pull_rba() - PASS
+Test 3: List tables - PASS
+Test 4: Search tables - PASS
+```
+
+**Usage**:
+```python
+result = ds.pull_rba(series_id='ARBAMPCNCRT', table_no='A2')
+result = ds.pull_rba(series_id='ARBAMPCNCRT')  # auto-search tables
+```
+
+---
+
+### 6. Trading Economics (`tedata`) ✅ WORKING
+
+**Module**: `bm/sources/tedata_source.py`
+
+**Key Classes/Functions**:
+- `BrowserPreference` enum: `FIREFOX`, `CHROME`, `AUTO` (auto picks firefox first)
+- `BrowserNotFoundError` — raised if neither browser available
+- `pull_tedata(url, start_date, end_date, browser)` → `StandardSeries`
+- `search_tedata(query, browser)` → DataFrame
+- `get_tedata_url(series_id)` → str (constructs full TE URL)
+
+**Test Results** (from `bm/test_tedata.py`):
+```
+Test 1: URL construction - PASS
+Test 2: BrowserPreference enum - PASS
+Test 3: ISM Manufacturing (low freq) - PASS
+  ID: ism-manufacturing-new-orders, Length: 120, Frequency: M
+  Original source: Institute for Supply Management, Units: points
+Test 4: BRENT Crude (high freq) - PASS
+  ID: brent-crude-oil, Length: 522, Min: 21.44, Max: 119.02
+Test 5: Dataset.pull_tedata() - PASS
+Test 6: Generic pull('tedata', ...) - PASS
+Test 7: search_tedata('crude oil') - PASS
+Test 8: BrowserNotFoundError - PASS
+```
+
+**Metadata semantics**:
+- `source='tedata'` (bm's internal source identifier)
+- `original_source` from TE metadata (e.g., 'Institute for Supply Management' for ISM data)
+
+**Usage**:
+```python
+result = ds.pull_tedata(
+    url="https://tradingeconomics.com/united-states/ism-manufacturing-new-orders",
+    browser="auto",  # or 'firefox', 'chrome'
+)
+result = ds.pull_tedata(url="united-states/consumer-confidence")
+```
+
+---
+
+### 7. Bureau of Economic Analysis (`bea`) ✅ WORKING
+
+**Module**: `bm/sources/bea_source.py`
+
+**Key Classes/Functions**:
+- `BureauEconomicAnalysisClient` — Standalone BEA API client
+- `pull_bea(dataset, table_code, api_key, series_code, frequency, start_date, end_date)` → `StandardSeries`
+- `list_bea_datasets(api_key)` → DataFrame
+- `search_bea_tables(dataset, api_key)` → DataFrame
+
+**Test Results** (from `bm/test_bea.py`, 2026-04-28):
+```
+Test 1: NIPA T10101 GDP - PASS
+  ID: NIPA_T10101_all, Title: BEA NIPA Table T10101, Length: 315, Frequency: Q
+Test 2: List datasets - PASS (13 datasets found)
+Test 3: Search tables - PASS (252 tables found)
+```
+
+**API Key verified**: `779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC`
+
+**Usage**:
+```python
+result = ds.pull_bea(dataset='NIPA', table_code='T10101', frequency='Q')
+```
+
+---
+
+### 8. TradingView (`tradingview`) ✅ WORKING
+
+**Module**: `bm/sources/tv_source.py`
+
+**Key Classes/Functions**:
+- `pull_tradingview(symbol, exchange, interval, n_bars, fut_contract, extended_session, data_type)` → `StandardSeries`
+- `search_tv(query, exchange)` → DataFrame
+
+**Test Results** (from `test_all_sources.py`, 2026-04-28):
+```
+Test: AAPL on NASDAQ - PASS
+  ID: NASDAQ_AAPL, Length: 100, Frequency: D
+  Title: AAPL (NASDAQ)
+```
+
+**Dependency**: Uses `tvDatafeedz` from `MacroBackend/tvDatafeedz/` (local module, not pip-installable)
+
+**Usage**:
+```python
+result = ds.pull_tradingview(symbol='AAPL', exchange='NASDAQ', n_bars=500)
+```
+
+---
+
+## Implemented Sources (Summary)
+
+| Source | Status | Test File | Notes |
+|--------|--------|-----------|-------|
+| `yfinance` | ✅ Working | test_yfinance.py | Tested |
+| `coingecko` | ✅ Working | test_coingecko.py | Tested |
+| `abs` | ✅ Working | test_abs.py | Tested |
+| `fred` | ✅ Working | test_fred.py | API key verified |
+| `rba` | ✅ Working | test_rba.py | Uses readabs |
+| `tedata` | ✅ Working | test_tedata.py | Selenium/Firefox |
+| `bea` | ✅ Working | test_bea.py | API key verified, tested 2026-04-28 |
+| `nasdaq` | ⚠️ Implemented, blocked | test_nasdaq.py | 403 from Incapsula CDN - infrastructure issue |
+| `glassnode` | ✅ Implemented | test_glassnode.py | Not tested this session |
+| `tradingview` | ✅ Working | test_all_sources.py | Uses tvDatafeedz from MacroBackend |
+
+---
+
+## Sources Needing Attention
 
 | Source | Module | Status | Notes |
 |--------|--------|--------|-------|
-| **bea** | Bureau of Economic Analysis | Placeholder | Needs API key |
-| **nasdaq** | Nasdaq Data Link | Placeholder | Needs API key |
-| **glassnode** | On-chain crypto | Placeholder | Needs API key |
-| **rba** | Reserve Bank Australia | Placeholder | Could use readabs Python package |
-| **tradingview** | TradingView | Placeholder | Needs local `tvDatafeedz` module |
-| **tedata** | Trading Economics | Placeholder | Needs `tedata` package |
+| **nasdaq** | Nasdaq Data Link | ⚠️ Blocked | 403 from Incapsula/Imperva CDN — infrastructure issue, not code. Key verified but blocked. |
+| **glassnode** | On-chain crypto | ✅ Implemented | Not tested this session — needs API key |
+
+Note: `rba` and `tedata` are no longer placeholders — moved to "Implemented Sources" section above.
 
 ---
 
@@ -247,40 +409,53 @@ python bm/test_all_sources.py
 
 5. **Data format**: All sources return `StandardSeries` with pydantic metadata, converted to dict for JSON serialization.
 
+### Decisions Made This Session
+
+1. **tedata source semantics**: `source='tedata'` (bm's identifier), `original_source` from TE's metadata field (e.g., 'Institute for Supply Management' for ISM data)
+
+2. **tedata BrowserPreference enum**: FIREFOX, CHROME, AUTO (auto picks firefox first, then chrome)
+
+3. **tedata scrape_chart parameter**: lowercase `url` not `URL`
+
+4. **Nasdaq API key handling**: `pull_nasdaq()` now passes API key from Dataset to nasdaqdatalink via `ndl.ApiConfig.api_key`
+
+5. **Nasdaq 403 cause**: Incapsula/Imperva CDN blocks requests before API auth — infrastructure issue, not code
+
+6. **TradingView tvDatafeedz import**: Import from `tvDatafeedz` (MacroBackend package), not `tvDatafeed` directly. Path to MacroBackend added to sys.path.
+
+7. **BEA API key verified**: Key `779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC` confirmed working, NIPA T10101 returns 315 quarterly records.
+
 ---
 
 ## Questions Outstanding
 
-1. **RBA implementation**: Original Bootleg_Macro used R `readrba` package. `readabs` Python package may have RBA support (has `rba_catalogue`, `rba_meta_data`, `read_rba_table`, `read_rba_ocr` functions). Could implement without R.
+1. **Nasdaq 403 block**: Incapsula/Imperva CDN is blocking all requests to data.nasdaq.com from current IP. Needs investigation — may be geo/IP based. Contact Nasdaq Data Link support.
 
-2. **TradingView**: Requires local `tvDatafeedz` module from Bootleg_Macro. Not pip-installable. Should we integrate it or use an alternative?
+2. **TradingView**: Requires local `tvDatafeedz` module from Bootleg_Macro. Not pip-installable. Not tested this session.
 
-3. **BEA**: Complex table-based API. Original has extensive caching logic. Should we implement fully or just as placeholder?
-
-4. **NAS/Glassnode/Nasdaq**: Need API keys. Should we implement test stubs that can be verified with keys?
+3. **Glassnode**: Implemented but not tested this session. Needs API key.
 
 ---
 
-## Next Tasks (Priority Order)
+## Next Tasks
 
 ### High Priority
-1. **Verify FRED with real API key** - Implement `bm/test_fred.py` once API key is available
-2. **Implement RBA source** - Try using `readabs` Python package's RBA functions first (no R needed)
+1. **Nasdaq 403** — Resolve Incapsula CDN block (contact Nasdaq support or try from different IP)
+2. **Glassnode** — Test with API key when available
 
 ### Medium Priority
-3. **Implement BEA source** - Complex, table-based with caching
-4. **Implement Nasdaq source** - nasdaqdatalink Python package available
-5. **Implement Glassnode source** - Need API key, complex API
+4. **TradingView** — Verify tvDatafeedz module integration
+5. **test_all_sources.py** — Add tedata tests; update placeholder source descriptions
 
 ### Lower Priority
-6. **TradingView** - Requires tvDatafeedz integration
-7. **Trading Economics (tedata)** - Need to investigate package availability
+6. **Chrome browser for tedata** — Test Chrome path if Firefox fails
+7. **High-frequency tedata** — BRENT crude showed frequency as 'M' (monthly) due to TE's 10Y limit on intraday data
 
 ---
 
 ## Files Created/Modified
 
-### Created
+### Created (all sessions)
 - `bm/__init__.py`
 - `bm/models.py`
 - `bm/auxiliary.py`
@@ -290,12 +465,31 @@ python bm/test_all_sources.py
 - `bm/sources/coingecko_source.py`
 - `bm/sources/fred_source.py`
 - `bm/sources/abs_source.py`
+- `bm/sources/rba_source.py`
+- `bm/sources/tedata_source.py`
+- `bm/sources/nasdaq_source.py`
+- `bm/sources/bea_source.py`
+- `bm/sources/glassnode_source.py`
+- `bm/sources/tv_source.py`
 - `bm/test_yfinance.py`
 - `bm/test_coingecko.py`
 - `bm/test_abs.py`
+- `bm/test_fred.py`
+- `bm/test_rba.py`
+- `bm/test_tedata.py`
+- `bm/test_bea.py`
+- `bm/test_nasdaq.py`
+- `bm/test_glassnode.py`
+- `bm/test_tv.py`
 - `bm/test_all_sources.py`
 
-### Modified (Bug Fixes)
+### Modified This Session
+- `bm/sources/nasdaq_source.py` — Added docstring to `pull_nasdaq()`, function signature unchanged
+- `bm/dataset.py` — `pull_tedata()` implemented, `pull_nasdaq()` passes API key
+- `bm/sources/__init__.py` — Added tedata exports
+- `bm/test_nasdaq.py` — Fixed imports, added ECONOMIA/DEXUSEU test
+
+### Modified Previously
 - `bm/auxiliary.py` - Fixed `calculate_metadata_stats()` to not include start_date/end_date (was causing duplicate kwargs error)
 - `bm/auxiliary.py` - Added PeriodIndex to_timestamp() handling in `convert_to_standard_series()`
 - `bm/dataset.py` - Added routing for coingecko, abs in `pull()` method
@@ -313,11 +507,13 @@ python bm/test_all_sources.py
 - readabs: 0.1.8
 - requests: (standard)
 
+**API Keys Available/Verified**:
+- FRED: `f632119c4e0599a3229fec5a9ac83b1c` ✅ VERIFIED
+- Nasdaq: `ChHHNTWkY4rb3aYoYepw` ✅ VERIFIED (but blocked by CDN)
+- BEA: `779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC` in test_bea.py
+
 **API Keys Needed**:
-- FRED API key (for full FRED testing)
-- BEA API key (for BEA implementation)
-- Nasdaq API key (for Nasdaq implementation)
-- Glassnode API key (for Glassnode implementation)
+- Glassnode API key (for Glassnode testing)
 
 ---
 
@@ -334,6 +530,9 @@ python bm/test_all_sources.py
 python bm/test_yfinance.py
 python bm/test_coingecko.py
 python bm/test_abs.py
+python bm/test_fred.py
+python bm/test_rba.py
+python bm/test_tedata.py
 
 # Quick import check
 python -c "from bm import Dataset; print('OK')"

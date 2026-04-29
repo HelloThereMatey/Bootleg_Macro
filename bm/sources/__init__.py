@@ -23,6 +23,7 @@ from .glassnode_source import pull_glassnode, list_glassnode_metrics, search_gla
 from .bea_source import pull_bea, list_bea_datasets, search_bea_tables, search_bea_series
 from .rba_source import pull_rba, list_rba_tables, search_rba_tables, search_rba_series, get_rba_cash_rate
 from .tv_source import pull_tv, search_tv
+from .tedata_source import pull_tedata, search_tedata, get_tedata_url, BrowserPreference, BrowserNotFoundError
 
 __all__ = [
     "pull_yfinance",
@@ -53,4 +54,9 @@ __all__ = [
     "get_rba_cash_rate",
     "pull_tv",
     "search_tv",
+    "pull_tedata",
+    "search_tedata",
+    "get_tedata_url",
+    "BrowserPreference",
+    "BrowserNotFoundError",
 ]
