@@ -425,6 +425,8 @@ python bm/test_all_sources.py
 
 7. **BEA API key verified**: Key `779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC` confirmed working, NIPA T10101 returns 315 quarterly records.
 
+8. **Dataset.last_result**: All pull methods now store result on `ds.last_result` before returning. Keeps metadata richness (StandardSeries dict+metadata) but allows easy access after fetch.
+
 ---
 
 ## Questions Outstanding

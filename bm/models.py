@@ -46,6 +46,35 @@ class SeriesMetadata(BaseModel):
     # Last updated
     last_updated: Optional[datetime] = Field(default=None, description="When the data was last fetched")
 
+    def to_pandas(self) -> "pandas.Series":
+        """Convert metadata to a pandas Series.
+
+        Each field becomes a named value in the series.
+
+        Returns:
+            pandas Series with metadata fields as values
+        """
+        import pandas as pd
+
+        data = {
+            'id': self.id,
+            'title': self.title,
+            'source': self.source,
+            'original_source': self.original_source,
+            'start_date': self.start_date,
+            'end_date': self.end_date,
+            'frequency': self.frequency,
+            'units': self.units,
+            'units_short': self.units_short,
+            'length': self.length,
+            'min_value': self.min_value,
+            'max_value': self.max_value,
+            'description': self.description,
+            'last_updated': self.last_updated,
+        }
+
+        return pd.Series(data, name='metadata')
+
 
 class StandardSeries(BaseModel):
     """A standardized time series with data and metadata.

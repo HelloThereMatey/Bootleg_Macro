@@ -50,6 +50,7 @@ class Dataset:
         """
         self._api_keys: dict[str, str] = {}
         self._api_keys_path = api_keys_path or self._default_keys_path()
+        self.last_result: Optional[StandardSeries] = None
         self._load_api_keys()
 
     def _default_keys_path(self) -> str:
@@ -112,12 +113,14 @@ class Dataset:
         """
         from .sources.yfinance_source import pull_yfinance as _pull_yfinance
 
-        return _pull_yfinance(
+        result = _pull_yfinance(
             ticker=ticker,
             start_date=start_date,
             end_date=end_date,
             interval=interval,
         )
+        self.last_result = result
+        return result
 
     # -------------------------------------------------------------------------
     # FRED source
@@ -151,12 +154,14 @@ class Dataset:
 
         from .sources.fred_source import pull_fred as _pull_fred
 
-        return _pull_fred(
+        result = _pull_fred(
             series_id=series_id,
             api_key=api_key,
             start_date=start_date,
             end_date=end_date,
         )
+        self.last_result = result
+        return result
 
     # -------------------------------------------------------------------------
     # BEA source (placeholder)
@@ -193,7 +198,7 @@ class Dataset:
 
         from .sources.bea_source import pull_bea as _pull_bea
 
-        return _pull_bea(
+        result = _pull_bea(
             dataset=dataset,
             table_code=table_code,
             series_code=series_code,
@@ -202,6 +207,8 @@ class Dataset:
             end_date=end_date,
             api_key=api_key,
         )
+        self.last_result = result
+        return result
 
     # -------------------------------------------------------------------------
     # Coingecko source
@@ -225,7 +232,9 @@ class Dataset:
         """
         from .sources.coingecko_source import pull_coingecko as _pull_coingecko
 
-        return _pull_coingecko(coin_id=coin_id, days=days, vs_currency=vs_currency)
+        result = _pull_coingecko(coin_id=coin_id, days=days, vs_currency=vs_currency)
+        self.last_result = result
+        return result
 
     # -------------------------------------------------------------------------
     # ABS source
@@ -251,12 +260,14 @@ class Dataset:
         """
         from .sources.abs_source import pull_abs as _pull_abs
 
-        return _pull_abs(
+        result = _pull_abs(
             series_id=series_id,
             catalog_num=catalog_num,
             start_date=start_date,
             end_date=end_date,
         )
+        self.last_result = result
+        return result
 
     # -------------------------------------------------------------------------
     # RBA source
@@ -282,12 +293,14 @@ class Dataset:
         """
         from .sources.rba_source import pull_rba as _pull_rba
 
-        return _pull_rba(
+        result = _pull_rba(
             series_id=series_id,
             table_no=table_no,
             start_date=start_date,
             end_date=end_date,
         )
+        self.last_result = result
+        return result
 
     # -------------------------------------------------------------------------
     # TradingView source (placeholder)
@@ -319,7 +332,7 @@ class Dataset:
         """
         from .sources.tv_source import pull_tv as _pull_tv
 
-        return _pull_tv(
+        result = _pull_tv(
             symbol=symbol,
             exchange=exchange,
             interval=interval,
@@ -328,6 +341,8 @@ class Dataset:
             extended_session=extended_session,
             data_type=data_type,
         )
+        self.last_result = result
+        return result
 
     # -------------------------------------------------------------------------
     # Nasdaq source (placeholder)
@@ -352,12 +367,14 @@ class Dataset:
         from .sources.nasdaq_source import pull_nasdaq as _pull_nasdaq
 
         api_key = self.get_api_key('nasdaq')
-        return _pull_nasdaq(
+        result = _pull_nasdaq(
             symbol=symbol,
             start_date=start_date,
             end_date=end_date,
             api_key=api_key,
         )
+        self.last_result = result
+        return result
 
     # -------------------------------------------------------------------------
     # Glassnode source
@@ -391,7 +408,7 @@ class Dataset:
 
         from .sources.glassnode_source import pull_glassnode as _pull_glassnode
 
-        return _pull_glassnode(
+        result = _pull_glassnode(
             metric=metric,
             asset=asset,
             interval=interval,
@@ -399,6 +416,8 @@ class Dataset:
             end_date=end_date,
             api_key=api_key,
         )
+        self.last_result = result
+        return result
 
     # -------------------------------------------------------------------------
     # Trading Economics source (tedata)
@@ -424,12 +443,14 @@ class Dataset:
         """
         from .sources.tedata_source import pull_tedata as _pull_tedata
 
-        return _pull_tedata(
+        result = _pull_tedata(
             url=url,
             start_date=start_date,
             end_date=end_date,
             browser=browser,
         )
+        self.last_result = result
+        return result
 
     # -------------------------------------------------------------------------
     # Generic pull method
