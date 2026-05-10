@@ -97,23 +97,35 @@ def pull_abs(
     return StandardSeries.from_pandas(series, metadata)
 
 
-def search_abs(keyword: str) -> pd.DataFrame:
-    """Search ABS series by keyword.
+def search_abs(keyword: str, limit: int = 20) -> pd.DataFrame:
+    """Search ABS series by keyword using local master index.
 
     Args:
         keyword: Search term
+        limit: Maximum number of results
 
     Returns:
-        DataFrame with matching series
+        DataFrame with matching series (Series ID, Data Item Description, Unit, Freq., Catalogue number)
     """
-    import readabs
+    import os
 
-    try:
-        results = readabs.search_abs_meta(keyword)
-        if results is not None and not results.empty:
-            return results
-    except Exception:
-        pass
+    # Try local master index first
+    bm_dir = os.path.dirname(os.path.dirname(__file__))  # bm/ directory
+    project_dir = os.path.dirname(bm_dir)  # parent of bm/
+    candidates = [
+        os.path.join(project_dir, 'MacroBackend', 'ABS_backend', 'abs_master_index.h5'),
+        os.path.join(project_dir, 'MacroBackend', 'ABS_backend', 'abs_master_index-f.h5'),
+    ]
+
+    for idx_path in candidates:
+        if os.path.exists(idx_path):
+            try:
+                df = pd.read_hdf(idx_path, key='data')
+                mask = df['Data Item Description'].str.contains(keyword, case=False, na=False)
+                results = df[mask].head(limit)
+                return results[['Series ID', 'Data Item Description', 'Unit', 'Freq.', 'Catalogue number']]
+            except Exception:
+                continue
 
     return pd.DataFrame()
 

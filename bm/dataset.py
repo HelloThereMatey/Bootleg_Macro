@@ -29,6 +29,7 @@ SOURCES = [
     'rba',
     'tradingview',
     'tedata',
+    'cryptocompare',
 ]
 
 # Sources requiring API keys
@@ -429,6 +430,7 @@ class Dataset:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         browser: str = "auto",
+        timeout: int = 60,
     ) -> StandardSeries:
         """Pull data from Trading Economics via Selenium scraping.
 
@@ -437,6 +439,7 @@ class Dataset:
             start_date: Optional start date filter (YYYY-MM-DD)
             end_date: Optional end date filter (YYYY-MM-DD)
             browser: Browser preference ('firefox', 'chrome', or 'auto') — default 'auto'
+            timeout: Seconds to wait for download (default: 60). Typical: 15-30s.
 
         Returns:
             StandardSeries with data and metadata
@@ -448,6 +451,43 @@ class Dataset:
             start_date=start_date,
             end_date=end_date,
             browser=browser,
+            timeout=timeout,
+        )
+        self.last_result = result
+        return result
+
+    # -------------------------------------------------------------------------
+    # CryptoCompare source
+    # -------------------------------------------------------------------------
+
+    def pull_cryptocompare(
+        self,
+        fsym: str,
+        tsym: str = "USD",
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        limit: int = 2000,
+    ) -> StandardSeries:
+        """Pull cryptocurrency data from CryptoCompare.
+
+        Args:
+            fsym: From symbol (e.g., 'BTC', 'ETH')
+            tsym: To symbol (default: 'USD')
+            start_date: Optional start date (YYYY-MM-DD)
+            end_date: Optional end date (YYYY-MM-DD)
+            limit: Max daily bars per call (default: 2000, max: 2000)
+
+        Returns:
+            StandardSeries with price data and metadata
+        """
+        from .sources.cryptocompare_source import pull_cryptocompare as _pull_cryptocompare
+
+        result = _pull_cryptocompare(
+            fsym=fsym,
+            tsym=tsym,
+            start_date=start_date,
+            end_date=end_date,
+            limit=limit,
         )
         self.last_result = result
         return result
@@ -498,5 +538,7 @@ class Dataset:
             return self.pull_glassnode(*args, start_date=start_date, end_date=end_date, **kwargs)
         elif source in ('te', 'tedata', 'trading_economics'):
             return self.pull_tedata(*args, **kwargs)
+        elif source in ('cc', 'cryptocompare'):
+            return self.pull_cryptocompare(*args, start_date=start_date, end_date=end_date, **kwargs)
         else:
             raise ValueError(f"Unknown or unimplemented source: {source}")

@@ -15,7 +15,13 @@ from .auxiliary import (
     convert_to_standard_series,
     calculate_metadata_stats,
     FrequencyConverter,
+    drop_duplicate_columns,
+    close_open_stores,
+    strip_timezone_from_df,
 )
+from .watchlist import Watchlist
+from .search import WatchlistSearch
+from . import charting
 
 __version__ = "0.1.0"
 
@@ -35,4 +41,12 @@ __all__ = [
     "convert_to_standard_series",
     "calculate_metadata_stats",
     "FrequencyConverter",
+    "drop_duplicate_columns",
+    "close_open_stores",
+    "strip_timezone_from_df",
+    # Watchlist
+    "Watchlist",
+    "WatchlistSearch",
+    # Charting
+    "charting",
 ]

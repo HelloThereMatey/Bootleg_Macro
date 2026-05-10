@@ -12,6 +12,7 @@ Each source is implemented as a separate module:
 - rba: Reserve Bank of Australia
 - tradingview: TradingView data
 - tedata: Trading Economics
+- cryptocompare: Cryptocurrency prices (alternative to CoinGecko)
 """
 
 from .yfinance_source import pull_yfinance, fetch_ohlcv, search_tickers
@@ -24,6 +25,7 @@ from .bea_source import pull_bea, list_bea_datasets, search_bea_tables, search_b
 from .rba_source import pull_rba, list_rba_tables, search_rba_tables, search_rba_series, get_rba_cash_rate
 from .tv_source import pull_tv, search_tv
 from .tedata_source import pull_tedata, search_tedata, get_tedata_url, BrowserPreference, BrowserNotFoundError
+from .cryptocompare_source import pull_cryptocompare, fetch_ohlcv_cryptocompare, search_cryptocompare, get_cryptocompare_pairs
 
 __all__ = [
     "pull_yfinance",
@@ -59,4 +61,8 @@ __all__ = [
     "get_tedata_url",
     "BrowserPreference",
     "BrowserNotFoundError",
+    "pull_cryptocompare",
+    "fetch_ohlcv_cryptocompare",
+    "search_cryptocompare",
+    "get_cryptocompare_pairs",
 ]

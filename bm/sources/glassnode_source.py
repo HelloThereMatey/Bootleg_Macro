@@ -127,7 +127,10 @@ def list_glassnode_metrics(api_key: str) -> pd.DataFrame:
     if response.status_code != 200:
         return pd.DataFrame()
 
-    return pd.DataFrame(json.loads(response.text))
+    data = json.loads(response.text)
+    if isinstance(data, list):
+        return pd.DataFrame(data, columns=['path'])
+    return pd.DataFrame(data)
 
 
 def search_glassnode_metrics(query: str, api_key: str) -> pd.DataFrame:
@@ -143,6 +146,10 @@ def search_glassnode_metrics(query: str, api_key: str) -> pd.DataFrame:
     all_metrics = list_glassnode_metrics(api_key)
     if all_metrics.empty:
         return all_metrics
-
+    # The API returns a list, DataFrame has column '0' containing paths
+    if 'path' not in all_metrics.columns and '0' in all_metrics.columns:
+        all_metrics = all_metrics.rename(columns={'0': 'path'})
+    if 'path' not in all_metrics.columns:
+        return pd.DataFrame()
     mask = all_metrics['path'].str.contains(query, case=False)
     return all_metrics[mask]

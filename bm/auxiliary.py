@@ -4,8 +4,9 @@ Auxiliary helper functions for bm data sources.
 
 from __future__ import annotations
 
+import gc
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Optional, Union
 
 import pandas as pd
@@ -227,3 +228,56 @@ class FrequencyConverter:
             Pandas offset alias
         """
         return cls.PANDAS_OFFSETS.get(cls.standardize(freq), 'D')
+
+
+def drop_duplicate_columns(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+    """Drop columns whose names end with .1, .2 etc. (HDF5 duplicate column pattern).
+
+    Args:
+        df: DataFrame to clean
+
+    Returns:
+        (cleaned DataFrame, list of dropped column names)
+    """
+    regex = re.compile(r'\.\d+$')
+    cols_dropped = [str(c) for c in df.columns if regex.search(str(c))]
+    df = df.drop(columns=cols_dropped)
+    return df, cols_dropped
+
+
+def close_open_stores(target_path: str) -> None:
+    """Force garbage collection and close any open HDFStore at target_path.
+
+    Args:
+        target_path: Path to HDF5 file to close if open
+    """
+    gc.collect()
+    for obj in gc.get_objects():
+        if isinstance(obj, pd.HDFStore):
+            if obj._path == target_path and obj.is_open:
+                obj.close()
+
+
+def strip_timezone_from_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Strip timezone info from datetime cells in a DataFrame for Excel compatibility.
+
+    Converts timezone-aware Timestamps to UTC then removes tzinfo.
+
+    Args:
+        df: DataFrame with potentially timezone-aware datetime columns
+
+    Returns:
+        DataFrame with all timezone info removed (tz-naive)
+    """
+    df_copy = df.copy()
+    for col in df_copy.columns:
+        for idx in df_copy.index:
+            val = df_copy.loc[idx, col]
+            if isinstance(val, pd.Timestamp) and val.tz is not None:
+                df_copy.loc[idx, col] = val.tz_convert('UTC').tz_localize(None)
+            elif hasattr(val, 'tzinfo') and val.tzinfo is not None:
+                if hasattr(val, 'astimezone'):
+                    df_copy.loc[idx, col] = val.astimezone(timezone.utc).replace(tzinfo=None)
+                else:
+                    df_copy.loc[idx, col] = val.replace(tzinfo=None)
+    return df_copy
