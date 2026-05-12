@@ -163,29 +163,39 @@ def search_fred(search_text: str, api_key: str) -> pd.DataFrame:
     if not api_key or len(api_key) < 5:
         raise ValueError("Valid FRED API key is required")
 
-    results = []
-    for search_type in ['series_id', 'full_text']:
-        url = f"{FRED_BASE_URL}/series/search"
-        params = {
-            "search_text": search_text,
-            "search_type": search_type,
-            "api_key": api_key,
-            "file_type": "json",
-        }
+    url = f"{FRED_BASE_URL}/series/search"
+    params = {
+        "search_text": search_text,
+        "search_type": "full_text",
+        "api_key": api_key,
+        "file_type": "json",
+        "limit": 50,
+        "order_by": "search_rank",
+        "sort_order": "desc",
+    }
 
-        response = requests.get(url, params=params)
+    try:
+        response = requests.get(url, params=params, timeout=15)
         if response.status_code == 200:
             data = response.json()
-            if 'seriess' in data:
-                results.extend(data['seriess'])
+            if 'seriess' in data and data['seriess']:
+                df = pd.DataFrame(data['seriess'])
+                cols = [c for c in ['id', 'title', 'units', 'frequency', 'last_updated'] if c in df.columns]
+                return df[cols]
 
-    if not results:
-        return pd.DataFrame()
+            # Fallback: try series_id search when full_text returns nothing
+            params["search_type"] = "series_id"
+            response2 = requests.get(url, params=params, timeout=15)
+            if response2.status_code == 200:
+                data2 = response2.json()
+                if 'seriess' in data2 and data2['seriess']:
+                    df = pd.DataFrame(data2['seriess'])
+                    cols = [c for c in ['id', 'title', 'units', 'frequency', 'last_updated'] if c in df.columns]
+                    return df[cols]
+    except requests.RequestException:
+        pass
 
-    df = pd.DataFrame(results)
-    # Limit to useful columns
-    cols = [c for c in ['series_id', 'title', 'units', 'frequency', 'last_updated'] if c in df.columns]
-    return df[cols]
+    return pd.DataFrame()
 
 
 def _map_fred_frequency(fred_freq: str) -> str:

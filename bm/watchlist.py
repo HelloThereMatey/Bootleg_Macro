@@ -287,9 +287,15 @@ class Watchlist:
             if row.get('length') is None and len(series) > 0:
                 row['length'] = len(series)
             if row.get('min_value') is None and len(series) > 0:
-                row['min_value'] = float(series.min())
+                try:
+                    row['min_value'] = float(series.min())
+                except (ValueError, TypeError):
+                    row['min_value'] = None
             if row.get('max_value') is None and len(series) > 0:
-                row['max_value'] = float(series.max())
+                try:
+                    row['max_value'] = float(series.max())
+                except (ValueError, TypeError):
+                    row['max_value'] = None
             if row.get('start_date') is None and len(series) > 0:
                 idx = series.index
                 row['start_date'] = idx[0] if len(idx) > 0 else None

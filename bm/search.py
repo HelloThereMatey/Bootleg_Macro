@@ -213,7 +213,9 @@ class WatchlistSearch:
 
         elif source == 'bea':
             id_col = next((c for c in ['TableName', 'TableCode', 'table_name'] if c in cols), None)
-            title_col = id_col
+            title_col = next((c for c in ['Desc', 'Description', 'description'] if c in cols), None)
+            if title_col is None:
+                title_col = id_col
 
         elif source == 'nasdaq':
             id_col = next((c for c in ['symbol', 'ticker'] if c in cols), None)
@@ -231,10 +233,6 @@ class WatchlistSearch:
             id_col = 'url' if 'url' in cols else None
             title_col = next((c for c in ['metric', 'title', 'country'] if c in cols), None)
 
-        elif source == 'cryptocompare':
-            id_col = next((c for c in ['symbol', 'id'] if c in cols), None)
-            title_col = next((c for c in ['name', 'title', 'symbol'] if c in cols), None)
-
         else:
             id_col = cols[0] if cols else None
             title_col = cols[1] if len(cols) > 1 else None
@@ -243,9 +241,20 @@ class WatchlistSearch:
         records = []
         for _, row in raw.iterrows():
             meta_dict = row.to_dict()
+
+            # Source-specific title construction
+            if source == 'tedata':
+                country = str(row.get('country', '')) if 'country' in row else ''
+                metric = str(row.get('metric', '')) if 'metric' in row else ''
+                title = f"{country} - {metric}" if country and metric else (country or metric)
+            elif source == 'cryptocompare':
+                title = str(row.get('name', row.get('symbol', ''))) if 'name' in row else ''
+            else:
+                title = str(row[title_col]) if title_col and title_col in row else ''
+
             record = {
                 'id': str(row[id_col]) if id_col and id_col in row else '',
-                'title': str(row[title_col]) if title_col and title_col in row else '',
+                'title': title,
                 'source': source,
                 META_COLUMN: meta_dict,
             }

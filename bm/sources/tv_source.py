@@ -130,6 +130,9 @@ def search_tv(
 ) -> pd.DataFrame:
     """Search for symbols on TradingView.
 
+    Tries the tvDatafeedz HTTP endpoint first. Falls back to the
+    Node.js @mathieuc/tradingview package which isn't behind Cloudflare.
+
     Args:
         query: Search query string
         exchange: Optional exchange filter
@@ -137,8 +140,23 @@ def search_tv(
     Returns:
         DataFrame with matching symbols
     """
+    # Attempt 1: tvDatafeedz HTTP endpoint
+    df = _search_tv_http(query, exchange)
+    if not df.empty:
+        return df
+
+    # Attempt 2: Node.js bridge
+    from bm.sources.tv_search_node import search_tv_node
+    return search_tv_node(query, exchange)
+
+
+def _search_tv_http(query: str, exchange: str = "") -> pd.DataFrame:
+    """Search TV via tvDatafeedz HTTP endpoint (often 403'd)."""
     tv = TvDatafeed()
-    results = tv.search_symbol(query, exchange)
-    if results:
-        return pd.DataFrame(results)
+    try:
+        results = tv.search_symbol(query, exchange)
+        if results:
+            return pd.DataFrame(results)
+    except Exception:
+        pass
     return pd.DataFrame()

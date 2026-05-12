@@ -52,11 +52,11 @@ class WatchlistSearch:
 
 | Source | Handler | Key Required? | Function Used |
 |--------|---------|---------------|---------------|
-| `fred` | `_search_fred` | Yes | `search_fred(query, api_key)` |
+| `fred` | `_search_fred` | Yes | `search_fred(query, api_key)` — single call, limit=50, order_by=search_rank |
 | `yfinance` | `_search_yfinance` | No | `search_tickers(query, limit=20)` |
 | `coingecko` | `_search_coingecko` | No | `search_coins(query)` |
 | `tv` / `tradingview` | `_search_tv` | No | `search_tv(query, exchange='')` |
-| `abs` | `_search_abs` | No | `search_abs(query)` via readabs |
+| `abs` | `_search_abs` | No | `search_abs(query)` via local `abs_master_index.h5` |
 | `rba` | `_search_rba` | No | `search_rba_tables(query)` (or `search_rba_series` via `search_type` kwarg) |
 | `bea` | `_search_bea` | Yes | `search_bea_tables(dataset='NIPA', api_key=api_key)` |
 | `nasdaq` | `_search_nasdaq` | Yes | `search_nasdaq(query, api_key)` |

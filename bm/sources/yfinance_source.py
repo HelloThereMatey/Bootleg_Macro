@@ -144,7 +144,10 @@ def fetch_ohlcv(
 
 
 def search_tickers(query: str, limit: int = 10) -> pd.DataFrame:
-    """Search for ticker symbols.
+    """Search for ticker symbols via Yahoo Finance.
+
+    Tries the Node.js yahoo-finance2 package first (proper search).
+    Falls back to the Python yfinance single-ticker lookup.
 
     Args:
         query: Search query
@@ -153,6 +156,16 @@ def search_tickers(query: str, limit: int = 10) -> pd.DataFrame:
     Returns:
         DataFrame with matching tickers
     """
+    # Attempt 1: Node.js yahoo-finance2 search
+    try:
+        from bm.sources.yf_search_node import search_yf_node
+        df = search_yf_node(query)
+        if not df.empty:
+            return df.head(limit)
+    except Exception:
+        pass
+
+    # Attempt 2: Python yfinance single-ticker lookup
     ticker = yf.Ticker(query)
     if hasattr(ticker, 'info') and ticker.info:
         return pd.DataFrame([ticker.info])

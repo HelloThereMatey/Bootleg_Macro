@@ -1,6 +1,20 @@
 # bm - Bootleg Macro Data Library
 
-A clean, refactored Python library for downloading financial and economic time series data with standardized metadata and output formats.
+Python toolkit for acquisition of financial and economic time series data with standardized metadata and output formats. Obtain data for stocks, macroeconomic indicators, cryptocurrencies and much more from 10+ sources. GUI (PyQt6) for finding data and building watchlists. Plot with Plotly (planned) backtest trading strategies and create custom indexes.
+
+## Features
+
+- [x] **Data Sources** — Download from 10+ sources with unified API (FRED, BEA, Yahoo Finance, CoinGecko, Glassnode, TradingView, Trading Economics, Nasdaq, ABS, RBA)
+- [x] **Watchlists** — Create, save, and manage multi-series watchlists (Excel `.xlsx` + HDF5 `.h5s` sidecar)
+- [x] **Search** — Unified cross-source search to find series before adding them to a watchlist
+- [x] **Charting** — Plot watchlist series with Plotly (dual-axis, recession bars, transforms)
+- [x] **GUI — Watchlist Builder** — PyQt6 desktop app for interactive watchlist creation
+- [ ] **Custom Indexes** — Build aggregated indexes from multiple series (e.g., liquidity indexes, custom benchmarks)
+- [ ] **Line Fitting** — Trendlines, linear regression, and curve fitting on series
+- [ ] **Correlation Analysis** — Rolling correlations between any two series
+- [ ] **Backtesting** — Backtest trading strategies on watchlist series
+
+---
 
 ## Installation
 
@@ -79,10 +93,18 @@ Supported key names:
 
 ```
 bm/
-├── __init__.py          # Package exports (Dataset, StandardSeries, SOURCES)
-├── models.py            # Pydantic models (SeriesMetadata, StandardSeries)
-├── auxiliary.py         # Helper functions (date parsing, frequency detection)
-├── dataset.py           # Main Dataset class
+├── __init__.py              # Package exports
+├── models.py                # Pydantic models (SeriesMetadata, StandardSeries)
+├── auxiliary.py             # Helper functions (date parsing, frequency detection)
+├── dataset.py               # Main Dataset class
+├── watchlist.py             # Watchlist class for multi-series management
+├── search.py                # Unified search across all sources
+├── charting.py             # Plotly charting utilities
+├── watchlist_builder.py     # (planned) PyQt6 GUI for watchlist building
+├── gui/                     # (planned) GUI widgets
+│   ├── _models.py
+│   ├── widgets.py
+│   └── watchlist_builder.py
 ├── sources/
 │   ├── __init__.py
 │   ├── yfinance_source.py
@@ -95,20 +117,60 @@ bm/
 │   ├── bea_source.py
 │   ├── glassnode_source.py
 │   └── tv_source.py
-└── tests/               # Test suite
+├── local_cache/              # Local index/cache files
+└── tests/                    # Test suite
 ```
 
-## Running Tests
+## Watchlist Usage
 
-```bash
-# Run all sources test
-python -m bm.tests.test_all_sources
+```python
+from bm import Watchlist, WatchlistSearch
 
-# Run individual tests
-python -m bm.tests.test_yfinance
-python -m bm.tests.test_fred
-python -m bm.tests.test_bea
-# etc.
+# Build a watchlist by searching
+ws = WatchlistSearch()
+results = ws.search_all('inflation')
+results = ws.search('fred', 'GDP')
+
+# Create and populate a watchlist
+wl = Watchlist(name='my_study')
+for _, row in results.iterrows():
+    meta = SeriesMetadata(id=row['id'], title=row['title'], source=row['source'])
+    wl.append_series(StandardSeries(data={}, metadata=meta))
+
+# Save watchlist
+wl.save_watchlist('path/to/my_study.xlsx')   # .xlsx + .h5s sidecar
+wl.save_watchlist_csv('path/to/my_study.csv')  # index only
+
+# Load watchlist
+wl2 = Watchlist()
+wl2.load_watchlist('path/to/my_study.xlsx')
+
+# Fetch all data for the watchlist
+wl2.get_watchlist_data(start_date='2020-01-01', end_date='2024-12-31')
+
+# Plot
+wl2.plot_watchlist(left=['GDP'], right=['UNRATE'])
+```
+
+## Search Usage
+
+```python
+from bm import WatchlistSearch
+
+ws = WatchlistSearch()
+
+# Search single source
+results = ws.search('fred', 'GDP')       # DataFrame: id, title, source, meta
+results = ws.search('coingecko', 'bitcoin')
+
+# Search all sources
+all_results = ws.search_all('inflation')  # concatenated across sources
+
+# Multi-term search (comma-separated, case-insensitive)
+results = ws.search('fred', 'GDP, quarterly')
+
+# Wildcard support
+results = ws.search('fred', 'M2*')
 ```
 
 ## Output Format
@@ -134,15 +196,20 @@ result.metadata.units      # str
 series = result.to_pandas()
 ```
 
+## Running Tests
+
+```bash
+# Run all sources test
+python -m bm.tests.test_all_sources
+
+# Run individual tests
+python -m bm.tests.test_yfinance
+python -m bm.tests.test_fred
+python -m bm.tests.test_bea
+# etc.
+```
+
 ## Development
-
-This package is being developed as a standalone library extracted from the Bootleg_Macro project.
-
-### Key Files
-- `dataset.py` - Main Dataset class with `pull_*` methods
-- `models.py` - Pydantic models for metadata standardization
-- `auxiliary.py` - Helper functions for date/frequency handling
-- `sources/` - Individual source implementations
 
 ### Adding a New Source
 
@@ -151,3 +218,10 @@ This package is being developed as a standalone library extracted from the Bootl
 3. Add routing in `Dataset.pull()` method
 4. Add tests in `tests/`
 5. Update this README
+
+### Key Files
+- `dataset.py` - Main Dataset class with `pull_*` methods
+- `models.py` - Pydantic models for metadata standardization
+- `watchlist.py` - Watchlist class for multi-series management
+- `search.py` - Unified search across all sources
+- `sources/` - Individual source implementations

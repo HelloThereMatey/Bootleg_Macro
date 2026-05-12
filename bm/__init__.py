@@ -21,7 +21,12 @@ from .auxiliary import (
 )
 from .watchlist import Watchlist
 from .search import WatchlistSearch
-from . import charting
+try:
+    from . import charting
+    charting_available = True
+except ImportError:
+    charting_available = False
+    charting = None
 
 __version__ = "0.1.0"
 
