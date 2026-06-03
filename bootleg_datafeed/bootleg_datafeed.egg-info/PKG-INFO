@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: bootleg-datafeed
+Version: 0.1.0
+Summary: Core data acquisition module — pull financial/economic time series from 11+ sources
+License: MIT
+Requires-Python: >=3.11
+Requires-Dist: pandas>=2.0
+Requires-Dist: requests>=2.0
+Requires-Dist: pydantic>=2.0
+Requires-Dist: yfinance>=0.1
+Requires-Dist: numpy>=1.0
+Requires-Dist: readabs>=0.1
+Requires-Dist: nasdaq-data-link>=0.1
+Provides-Extra: tv
+Provides-Extra: chrome
+Requires-Dist: selenium; extra == "chrome"
+Provides-Extra: all
+Requires-Dist: selenium; extra == "all"

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bootleg-datafeed"
+version = "0.1.0"
+description = "Core data acquisition module — pull financial/economic time series from 11+ sources"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = [
+    "pandas>=2.0",
+    "requests>=2.0",
+    "pydantic>=2.0",
+    "yfinance>=0.1",
+    "numpy>=1.0",
+    "readabs>=0.1",
+    "nasdaq-data-link>=0.1",
+]
+
+[project.optional-dependencies]
+tv = []  # tvDatafeedz is a local MacroBackend module — install manually
+chrome = ["selenium"]
+all = ["selenium"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bootleg_datafeed*"]

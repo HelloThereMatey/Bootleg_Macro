@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: bootleg-toolz
+Version: 0.1.0
+Summary: Watchlist management, Plotly charting, and data utilities
+License: MIT
+Requires-Python: >=3.11
+Requires-Dist: bootleg-datafeed>=0.1
+Requires-Dist: pandas>=2.0
+Requires-Dist: plotly>=5.0
+Requires-Dist: openpyxl>=3.0
+Requires-Dist: tables>=3.0
+Requires-Dist: statsmodels>=0.14

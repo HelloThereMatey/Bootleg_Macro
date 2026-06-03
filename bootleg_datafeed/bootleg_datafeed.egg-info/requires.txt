@@ -1,0 +1,15 @@
+pandas>=2.0
+requests>=2.0
+pydantic>=2.0
+yfinance>=0.1
+numpy>=1.0
+readabs>=0.1
+nasdaq-data-link>=0.1
+
+[all]
+selenium
+
+[chrome]
+selenium
+
+[tv]

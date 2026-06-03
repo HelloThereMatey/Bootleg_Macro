@@ -5,14 +5,19 @@ const yahooFinance = new YahooFinance.default({
 });
 
 async function searchSymbols(searchTerm) {
+    // Suppress yahoo-finance2 internal validation warnings (written to stdout)
+    const _log = console.log;
+    console.log = function() {};
     try {
         const results = await yahooFinance.search(searchTerm);
+        console.log = _log;
         const formattedResults = {
             quotes: results.quotes || [],
             news: results.news || []
         };
         console.log(JSON.stringify(formattedResults));
     } catch (error) {
+        console.log = _log;
         console.log(JSON.stringify({
             success: false,
             operation: 'search',

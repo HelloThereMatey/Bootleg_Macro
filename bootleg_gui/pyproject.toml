@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bootleg-gui"
+version = "0.1.0"
+description = "PyQt6 desktop application for interactive watchlist building"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = [
+    "bootleg-toolz>=0.1",
+    "PyQt6>=6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bootleg_gui*"]

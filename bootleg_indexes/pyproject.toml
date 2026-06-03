@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bootleg-indexes"
+version = "0.1.0"
+description = "Custom index construction from multiple series (not yet implemented)"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = [
+    "bootleg-datafeed>=0.1",
+    "pandas>=2.0",
+    "numpy>=1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bootleg_indexes*"]

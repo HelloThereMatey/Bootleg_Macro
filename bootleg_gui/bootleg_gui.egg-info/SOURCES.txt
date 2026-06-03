@@ -1,0 +1,6 @@
+pyproject.toml
+bootleg_gui.egg-info/PKG-INFO
+bootleg_gui.egg-info/SOURCES.txt
+bootleg_gui.egg-info/dependency_links.txt
+bootleg_gui.egg-info/requires.txt
+bootleg_gui.egg-info/top_level.txt

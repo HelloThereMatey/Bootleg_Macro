@@ -1,0 +1,10 @@
+pyproject.toml
+bootleg_toolz.egg-info/PKG-INFO
+bootleg_toolz.egg-info/SOURCES.txt
+bootleg_toolz.egg-info/dependency_links.txt
+bootleg_toolz.egg-info/requires.txt
+bootleg_toolz.egg-info/top_level.txt
+tests/test_crypto_sources.py
+tests/test_search_integration.py
+tests/test_tedata_integration.py
+tests/test_watchlist.py

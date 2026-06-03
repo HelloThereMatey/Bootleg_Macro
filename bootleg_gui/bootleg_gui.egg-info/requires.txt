@@ -1,0 +1,2 @@
+bootleg-toolz>=0.1
+PyQt6>=6.0
