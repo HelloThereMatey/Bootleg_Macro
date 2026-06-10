@@ -39,7 +39,7 @@ npm install
 
 ### API Keys
 
-Most sources require API keys stored in `bootleg_datafeed/SystemInfo/API_Keys.json`:
+Most sources require API keys stored in `{user_path}/system/API_Keys.json`:
 
 ```json
 {
@@ -49,6 +49,10 @@ Most sources require API keys stored in `bootleg_datafeed/SystemInfo/API_Keys.js
     "glassnode": "your_glassnode_api_key"
 }
 ```
+
+Where `{user_path}` defaults to `~/Documents/Bootleg_Macro` and can be
+overridden by setting the `BM_USER_PATH` environment variable or calling
+`set_user_path()` at runtime.
 
 Sources that **don't** need API keys: Yahoo Finance, TradingView, CoinGecko, CryptoCompare, ABS, RBA, Trading Economics.
 

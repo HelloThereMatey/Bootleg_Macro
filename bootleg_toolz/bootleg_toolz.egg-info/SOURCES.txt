@@ -1,3 +1,4 @@
+README.md
 pyproject.toml
 bootleg_toolz.egg-info/PKG-INFO
 bootleg_toolz.egg-info/SOURCES.txt

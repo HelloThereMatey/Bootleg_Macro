@@ -106,8 +106,8 @@ def plot_multi(
     primary_yaxis_title: Optional[str] = None,
     secondary_series: Optional[dict[str, pd.Series]] = None,
     secondary_yaxis_title: Optional[str] = None,
-    height: int = DEFAULT_HEIGHT,
-    width: int = DEFAULT_WIDTH,
+    height: int = 500,
+    width: int = 1000,
     template: str = DEFAULT_TEMPLATE,
     colors: Optional[list[str]] = None,
     show_grid: bool = True,
@@ -121,8 +121,8 @@ def plot_multi(
         primary_yaxis_title: Left y-axis label
         secondary_series: dict of {label: series} for secondary (right) axis
         secondary_yaxis_title: Right y-axis label
-        height: Plot height in pixels
-        width: Plot width in pixels
+        height: Plot height in pixels (default 500 for 10:5 aspect)
+        width: Plot width in pixels (default 1000 for 10:5 aspect)
         template: Plotly template name
         colors: Optional list of colors for primary series
         show_grid: Show grid lines
@@ -196,8 +196,17 @@ def plot_multi(
         width=width,
         template=template,
         showlegend=show_legend,
-        legend=dict(x=1.01, y=1.0),
-        margin=dict(t=60, b=50, l=70, r=60),
+        legend=dict(
+            orientation='h',
+            x=0.5,
+            xanchor='center',
+            y=-0.2,
+            yanchor='top',
+            traceorder='normal',
+            entrywidth=0.32,
+            entrywidthmode='fraction',
+        ),
+        margin=dict(t=60, b=130, l=70, r=60),
         hovermode='x unified',
         xaxis=dict(
             showgrid=show_grid,

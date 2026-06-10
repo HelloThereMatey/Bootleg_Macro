@@ -200,7 +200,6 @@ def test_watchlist_build_from_search():
     print(f"Pull complete. Datasets: {list(wl.datasets.keys())}")
 
     # ---- Save Watchlist ----
-    charts_dir = Path('/home/totabilcat/Documents/Code/Bootleg_Macro/bm/tests/integration_charts')
     charts_dir.mkdir(parents=True, exist_ok=True)
 
     xlsx_path = charts_dir / 'search_integration_test.xlsx'

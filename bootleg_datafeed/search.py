@@ -41,7 +41,7 @@ class WatchlistSearch:
 
         Args:
             api_keys_path: Optional path to directory containing API_Keys.json.
-                          Defaults to bm/SystemInfo/.
+                          Defaults to {user_path}/system/.
         """
         self._dataset = Dataset(api_keys_path=api_keys_path)
 
@@ -274,10 +274,10 @@ class WatchlistSearch:
 
     @staticmethod
     def search_indexes_dir() -> Path:
-        """Return the bm/local_cache/ directory path."""
-        bm_dir = Path(__file__).parent
-        idx_dir = bm_dir / 'local_cache'
-        idx_dir.mkdir(exist_ok=True)
+        """Return the cache directory path under user data directory."""
+        from ._user_path import get_user_path
+        idx_dir = Path(get_user_path()) / 'cache'
+        idx_dir.mkdir(parents=True, exist_ok=True)
         return idx_dir
 
 

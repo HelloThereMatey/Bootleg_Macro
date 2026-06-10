@@ -11,6 +11,7 @@ from pathlib import Path
 from PyQt6 import QtCore, QtGui, QtWidgets
 
 from bootleg_datafeed import Dataset, SOURCES
+from bootleg_datafeed._user_path import get_user_path
 from bootleg_toolz import Watchlist
 from bootleg_datafeed import WatchlistSearch
 from bootleg_gui.gui._models import PandasModel, SearchWorker, WatchlistSelectionModel
@@ -368,7 +369,7 @@ class WatchlistBuilderWindow(QtWidgets.QMainWindow):
 
     @staticmethod
     def _default_watchlists_path() -> str:
-        path = Path.home() / "Documents" / "Bootleg_Macro" / "Watchlists"
+        path = Path(get_user_path()) / "Watchlists"
         path.mkdir(parents=True, exist_ok=True)
         return str(path)
 

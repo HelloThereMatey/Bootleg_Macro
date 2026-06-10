@@ -20,6 +20,7 @@ from .auxiliary import (
     strip_timezone_from_df,
 )
 from .search import WatchlistSearch
+from ._user_path import get_user_path, set_user_path
 
 __version__ = "0.1.0"
 
@@ -44,4 +45,7 @@ __all__ = [
     "strip_timezone_from_df",
     # Search
     "WatchlistSearch",
+    # User path
+    "get_user_path",
+    "set_user_path",
 ]

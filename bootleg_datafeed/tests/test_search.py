@@ -276,7 +276,7 @@ def test_search_indexes_dir():
     idx_dir = WatchlistSearch.search_indexes_dir()
     assert idx_dir.exists()
     assert idx_dir.is_dir()
-    assert idx_dir.name == 'local_cache'
+    assert idx_dir.name == 'cache'
 
 
 if __name__ == '__main__':

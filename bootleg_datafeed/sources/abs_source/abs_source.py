@@ -7,12 +7,14 @@ No API key required.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Optional, Tuple
 
 import pandas as pd
 
-from ..auxiliary import convert_to_standard_series, calculate_metadata_stats, FrequencyConverter
-from ..models import SeriesMetadata, StandardSeries
+from bootleg_datafeed.auxiliary import convert_to_standard_series, calculate_metadata_stats, FrequencyConverter
+from bootleg_datafeed.models import SeriesMetadata, StandardSeries
 
 
 def pull_abs(
@@ -20,15 +22,20 @@ def pull_abs(
     catalog_num: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    extend: bool = False,
 ) -> StandardSeries:
     """Pull time series data from the Australian Bureau of Statistics.
 
     Args:
         series_id: ABS series ID (e.g., 'A84423050A' for unemployment rate)
-        catalog_num: ABS catalog number (e.g., '6202.0' for Labour Force)
-                    Required for most series lookups.
+        catalog_num: ABS catalog number (e.g., '6202.0' for Labour Force).
+                    If omitted, looked up automatically via the series master
+                    index.
         start_date: Start date filter (YYYY-MM-DD), optional
         end_date: End date filter (YYYY-MM-DD), optional
+        extend: If True, use extend_history to splice cross-frequency siblings
+                for a longer history. If False (default), use standard
+                readabs.read_abs_series().
 
     Returns:
         StandardSeries with data and metadata
@@ -39,24 +46,30 @@ def pull_abs(
     import readabs
 
     if not catalog_num:
-        raise ValueError(
-            "catalog_num is required for ABS. "
-            "Example: catalog_num='6202.0' for Labour Force Survey"
+        from .extend_history import find_cat_for_series as _find_cat
+        catalog_num = _find_cat(series_id)
+
+    if extend:
+        from .extend_history import extend_series as _extend_series
+
+        data_series, meta_df = _extend_series(
+            series_id,
+            cat=catalog_num,
         )
-
-    # Pull the series
-    data_df, meta_df = readabs.read_abs_series(
-        cat=catalog_num,
-        series_id=series_id,
-    )
-
-    if data_df is None or data_df.empty:
-        raise ValueError(f"No data found for ABS series: {series_id}")
-
-    # Extract the series from the DataFrame
-    # The data_df has dates as index and series_id as column
-    series = data_df.iloc[:, 0]  # First (and usually only) column
-    series.name = series_id
+        if data_series is None or data_series.empty:
+            raise ValueError(f"No data found for ABS series: {series_id}")
+        series = data_series.copy()
+    else:
+        # Pull the series via standard readabs
+        data_df, meta_df = readabs.read_abs_series(
+            cat=catalog_num,
+            series_id=series_id,
+        )
+        if data_df is None or data_df.empty:
+            raise ValueError(f"No data found for ABS series: {series_id}")
+        # Extract the series from the DataFrame
+        series = data_df.iloc[:, 0]
+        series.name = series_id
 
     # Convert to standard series
     series = convert_to_standard_series(series)
@@ -107,12 +120,20 @@ def search_abs(keyword: str, limit: int = 20) -> pd.DataFrame:
     Returns:
         DataFrame with matching series (Series ID, Data Item Description, Unit, Freq., Catalogue number)
     """
-    import os
-
-    # Try local master index first
-    bm_dir = os.path.dirname(os.path.dirname(__file__))  # bm/ directory
-    project_dir = os.path.dirname(bm_dir)  # parent of bm/
+    # Check user data dir first, then fall back to MacroBackend location
+    from bootleg_datafeed._user_path import get_user_path
+    user_path = Path(get_user_path())
     candidates = [
+        user_path / "ABS_backend" / "abs_master_index.h5",
+        user_path / "ABS_backend" / "abs_master_index-f.h5",
+        user_path / "cache" / "abs_master_index.h5",
+        user_path / "cache" / "abs_master_index-f.h5",
+    ]
+
+    # Old MacroBackend location as fallback
+    bm_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    project_dir = os.path.dirname(bm_dir)
+    candidates += [
         os.path.join(project_dir, 'MacroBackend', 'ABS_backend', 'abs_master_index.h5'),
         os.path.join(project_dir, 'MacroBackend', 'ABS_backend', 'abs_master_index-f.h5'),
     ]

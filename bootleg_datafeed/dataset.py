@@ -7,14 +7,18 @@ standardized time series with metadata.
 
 from __future__ import annotations
 
+import json
 import os
+import sys
 from datetime import date, datetime
+from pathlib import Path
 from typing import Optional, Union
 
 import pandas as pd
 
 from .models import SeriesMetadata, StandardSeries
 from .auxiliary import parse_date
+from ._user_path import get_user_path
 
 
 # Supported sources
@@ -47,7 +51,7 @@ class Dataset:
 
         Args:
             api_keys_path: Path to directory containing API_Keys.json.
-                          Defaults to looking in bm/SystemInfo/
+                          Defaults to {user_path}/system/
         """
         self._api_keys: dict[str, str] = {}
         self._api_keys_path = api_keys_path or self._default_keys_path()
@@ -55,29 +59,53 @@ class Dataset:
         self._load_api_keys()
 
     def _default_keys_path(self) -> str:
-        """Get default path for API keys."""
-        # Look for API_Keys.json in bm/SystemInfo/ or parent/SystemInfo/
-        bm_dir = os.path.dirname(__file__)
-        candidates = [
-            os.path.join(bm_dir, 'SystemInfo'),
-            os.path.join(os.path.dirname(bm_dir), 'SystemInfo'),
-        ]
-        for path in candidates:
-            if os.path.isdir(path):
-                return path
-        return candidates[0]
+        """Get default path for API keys under the user data directory."""
+        path = Path(get_user_path()) / "system"
+        path.mkdir(parents=True, exist_ok=True)
+        return str(path)
 
     def _load_api_keys(self) -> None:
         """Load API keys from JSON file."""
-        import json
-
-        key_file = os.path.join(self._api_keys_path, 'API_Keys.json')
-        if os.path.isfile(key_file):
+        key_file = Path(self._api_keys_path) / "API_Keys.json"
+        if key_file.is_file():
             try:
-                with open(key_file, 'r') as f:
+                with open(key_file) as f:
                     self._api_keys = json.load(f)
             except Exception as e:
                 print(f"Warning: Could not load API keys: {e}")
+        else:
+            self._configure_api_keys()
+
+    def _configure_api_keys(self) -> None:
+        """Interactively prompt for missing API keys and save them."""
+        if not sys.stdin.isatty():
+            # Non-interactive: create an empty file so we don't re-prompt
+            self._save_api_keys()
+            return
+
+        print(
+            "\nNo API keys found. Enter keys for the sources you want to use "
+            "(leave blank to skip).\n"
+        )
+        for source in KEY_SOURCES:
+            try:
+                value = input(f"  {source} API key: ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                break
+            if value:
+                self._api_keys[source] = value
+
+        self._save_api_keys()
+
+    def _save_api_keys(self) -> None:
+        """Write current API keys dict to the JSON file."""
+        key_file = Path(self._api_keys_path) / "API_Keys.json"
+        try:
+            key_file.parent.mkdir(parents=True, exist_ok=True)
+            key_file.write_text(json.dumps(self._api_keys, indent=2))
+        except Exception as e:
+            print(f"Warning: Could not save API keys: {e}")
 
     def get_api_key(self, source: str) -> Optional[str]:
         """Get API key for a source.
@@ -247,6 +275,7 @@ class Dataset:
         catalog_num: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
+        extend: bool = False,
     ) -> StandardSeries:
         """Pull data from Australian Bureau of Statistics (ABS).
 
@@ -255,6 +284,8 @@ class Dataset:
             catalog_num: ABS catalog number (e.g., '6202.0' for Labour Force)
             start_date: Start date (YYYY-MM-DD)
             end_date: End date (YYYY-MM-DD)
+            extend: If True, use extend_history to splice cross-frequency
+                    siblings for a longer history.
 
         Returns:
             StandardSeries with data and metadata
@@ -266,6 +297,7 @@ class Dataset:
             catalog_num=catalog_num,
             start_date=start_date,
             end_date=end_date,
+            extend=extend,
         )
         self.last_result = result
         return result
