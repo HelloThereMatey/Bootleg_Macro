@@ -203,8 +203,6 @@ def plot_multi(
             y=-0.2,
             yanchor='top',
             traceorder='normal',
-            entrywidth=0.32,
-            entrywidthmode='fraction',
         ),
         margin=dict(t=60, b=130, l=70, r=60),
         hovermode='x unified',
@@ -266,11 +264,18 @@ def plot_watchlist(
     primary = {}
     for meta, series in (left or []):
         label = _series_label(meta, series)
+        # Ensure unique keys — duplicate titles silently drop series
+        if label in primary:
+            sid = getattr(series, 'name', None) or (meta.get('id') if isinstance(meta, dict) else None) or ''
+            label = f"{label} ({sid})"
         primary[label] = series
 
     secondary = {}
     for meta, series in (right or []):
         label = _series_label(meta, series)
+        if label in secondary:
+            sid = getattr(series, 'name', None) or (meta.get('id') if isinstance(meta, dict) else None) or ''
+            label = f"{label} ({sid})"
         secondary[label] = series
 
     if not primary and not secondary:
@@ -362,15 +367,29 @@ def save_html(
 
 def _series_label(meta, series) -> str:
     """Derive a display label from metadata and series."""
+    # Prefer explicit titles in metadata first
+    if meta is not None:
+        for key in ('title', 'Title'):
+            try:
+                if isinstance(meta, pd.Series) or isinstance(meta, dict):
+                    val = meta.get(key, None)
+                else:
+                    val = getattr(meta, key, None)
+                if val:
+                    return str(val)
+            except Exception:
+                pass
+
+    # Then prefer the series' own name attribute
     if series is not None and getattr(series, 'name', None):
         return str(series.name)
+
+    # Finally fall back to other metadata fields in preferred order
     if meta is None:
         return 'Series'
-    for key in ('title', 'Title', 'id', 'series_id', 'name'):
+    for key in ('name', 'series_id', 'id'):
         try:
-            if isinstance(meta, pd.Series):
-                val = meta.get(key, None)
-            elif isinstance(meta, dict):
+            if isinstance(meta, pd.Series) or isinstance(meta, dict):
                 val = meta.get(key, None)
             else:
                 val = getattr(meta, key, None)

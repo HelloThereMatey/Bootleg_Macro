@@ -11,6 +11,8 @@ from __future__ import annotations
 import gc
 import os
 import re
+import shutil
+import subprocess
 import warnings
 from pathlib import Path
 from typing import Optional
@@ -113,6 +115,72 @@ def _pull_series(
     primary_id, extra = _parse_id(source, series_id)
     kwargs.update(extra)
     return ds.pull(source, primary_id, start_date=start_date, end_date=end_date, **kwargs)
+
+
+def _pick_excel_file_dialog() -> Optional[str]:
+    """Pick an Excel file to open using common Linux native dialog tools.
+
+    Tries `zenity` first, then `kdialog`. Returns None if canceled/unavailable.
+    """
+    # GNOME/GTK environments
+    if shutil.which('zenity'):
+        cmd = [
+            'zenity',
+            '--file-selection',
+            '--title=Open watchlist (.xlsx)',
+            '--file-filter=Excel files | *.xlsx',
+            '--file-filter=All files | *',
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if proc.returncode == 0:
+            selected = proc.stdout.strip()
+            return selected or None
+        return None
+
+    # KDE/Qt environments
+    if shutil.which('kdialog'):
+        cmd = ['kdialog', '--getopenfilename', str(Path.cwd()), '*.xlsx|Excel files (*.xlsx)']
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if proc.returncode == 0:
+            selected = proc.stdout.strip()
+            return selected or None
+        return None
+
+    return None
+
+
+def _save_excel_file_dialog() -> Optional[str]:
+    """Pick a save-as path for an Excel file using common Linux native dialog tools.
+
+    Tries `zenity` first, then `kdialog`. Returns None if canceled/unavailable.
+    """
+    # GNOME/GTK environments
+    if shutil.which('zenity'):
+        cmd = [
+            'zenity',
+            '--file-selection',
+            '--save',
+            '--confirm-overwrite',
+            '--title=Save watchlist (.xlsx)',
+            '--file-filter=Excel files | *.xlsx',
+            '--file-filter=All files | *',
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if proc.returncode == 0:
+            selected = proc.stdout.strip()
+            return selected or None
+        return None
+
+    # KDE/Qt environments
+    if shutil.which('kdialog'):
+        cmd = ['kdialog', '--getsavefilename', str(Path.cwd()), '*.xlsx|Excel files (*.xlsx)']
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if proc.returncode == 0:
+            selected = proc.stdout.strip()
+            return selected or None
+        return None
+
+    return None
 
 
 class Watchlist:
@@ -232,6 +300,7 @@ class Watchlist:
         self,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
+        extend_abs: bool = False,
     ) -> dict[str, Exception]:
         """
         Fetch all series from the watchlist via Dataset.pull().
@@ -239,6 +308,9 @@ class Watchlist:
         Args:
             start_date: Start date for fetching (YYYY-MM-DD)
             end_date: End date for fetching (YYYY-MM-DD)
+            extend_abs: If True, pass extend=True to pull_abs for each ABS
+                        series, splicing cross-frequency siblings for a longer
+                        history.
 
         Returns:
             dict of {series_id: exception} for any series that failed.
@@ -247,9 +319,13 @@ class Watchlist:
         errors = {}
         for _, row in self.watchlist.iterrows():
             try:
+                kwargs = {}
+                if extend_abs and row['source'] == 'abs':
+                    kwargs['extend'] = True
                 series = _pull_series(
                     row['source'], row['id'],
                     start_date=start_date, end_date=end_date,
+                    **kwargs,
                 )
                 self.append_series(series)
             except Exception as e:
@@ -375,16 +451,20 @@ class Watchlist:
     # Excel persistence
     # -------------------------------------------------------------------------
 
-    def save_watchlist(self, path: Optional[str] = None) -> None:
+    def save_watchlist(self, path: Optional[str] = None, force_dialog: bool = False) -> None:
         """
         Save watchlist to .xlsx (3 sheets) and optionally .h5s.
 
         Args:
             path: File path for .xlsx save. storepath derived from this.
-                  If None, uses self.storepath.
+                  If None, uses self.storepath. If no storepath set,
+                  opens a native save-file dialog (zenity/kdialog).
+            force_dialog: If True, always open the save-file dialog.
         """
-        if path is None and self.storepath is None:
-            raise ValueError("Must provide path or set storepath first")
+        if path is None and self.storepath is None or force_dialog:
+            path = _save_excel_file_dialog()
+            if path is None:
+                return
 
         save_path = path or self.storepath
         if not save_path:
@@ -419,14 +499,28 @@ class Watchlist:
         if self.datasets:
             self.save_datasets()
 
-    def load_watchlist(self, filepath: str) -> None:
+    def load_watchlist(self, filepath: Optional[str] = None) -> None:
         """
         Load watchlist from .xlsx file and accompanying .h5s.
 
         Args:
-            filepath: Path to .xlsx file
+            filepath: Path to .xlsx file. If None, opens a native file dialog
+                      (zenity/kdialog) when available.
         """
+        if filepath is None:
+            filepath = _pick_excel_file_dialog()
+            if not filepath:
+                raise ValueError(
+                    "No filepath provided and no file selected. "
+                    "Pass filepath explicitly or install zenity/kdialog for dialog support."
+                )
+
         xlsx_path = Path(filepath)
+        if xlsx_path.suffix.lower() != '.xlsx':
+            raise ValueError(f"Expected .xlsx file, got: {xlsx_path}")
+        if not xlsx_path.exists():
+            raise FileNotFoundError(f"Watchlist file not found: {xlsx_path}")
+
         self.storepath = str(xlsx_path.with_suffix('.h5s'))
         self.name = xlsx_path.stem
 
@@ -510,8 +604,9 @@ class Watchlist:
 
     def plot_watchlist(
         self,
-        left: Optional[list[str]] = None,
+        left: Optional[list[str]] = [],
         right: Optional[list[str]] = None,
+        additional_series: Optional[dict[str, dict[str, pd.Series]]] = None,
         plot_title: Optional[str] = None,
         primary_yaxis_title: Optional[str] = None,
         secondary_yaxis_title: Optional[str] = None,
@@ -529,6 +624,10 @@ class Watchlist:
         Args:
             left: List of series ids for left (primary) axis. If None, plots all.
             right: List of series ids for right (secondary) axis.
+            additional_series: dict - Extra series to plot on the named axes.
+                Format: {'left': {label1: series1, label2: series2}, 'right': {label3: series3}}.
+                Top-level keys are axis names ('left'/'right', both optional).
+                Inner-dict keys become legend labels. Inner values must be pandas Series.
             plot_title: Chart title (default: watchlist name)
             primary_yaxis_title: Left y-axis label
             secondary_yaxis_title: Right y-axis label
@@ -575,6 +674,24 @@ class Watchlist:
 
         left_items = _make_items(left_ids)
         right_items = _make_items(right_ids)
+
+        # Append caller-provided series to the named axis.
+        # additional_series format: {'left': {label1: s1, ...}, 'right': {label2: s2, ...}}
+        for axis_name, series_dict in (additional_series or {}).items():
+            if axis_name not in ('left', 'right'):
+                continue
+            target = left_items if axis_name == 'left' else right_items
+            for label, series in (series_dict or {}).items():
+                if series is None:
+                    continue
+
+                s = series.to_pandas() if hasattr(series, 'to_pandas') else series
+                if not isinstance(s, pd.Series):
+                    continue
+
+                s = s.copy()
+                s.name = str(label)
+                target.append(({'title': str(label), 'id': str(label)}, s))
 
         if plot_title is None:
             plot_title = self.name
