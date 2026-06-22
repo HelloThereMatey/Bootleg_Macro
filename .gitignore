@@ -50,6 +50,10 @@
 !/User_Data/GlobalReserves/FXData/CNYUSD.xlsx
 /MacroBackend/SystemInfo/*
 !/MacroBackend/SystemInfo/API_Keys_demo.json
+# Bootleg packages: no SystemInfo/ should be tracked (API keys are in ~/Documents/Bootleg_Macro/system/)
+/bootleg_datafeed/SystemInfo/
+# Bootleg packages: no SystemInfo/ should be tracked (API keys are in ~/Documents/Bootleg_Macro/system/)
+/bootleg_datafeed/SystemInfo/
 /MacroBackend/Glassnode/Saved_Data/*
 !/MacroBackend/Glassnode/Saved_Data/GN_MetricsList.csv
 /MacroBackend/BEA_Data/Datasets/*

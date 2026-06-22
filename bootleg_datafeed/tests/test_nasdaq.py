@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """
 Tests for Nasdaq Data Link source.
+
+API keys are loaded from the Dataset instance (reads {user_path}/system/API_Keys.json).
 """
 
 import sys
@@ -11,7 +13,14 @@ import pandas as pd
 from bootleg_datafeed import Dataset, StandardSeries
 from bootleg_datafeed.sources.nasdaq_source import pull_nasdaq, search_nasdaq, get_nasdaq_metadata
 
-NASDAQ_KEY = "ChHHNTWkY4rb3aYoYepw"
+# Load API key from Dataset config (not hardcoded)
+_ds = Dataset()
+NASDAQ_KEY = _ds.get_api_key('nasdaq')
+if not NASDAQ_KEY:
+    raise RuntimeError(
+        "Nasdaq Data Link API key not found. Add 'nasdaq' key to your API_Keys.json "
+        f"at {Path(_ds._api_keys_path) / 'API_Keys.json'} or use set_api_key('nasdaq', 'your_key')."
+    )
 
 
 def test_nasdaq_pull():

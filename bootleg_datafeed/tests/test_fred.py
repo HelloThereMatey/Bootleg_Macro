@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """
 Tests for FRED source.
+
+API keys are loaded from the Dataset instance (reads {user_path}/system/API_Keys.json).
 """
 
 import sys
@@ -10,8 +12,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from bootleg_datafeed import Dataset, StandardSeries
 from bootleg_datafeed.sources.fred_source import pull_fred, search_fred
 
-
-FRED_KEY = "f632119c4e0599a3229fec5a9ac83b1c"
+# Load API key from Dataset config (not hardcoded)
+_ds = Dataset()
+FRED_KEY = _ds.get_api_key('fred')
+if not FRED_KEY:
+    raise RuntimeError(
+        "FRED API key not found. Add 'fred' key to your API_Keys.json "
+        f"at {Path(_ds._api_keys_path) / 'API_Keys.json'} or use set_api_key('fred', 'your_key')."
+    )
 
 
 def test_fred_gdp():

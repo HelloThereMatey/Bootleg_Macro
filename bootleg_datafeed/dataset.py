@@ -128,16 +128,6 @@ class Dataset:
         self._api_keys[source] = key
         self._save_api_keys()
 
-    def set_api_key(self, source: str, key: str) -> None:
-        """Set an API key for a source and persist to disk.
-
-        Args:
-            source: Source name ('fred', 'bea', 'nasdaq', 'glassnode')
-            key: API key string
-        """
-        self._api_keys[source] = key
-        self._save_api_keys()
-
     # -------------------------------------------------------------------------
     # yfinance source
     # -------------------------------------------------------------------------

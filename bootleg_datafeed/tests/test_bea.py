@@ -1,4 +1,7 @@
-"""Tests for BEA source."""
+"""Tests for BEA source.
+
+API keys are loaded from the Dataset instance (reads {user_path}/system/API_Keys.json).
+"""
 
 import sys
 from pathlib import Path
@@ -7,7 +10,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import pytest
 from bootleg_datafeed import Dataset
 
-BEA_KEY = "779F26DA-1DB0-4CC2-94DD-2AE3492DA4FC"
+# Load API key from Dataset config (not hardcoded)
+_ds = Dataset()
+BEA_KEY = _ds.get_api_key('bea')
+if not BEA_KEY:
+    raise RuntimeError(
+        "BEA API key not found. Add 'bea' key to your API_Keys.json "
+        f"at {Path(_ds._api_keys_path) / 'API_Keys.json'} or use set_api_key('bea', 'your_key')."
+    )
 
 
 def test_bea_gdp():
