@@ -8,6 +8,7 @@ aggregate Global M2 indexes.
 
 import pandas as pd
 import numpy as np
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -300,39 +301,47 @@ class Global_M2:
         return self.data_dict
     
     def _download_m2_data(self, symbol, exchange, n_bars):
-        """Download M2 close data via bootleg_datafeed Dataset (TradingView)."""
-        try:
-            result = self.ds.pull_tradingview(
-                symbol=symbol,
-                exchange=exchange,
-                interval='1M',
-                n_bars=n_bars,
-                data_type='close',
-            )
-            series = result.to_pandas()  # pd.Series with DatetimeIndex
-            series.name = f'{symbol}_M2_close'
-            return series
-        except Exception as e:
-            print(f"    ✗ Failed to download M2 data: {str(e)}")
-            return None
+        """Download M2 close data via bootleg_datafeed Dataset (TradingView).
+        Retries up to 3 times on failure."""
+        for attempt in range(1, 4):
+            try:
+                result = self.ds.pull_tradingview(
+                    symbol=symbol,
+                    exchange=exchange,
+                    interval='1M',
+                    n_bars=n_bars,
+                    data_type='close',
+                )
+                series = result.to_pandas()  # pd.Series with DatetimeIndex
+                series.name = f'{symbol}_M2_close'
+                return series
+            except Exception as e:
+                print(f"    ✗ Attempt {attempt}/3 failed for M2 {symbol}: {str(e)}")
+                if attempt < 3:
+                    time.sleep(2)
+        return None
 
     def _download_fx_data(self, symbol, exchange, n_bars, country):
-        """Download FX close data via bootleg_datafeed Dataset (TradingView)."""
-        try:
-            result = self.ds.pull_tradingview(
-                symbol=symbol,
-                exchange=exchange,
-                interval='1M',
-                n_bars=n_bars,
-                data_type='close',
-            )
-            series = result.to_pandas()
-            series.name = f'{symbol}_FX_close'
-            return series
-        except Exception as e:
-            print(f"    ✗ Failed to download FX data: {str(e)}")
-            self.failed_downloads.append(f"{country}_FX")
-            return None
+        """Download FX close data via bootleg_datafeed Dataset (TradingView).
+        Retries up to 3 times on failure."""
+        for attempt in range(1, 4):
+            try:
+                result = self.ds.pull_tradingview(
+                    symbol=symbol,
+                    exchange=exchange,
+                    interval='1M',
+                    n_bars=n_bars,
+                    data_type='close',
+                )
+                series = result.to_pandas()
+                series.name = f'{symbol}_FX_close'
+                return series
+            except Exception as e:
+                print(f"    ✗ Attempt {attempt}/3 failed for FX {symbol}: {str(e)}")
+                if attempt < 3:
+                    time.sleep(2)
+        self.failed_downloads.append(f"{country}_FX")
+        return None
     
     def _process_country_data(self, country, m2_close, fx_data, currency_code, fx_symbol):
         """

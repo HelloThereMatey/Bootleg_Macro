@@ -18,38 +18,38 @@ import matplotlib.dates as mdates
 from MacroBackend import Utilities
 import datetime 
 
-def calc_chart_xlims(index: pd.DatetimeIndex, xmin: str = None, xmax: str = None, 
-                     margin_left: float = 0.05, margin_right: float = 0.05) -> tuple:
-    """
-    Sets the x-axis limits with a buffer on a matplotlib chart.
+# def calc_chart_xlims(index: pd.DatetimeIndex, xmin: str = None, xmax: str = None, 
+#                      margin_left: float = 0.05, margin_right: float = 0.05) -> tuple:
+#     """
+#     Sets the x-axis limits with a buffer on a matplotlib chart.
 
-    Parameters:
-    ax (matplotlib.axes.Axes): The axes object of the plot.
-    index (pd.DatetimeIndex,): The datetime index of a pd.Series of the main trace on a given chart
-    margin_left (float), margin_right (float): The left margin, right margin.
-    xmin, xmax: can specify dates to restrict your axis range. 
-    """
-    if not isinstance(index, pd.DatetimeIndex):
-        raise TypeError("Input index must be of type pd.DatetimeIndex")
+#     Parameters:
+#     ax (matplotlib.axes.Axes): The axes object of the plot.
+#     index (pd.DatetimeIndex,): The datetime index of a pd.Series of the main trace on a given chart
+#     margin_left (float), margin_right (float): The left margin, right margin.
+#     xmin, xmax: can specify dates to restrict your axis range. 
+#     """
+#     if not isinstance(index, pd.DatetimeIndex):
+#         raise TypeError("Input index must be of type pd.DatetimeIndex")
 
-    if xmin is not None and xmax is not None:
-        min_date = Utilities.GetClosestDateInIndex(index, xmin)[0]
-        max_date = Utilities.GetClosestDateInIndex(index, xmax)[0]
-        print(xmin, xmax, min_date, max_date)
-    else:
-        min_date, max_date = index.min(), index.max() 
-    # Extract min and max dates from the series index
+#     if xmin is not None and xmax is not None:
+#         min_date = Utilities.GetClosestDateInIndex(index, xmin)[0]
+#         max_date = Utilities.GetClosestDateInIndex(index, xmax)[0]
+#         print(xmin, xmax, min_date, max_date)
+#     else:
+#         min_date, max_date = index.min(), index.max() 
+#     # Extract min and max dates from the series index
 
-    # Calculate the buffer in terms of days
-    date_range = max_date - min_date
-    left_buffer = datetime.timedelta(days=date_range.days * margin_left)
-    right_buffer = datetime.timedelta(days=date_range.days * margin_right)
+#     # Calculate the buffer in terms of days
+#     date_range = max_date - min_date
+#     left_buffer = datetime.timedelta(days=date_range.days * margin_left)
+#     right_buffer = datetime.timedelta(days=date_range.days * margin_right)
 
-    # Apply the buffer
-    xlim_lower = min_date - left_buffer
-    xlim_upper = max_date + right_buffer
+#     # Apply the buffer
+#     xlim_lower = min_date - left_buffer
+#     xlim_upper = max_date + right_buffer
 
-    return (xlim_lower, xlim_upper)
+#     return (xlim_lower, xlim_upper)
 
 def identify_peaks_and_troughs(data: pd.Series, x_range: datetime.timedelta):
     # Convert x_range to number of points
@@ -408,79 +408,6 @@ def fit_dists_plot(series: pd.Series, log: bool = False, figsize: tuple = (6, 5)
     fitobj.plot_histogram_with_fits(log=log, title = f"{series.name}: Histogram with fitted distributions")
     fitobj.hist_fig.set_size_inches(figsize[0], figsize[1])
     return fitobj
-        
-#### Traces are input as dict of tuples e.g {"TraceName": (data,color,linewidth)}
-def TwoAxisFig(LeftTraces:dict,LeftScale:str,LYLabel:str,title:str,XTicks=None,RightTraces:dict=None,RightScale:str=None,RYLabel:str=None,\
-            LeftTicks:tuple=None,RightTicks:tuple=None,RightMinTicks:tuple=None,text1:str=None):
-    """
-    Create a figure with two y-axes.
-
-    Parameters:
-    LeftTraces (dict): A dictionary containing the left y-axis traces. The keys are the trace names and the values are lists containing the trace data, color, and line width.
-    LeftScale (str): The scale of the left y-axis. Can be 'linear' or 'log'.
-    LYLabel (str): The label for the left y-axis.
-    title (str): The title of the figure.
-    XTicks (list or None): The tick positions for the x-axis. If None, the default ticks will be used.
-    RightTraces (dict or None): A dictionary containing the right y-axis traces. The keys are the trace names and the values are lists containing the trace data, color, and line width. If None, only the left y-axis will be plotted.
-    RightScale (str or None): The scale of the right y-axis. Can be 'linear' or 'log'. If None, the right y-axis will have the same scale as the left y-axis.
-    RYLabel (str or None): The label for the right y-axis. If None, no label will be displayed.
-    LeftTicks (tuple or None): The tick positions and labels for the left y-axis. Must be input as a tuple of lists or np.arrays. With format (Tick positions list, tick labels list). If None, the default ticks will be used.
-    RightTicks (tuple or None): The tick positions and labels for the right y-axis. Must be input as a tuple of lists or np.arrays. With format (Tick positions list, tick labels list). If None, the default ticks will be used.
-    RightMinTicks (tuple or None): The tick positions and labels for the minor ticks of the right y-axis. Must be input as a tuple of lists or np.arrays. With format (Tick positions list, tick labels list). If None, no minor ticks will be displayed.
-    text1 (str or None): Additional text to be displayed on the figure. If None, no additional text will be displayed.
-
-    Returns:
-    fig (matplotlib.figure.Figure): The created figure.
-    """
-    fig = plt.figure(num=title,figsize=(13,6.5), tight_layout=True)
-    gs1 = GridSpec(1, 1, top = 0.95, bottom=0.11 ,left=0.06,right=0.92)
-    ax1 = fig.add_subplot(gs1[0])
-    ax1 = fig.axes[0]
-    ax1.set_title(title,fontweight='bold')
-
-    for trace in LeftTraces.keys():
-        ax1.plot(LeftTraces[trace][0],label = trace,color=LeftTraces[trace][1],lw=LeftTraces[trace][2])
-    if LeftTicks is not None:    ### Ticks must be input as a tuple of lists or np.arrays. WIth format (Tick positions list, tick labels list)
-            ax1.tick_params(axis='y',which='both',length=0,labelsize=0)
-            ax1.set_yticks(LeftTicks[0]); ax1.set_yticklabels(LeftTicks[1])
-            ax1.tick_params(axis='y',which='major',length=3,labelsize=9)
-    if RightTraces is not None:
-        ax1b = ax1.twinx()
-        ax1b.margins(0.02,0.03)
-        for axis in ['top','bottom','left','right']:
-            ax1b.spines[axis].set_linewidth(1.5) 
-        for trace in RightTraces.keys():
-            ax1b.plot(RightTraces[trace][0],label = trace,color=RightTraces[trace][1],lw=RightTraces[trace][2])
-        ax1b.legend(loc=4, fontsize=9)
-        if RightScale == 'log':    
-            ax1b.set_yscale('log')
-        if RYLabel is not None:
-            ax1b.set_ylabel(RYLabel,fontweight='bold',labelpad=15,fontsize=11)
-        if RightTicks is not None:    
-            ax1b.tick_params(axis='y',which='both',length=0,labelsize=0)
-            ax1b.set_yticks(RightTicks[0]); ax1b.set_yticklabels(RightTicks[1])
-            ax1b.tick_params(axis='y',which='major',length=4,labelsize=10)
-            if RightMinTicks is not None:
-                ax1b.set_yticks(RightMinTicks[0],minor=True); 
-                ax1b.set_yticklabels(RightMinTicks[1],minor=True)
-                ax1b.tick_params(axis='y',which='minor',length=2,labelsize=7)
-
-    if LeftScale == 'log':
-        ax1.set_yscale('log')
-    if XTicks is not None:
-        ax1.xaxis.set_ticks(XTicks) 
-        ax1.tick_params(axis='x',length=3,labelsize='small',labelrotation=45)
-        ax1.xaxis.set_major_formatter(mdates.DateFormatter('%y-%b'))
-        ax1.set_xlim(XTicks[0],XTicks[len(XTicks)-1])
-        ax1.set_xlabel('Date (year-month)',fontweight='bold',fontsize=11)
-    
-    ax1.legend(loc=2,fontsize=9)
-    ax1.set_ylabel(LYLabel,fontweight='bold',fontsize=11)
-    for axis in ['top','bottom','left','right']:
-            ax1.spines[axis].set_linewidth(1.5)
-    if text1 is not None:
-        ax1.text(0.25, -0.12, text1, fontweight = 'bold', transform = ax1.transAxes)
-    return fig
 
 class FitFunction():
     def __init__(self):
