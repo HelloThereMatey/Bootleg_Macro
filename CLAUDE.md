@@ -4,88 +4,191 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Setup
+## Quick Start
 
 ```bash
-cd Bootleg_Macro/setup
-chmod +x setup.sh
-./setup.sh          # creates conda environment "bm" with all dependencies
-conda activate bm   # always activate this environment when working in the repo
-```
+# Install core datafeed
+pip install -e ./bootleg_datafeed
 
-## Common Commands
+# Install everything (including toolz, indexes)
+pip install -e ./bootleg_macro
 
-```bash
-# Run charting tool (Macro_Chartist)
-cd Bootleg_Macro/Macro_Chartist
-python chartist.py
-
-# Run NetLiquidity tool
-cd Bootleg_Macro/Liquidity/NetLiquidity
-python nlq.py
-
-# Run Global M2 tool
-cd Bootleg_Macro/Liquidity/Global_M2
-python Plot_GM2.py
-
-# Run a single test/example
-cd Bootleg_Macro
-python -c "from MacroBackend import Pull_Data; print(Pull_Data.dataset().added_sources)"
+# Install with GUI support
+pip install -e "./bootleg_macro[gui]"
 ```
 
 ## Architecture
 
+The repo ships **two pip-installable packages**:
+
 ```
 Bootleg_Macro/
-├── MacroBackend/           # Core Python library — data pulling, charting, utilities
-│   ├── Pull_Data.py       # Main entry point: dataset.get_data() for all sources
-│   ├── PriceImporter.py   # Price/crypto data (Yahoo Finance, TradingView, CoinGecko)
-│   ├── Charting.py       # Matplotlib charting utilities
-│   ├── charting_plotly.py # Plotly charting (fit_trendlines, etc.)
-│   ├── Utilities.py      # API key management, frequency determination, resampling
-│   ├── js_funcs.py       # JavaScript-based data fetching (yfinance2)
-│   ├── Glassnode/        # GlassNode on-chain crypto data
-│   ├── BEA_Data/         # Bureau of Economic Analysis — cached table pulls
-│   ├── ABS_backend/      # Australian Bureau of Statistics via readabs (R + Python)
-│   └── SystemInfo/       # API keys (JSON), screen config
-├── Liquidity/
-│   ├── Global_M2/         # Aggregated global M2 money supply index
-│   └── NetLiquidity/      # US Net Liquidity metric (Fed balance - RRP - TGA)
-├── Macro_Chartist/        # Excel-driven multi-axis charting tool (Control.xlsx)
-├── PairCorrelation/       # Rolling correlation tool
-├── openbb_backend/        # OpenBB platform integration
-├── User_Data/
-│   ├── Watchlists/        # Excel watchlist files (.xlsx + .h5s)
-│   ├── Research_notebooks/ # Example Jupyter notebooks
-│   ├── BEA/bea_tables/    # BEA HDF5 cache (bea_table_cache.h5s)
-│   └── SavedData/         # Local saved data files
-└── examples/              # Example scripts (test_bea_*.py)
+├── bootleg_datafeed/     # Core package — data acquisition
+│   ├── dataset.py         # Dataset class for pulling time series
+│   ├── models.py          # SeriesMetadata, StandardSeries
+│   ├── sources/           # 11+ data source implementations
+│   │   ├── fred_source.py
+│   │   ├── bea_source.py
+│   │   ├── yfinance_source.py
+│   │   ├── tv_source.py   # TradingView
+│   │   ├── abs_source.py  # Australia (plus extend_history/)
+│   │   ├── rba_source.py  # Australia RBA
+│   │   ├── coingecko_source.py
+│   │   ├── cryptocompare_source.py
+│   │   ├── glassnode_source.py
+│   │   ├── nasdaq_source.py
+│   │   └── tedata_source.py
+│   ├── search.py          # WatchlistSearch for finding series
+│   ├── auxiliary.py       # Utilities, frequency conversion
+│   └── _user_path.py      # User data directory management
+│
+└── bootleg_macro/         # Meta-package — everything else
+    ├── toolz/             # Analysis, charting, watchlists
+    │   ├── watchlist.py   # Watchlist class
+    │   ├── charting.py    # Plotly charting
+    │   ├── stats.py       # Correlation, stationarity
+    │   ├── fitting.py     # Distribution/trend fitting
+    │   ├── data_processing.py  # Seasonal adjustment
+    │   └── utilities.py   # Helpers
+    ├── indexes/           # Custom indexes
+    │   ├── nlq_clean.py  # Net Liquidity (NLQ)
+    │   ├── gm2_data_handler.py  # Global M2
+    │   └── UpdateM2Infos/  # M2 config files
+    └── watchlist_gui/     # PyQt6 desktop GUI (optional)
+        ├── gui/
+        │   ├── watchlist_builder.py  # Main window
+        │   ├── widgets.py            # UI components
+        │   ├── _models.py            # Qt models
+        │   └── _logging.py           # Logging setup
+        └── tests/
+```
+
+## Installation
+
+```bash
+# Core only
+pip install -e ./bootleg_datafeed
+
+# Everything (default: datafeed + toolz + indexes)
+pip install -e ./bootleg_macro
+
+# With GUI (adds PyQt6)
+pip install -e "./bootleg_macro[gui]"
+pip install -e "./bootleg_macro[all]"   # same as [gui]
+```
+
+## Common Usage Patterns
+
+### Pull data from any source
+
+```python
+from bootleg_datafeed import Dataset
+
+ds = Dataset()
+
+# FRED (requires API key)
+ds.pull_fred("GDP", start_date="2020-01-01")
+
+# Yahoo Finance (no key)
+ds.pull_yfinance("SPY")
+
+# TradingView (no key)
+ds.pull_tradingview("BTCUSD", exchange="INDEX")
+
+# BEA (requires API key)
+ds.pull_bea(dataset="NIPA", table_code="T10101")
+
+# ABS Australia (no key)
+ds.pull_abs("A2304350A")
+```
+
+### Search for series
+
+```python
+from bootleg_datafeed import WatchlistSearch
+
+ws = WatchlistSearch()
+results = ws.search("fred", "GDP")
+all_results = ws.search_all("inflation")
+```
+
+### Chart and analyze
+
+```python
+from bootleg_macro import charting
+
+fig = charting.plot_series(ds.data["GDP"], title="US GDP")
+charting.show(fig)
+```
+
+### Build watchlists
+
+```python
+from bootleg_macro import Watchlist
+
+wl = Watchlist(name="my_study")
+wl.add_series(metadata, series)  # Add from search results
+wl.get_watchlist_data(start_date="2020-01-01")
+wl.save_watchlist("my_study.xlsx")
+```
+
+### Launch GUI (requires [gui] extra)
+
+```python
+from bootleg_macro import launch
+window = launch()
+```
+
+### Custom indexes
+
+```python
+from bootleg_macro import NetLiquidity, Global_M2
+
+# Net Liquidity
+nlq = NetLiquidity(start_date="2010-01-01")
+results = nlq.calculate_all()
+
+# Global M2
+gm2 = Global_M2()
+gm2.download_data(n_bars=500, countries=['United States', 'Japan'])
+gm2.create_all_aggregates()
 ```
 
 ## Data Sources
 
-Supported via `Pull_Data.dataset().get_data()`:
+| Source | API Key | Notes |
+|--------|---------|-------|
+| `fred` | Yes | US macro data |
+| `bea` | Yes | US national accounts (cached table pulls) |
+| `yfinance` | No | Price data |
+| `tv` (TradingView) | No | Price data, 5000-bar limit |
+| `coingecko` | No | Crypto prices, 365-day limit |
+| `cryptocompare` | No | Crypto prices, 2000-bar limit |
+| `nasdaq` | Yes | Formerly Quandl (free key) |
+| `glassnode` | Yes | On-chain crypto metrics |
+| `abs` (Australia) | No | Australian Bureau of Statistics |
+| `rba` (Australia) | No | Reserve Bank of Australia |
+| `tedata` | No | Selenium scraping |
 
-| Source | API Key Required | Notes |
-|--------|-----------------|-------|
-| `fred` | Yes (FRED) | US macro data |
-| `bea` | Yes (BEA) | US national accounts; cached in `User_Data/BEA/bea_tables/` |
-| `abs_series` | No | Australian Bureau of Stats; can use local Excel files |
-| `yfinance` | No | Yahoo Finance price data |
-| `yfinance2` | No | Yahoo Finance via JS package |
-| `tv` | No | TradingView scraping (needs exchange_code) |
-| `nasdaq` | Yes (Nasdaq Data Link) | |
-| `glassnode` | Yes (Glassnode subscription) | On-chain crypto |
-| `coingecko` | No | Crypto prices |
-| `tedata` | No | Trading Economics scraping |
-| `rba_series` | No | Reserve Bank of Australia |
+## API Keys
 
-BEA data codes use `Dataset|TableId|SeriesCode` format (e.g. `NIPA|T10101|A191RX`). BEA pulls fetch full tables and cache them; series extraction happens from cached data.
+Stored in `~/Documents/Bootleg_Macro/system/API_Keys.json` (managed via `bootleg_datafeed._user_path`):
+
+```json
+{
+    "fred": "your_fred_key",
+    "bea": "your_bea_key",
+    "nasdaq": "your_nasdaq_key",
+    "glassnode": "your_glassnode_key"
+}
+```
 
 ## Key Patterns
 
-- **Adding a new data source**: Implement in `Pull_Data.dataset.pull_data()`, add to `added_sources`
-- **Adding a new chart type**: Add to `Charting.py` or `charting_plotly.py`
-- **Watchlist files**: Excel `.xlsx` control files + corresponding `.h5s` HDF stores
-- **API keys**: Stored in `MacroBackend/SystemInfo/API_Keys.json`, managed via `Utilities.api_keys`
-- **Jupyter notebook usage**: Append parent dir to `sys.path`, then `import MacroBackend`
+- **Adding a new data source**: Implement in `bootleg_datafeed/sources/`, add to `SOURCES` in `dataset.py`
+- **Import paths**: Use `from bootleg_macro import ...` for convenience, or `from bootleg_datafeed import ...` for core
+- **Optional GUI**: Use `try/except ImportError` around GUI imports or check `_gui_available` flag
+
+## License
+
+MIT

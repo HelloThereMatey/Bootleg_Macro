@@ -1,22 +1,15 @@
 """
 TradingView source for bm.
 
-Uses local tvDatafeedz module from MacroBackend for accessing TradingView chart data.
+Uses the bundled tvDatafeedz subpackage (sources/tvDatafeedz/) for accessing
+TradingView chart data.
 """
 
-import os
-import sys
 from typing import Optional
 
 import pandas as pd
 
-# Add MacroBackend to path for tvDatafeedz
-_BOOTLEG_MACRO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_TVDATAFEEDZ_PATH = os.path.join(_BOOTLEG_MACRO_ROOT, 'MacroBackend')
-if _TVDATAFEEDZ_PATH not in sys.path:
-    sys.path.insert(0, _TVDATAFEEDZ_PATH)
-
-from tvDatafeedz import TvDatafeed, Interval
+from .tvDatafeedz import TvDatafeed, Interval
 
 from ..auxiliary import convert_to_standard_series, calculate_metadata_stats
 from ..models import SeriesMetadata, StandardSeries

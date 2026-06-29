@@ -1,70 +1,35 @@
-/.vscode/*
-/Macro_Chartist/Chart_templates/*
-!/Macro_Chartist/Chart_templates/GDP vs GDI.xlsx
-/Global_M2/M2_USD_Tables/*
-/Global_M2/Datasums/*
-!/User_Data/BEA/GDP_PriceDeflator.xlsx
-!/User_Data/FRED_Data/WRESBAL.xlsx
-!/User_Data/Glassnode/GN_MetricsList.xlsx
-!/User_Data/GlobalReserves/BalSheets/CNCBBS.xlsx
-!/User_Data/GlobalReserves/ComboNetLiq/NLQ_BOJ.xlsx
-!/User_Data/GlobalReserves/FXData/CNYUSD.xlsx
-!/User_Data/GM2_Data/FinalData/China.xlsx
-!/User_Data/GM2_Data/FX_Data/China_FX.xlsx
-!/User_Data/GM2_Data/M2_Data/China_M2.xlsx
-/User_Data/GlobalReserves/BalSheets/*
-/User_Data/GlobalReserves/FXData/*
-/User_Data/BEA/*
-/User_Data/BEA/bea_tables/*
-!/User_Data/BEA/bea_tables/.gitkeep
-!/User_Data/BEA/bea_tables/T10105.xlsx
-/beaapi_data
-/User_Data/FRED_Data/*
-/User_Data/Glassnode/*
-/User_Data/TreasuryData/*
-/User_Data/GM2_Data/FinalData/*
-/User_Data/GM2_Data/FX_Data/*
-/User_Data/GM2_Data/M2_Data/*
-/User_Data/NLQ_Data/*
-/User_Data/SavedData/*
-/User_Data/Watchlists/*
-!/User_Data/Watchlists/aus_econ
-!/User_Data/Watchlists/aus_pop
-/User_Data/Research_notebooks/*
-/User_Data/Chartist/*
-!/User_Data/Chartist/EquityIndexes/EquityIndexes.xlsm
-!/User_Data/Watchlists/M3_Monetary_Aggregates.xlsx
-!/User_Data/Research_notebooks/research_template.ipynb
-!/User_Data/Research_notebooks/raw_template.ipynb
-!/User_Data/Research_notebooks/Correlations.ipynb
-!/User_Data/Research_notebooks/BTC_LiqIndexes.ipynb
-!/User_Data/Research_notebooks/GDP_Breakdown.ipynb
-!/User_Data/Research_notebooks/AusRealEstate.ipynb
-!/User_Data/Research_notebooks/Aus_Population.ipynb
-!/User_Data/NLQ_Data/NLQ_Data.xlsx
-!/User_Data/NLQ_Data/CB_Bal_Sheets.xlsx
-!/User_Data/SavedData/CPIAUCSL.xlsx
-!/User_Data/TreasuryData/TGA_Since2005.xlsx
-!User_Data/ABS/ABS_Series_MasterIndex.csv
-!/User_Data/GlobalReserves/BalSheets/CNCBBS.xlsx
-!/User_Data/GlobalReserves/FXData/CNYUSD.xlsx
-/MacroBackend/SystemInfo/*
-!/MacroBackend/SystemInfo/API_Keys_demo.json
-# Bootleg packages: no SystemInfo/ should be tracked (API keys are in ~/Documents/Bootleg_Macro/system/)
-/bootleg_datafeed/SystemInfo/
-# Bootleg packages: no SystemInfo/ should be tracked (API keys are in ~/Documents/Bootleg_Macro/system/)
-/bootleg_datafeed/SystemInfo/
-/MacroBackend/Glassnode/Saved_Data/*
-!/MacroBackend/Glassnode/Saved_Data/GN_MetricsList.csv
-/MacroBackend/BEA_Data/Datasets/*
-!/MacroBackend/BEA_Data/Datasets/beaapi_data
-!/MacroBackend/BEA_Data/Datasets/BEAAPI_Info.xlsx
-!/MacroBackend/BEA_Data/bea_data_mate/beaapiloc/*
-!/MacroBackend/AllCG.csv
-*.DS_Store
-.DS_Store
-.*
+# IDE / editor
+.vscode/
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+
+# Python
 __pycache__/
-**/$*
+*.pyc
+*.pyo
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Auto-generated pdoc API docs (regenerate via: python build_docs.py)
+docs/
+
+# Linter / test caches
+.ruff_cache/
+.pytest_cache/
+
+# Data cache (runtime generated)
+bootleg_datafeed/local_cache/
+
+# Node.js (used by TradingView / Yahoo Finance search)
+node_modules/
+
+# OS files
+.DS_Store
+
+# Temp / swap files
+*~
 $*
-~*

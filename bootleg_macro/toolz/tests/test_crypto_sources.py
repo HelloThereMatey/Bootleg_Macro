@@ -11,7 +11,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
-from bootleg_datafeed import WatchlistSearch, Dataset, StandardSeries
+from bootleg_datafeed import Dataset, StandardSeries
+from bootleg_datafeed import WatchlistSearch
 from bootleg_macro.toolz import Watchlist
 
 

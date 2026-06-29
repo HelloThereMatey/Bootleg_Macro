@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bootleg-macro"
+version = "0.1.0"
+description = "Financial & economic data analysis toolkit — charting, watchlists, custom indexes, and desktop GUI"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+dependencies = [
+    "bootleg-datafeed>=0.1",
+    # toolz and indexes are included as subdirectories in this package
+]
+
+[project.optional-dependencies]
+gui = [
+    "PyQt6>=6.0",
+]
+all = ["bootleg-macro[gui]"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bootleg_macro*"]
