@@ -1,8 +1,0 @@
-Metadata-Version: 2.4
-Name: bootleg-gui
-Version: 0.1.0
-Summary: PyQt6 desktop application for interactive watchlist building
-License: MIT
-Requires-Python: >=3.11
-Requires-Dist: bootleg-toolz>=0.1
-Requires-Dist: PyQt6>=6.0

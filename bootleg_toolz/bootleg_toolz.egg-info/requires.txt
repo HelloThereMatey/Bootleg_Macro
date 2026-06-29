@@ -1,6 +1,0 @@
-bootleg-datafeed>=0.1
-pandas>=2.0
-plotly>=5.0
-openpyxl>=3.0
-tables>=3.0
-statsmodels>=0.14
