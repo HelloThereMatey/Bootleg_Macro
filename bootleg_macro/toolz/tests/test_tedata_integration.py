@@ -13,6 +13,11 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+from _test_utils import require_module, requires_key, requires_module
+
+# tedata is an optional scraping dependency (selenium + a browser).
+require_module('tedata')
 
 # Configure logging to show all messages
 logging.basicConfig(

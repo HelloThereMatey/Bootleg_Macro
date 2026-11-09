@@ -12,6 +12,13 @@ Tests the full flow:
 import os
 import tempfile
 from pathlib import Path
+import pytest
+
+sys_path_dir = str(Path(__file__).parent)
+import sys
+if sys_path_dir not in sys.path:
+    sys.path.insert(0, sys_path_dir)
+from _test_utils import requires_key, requires_module, skip_on_rate_limit
 
 import pandas as pd
 
@@ -20,6 +27,7 @@ from bootleg_datafeed import WatchlistSearch
 from bootleg_datafeed.dataset import Dataset
 
 
+@requires_key("fred")
 def test_watchlist_build_from_search():
     """Build watchlist from search, pull data, save, chart."""
 

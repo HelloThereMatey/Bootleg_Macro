@@ -13,8 +13,11 @@ from pathlib import Path
 
 # Ensure packages are importable
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+from _test_utils import requires_key
 
 import pandas as pd
+import pytest
 
 from bootleg_datafeed._user_path import get_user_path
 from bootleg_datafeed.dataset import Dataset
@@ -35,7 +38,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 # PART 1 — Global M2
 # ============================================================================
 
-def test_gm2_basic() -> Global_M2:
+def step_gm2_basic() -> Global_M2:
     """Instantiate Global_M2, download a subset of countries, build aggregates."""
     print("\n" + "=" * 70)
     print("GLOBAL M2 — BASIC TEST")
@@ -56,7 +59,7 @@ def test_gm2_basic() -> Global_M2:
     return gm2
 
 
-def test_gm2_aggregates(gm2: Global_M2, m2_groups: list[str] | None = None):
+def step_gm2_aggregates(gm2: Global_M2, m2_groups: list[str] | None = None):
     """Build custom aggregates from downloaded countries and plot them."""
     print("\n" + "=" * 70)
     print("GLOBAL M2 — AGGREGATES")
@@ -134,7 +137,7 @@ def save_gm2_excel(gm2: Global_M2):
 # PART 2 — Net Liquidity
 # ============================================================================
 
-def test_nlq_fred_fetch() -> NLQDataFetcher:
+def step_nlq_fred_fetch() -> NLQDataFetcher:
     """Test FRED data fetching via NLQDataFetcher."""
     print("\n" + "=" * 70)
     print("NET LIQUIDITY — FRED DATA FETCH")
@@ -156,7 +159,7 @@ def test_nlq_fred_fetch() -> NLQDataFetcher:
     return fetcher
 
 
-def test_tga_fetch():
+def step_tga_fetch():
     """Test the Treasury API TGA fetch."""
     print("\n" + "=" * 70)
     print("NET LIQUIDITY — TGA API FETCH")
@@ -173,7 +176,8 @@ def test_tga_fetch():
     return tga
 
 
-def test_nlq_calc(use_qe_only: bool = False) -> tuple[NetLiquidity, dict]:
+@requires_key("fred")
+def step_nlq_calc(use_qe_only: bool = False) -> tuple[NetLiquidity, dict]:
     """Run full NLQ calculation, plot results, save to Excel."""
     print("\n" + "=" * 70)
     print("NET LIQUIDITY — FULL CALCULATION")
@@ -248,22 +252,28 @@ def main():
     print(f"Python: {sys.version}")
 
     # --- GM2 ---
-    gm2 = test_gm2_basic()
+    gm2 = step_gm2_basic()
     save_gm2_excel(gm2)
 
     # Build aggregates from whatever downloaded successfully
     if gm2.data_dict:
-        test_gm2_aggregates(gm2, list(gm2.data_dict.keys()))
+        step_gm2_aggregates(gm2, list(gm2.data_dict.keys()))
 
     # --- NLQ ---
-    test_nlq_fred_fetch()
-    test_tga_fetch()
-    test_nlq_calc(use_qe_only=False)
+    step_nlq_fred_fetch()
+    step_tga_fetch()
+    step_nlq_calc(use_qe_only=False)
 
     print("\n" + "=" * 70)
     print("ALL LIQUIDITY TESTS COMPLETED")
     print(f"Outputs in: {OUT}")
     print("=" * 70)
+
+
+@requires_key("fred")
+def test_liquidity_pipeline():
+    """Run the GM2 + NLQ pipeline end to end (needs a FRED key)."""
+    main()
 
 
 if __name__ == "__main__":

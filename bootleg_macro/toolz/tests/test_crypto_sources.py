@@ -9,8 +9,11 @@ All charts are saved at high resolution (scale=3) via plotly write_image.
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+from _test_utils import requires_key, requires_module, skip_on_rate_limit
 
 import pandas as pd
+import pytest
 from bootleg_datafeed import Dataset, StandardSeries
 from bootleg_datafeed import WatchlistSearch
 from bootleg_macro.toolz import Watchlist
@@ -132,6 +135,7 @@ def test_coingecko_pull_ethereum():
 # CryptoCompare tests
 # =============================================================================
 
+@requires_key("cryptocompare")
 def test_cryptocompare_search_btc():
     """Search CryptoCompare for BTC."""
     ws = WatchlistSearch()
@@ -144,6 +148,7 @@ def test_cryptocompare_search_btc():
     return results.iloc[0]
 
 
+@requires_key("cryptocompare")
 def test_cryptocompare_search_eth():
     """Search CryptoCompare for ETH."""
     ws = WatchlistSearch()
@@ -154,6 +159,7 @@ def test_cryptocompare_search_eth():
     return results.iloc[0]
 
 
+@requires_key("cryptocompare")
 def test_cryptocompare_pull_btc():
     """Pull Bitcoin from CryptoCompare and chart it."""
     ds = Dataset()
@@ -171,6 +177,7 @@ def test_cryptocompare_pull_btc():
     return btc
 
 
+@requires_key("cryptocompare")
 def test_cryptocompare_pull_eth():
     """Pull Ethereum from CryptoCompare and chart it."""
     ds = Dataset()
@@ -185,6 +192,7 @@ def test_cryptocompare_pull_eth():
     return eth
 
 
+@requires_key("cryptocompare")
 def test_cryptocompare_pull_full_history():
     """Pull full ~2000 day history for BTC and ETH."""
     ds = Dataset()
