@@ -39,6 +39,12 @@ packages = [
     "bootleg_macro.watchlist_gui.tests",
 ]
 
+# Global_M2 reads its country/FX mapping from xlsx files that live next to the
+# source. Without this a wheel ships the code but not the config, so the class
+# constructor fails with "Config file not found".
+[tool.setuptools.package-data]
+"bootleg_macro.indexes" = ["UpdateM2Infos/*.xlsx"]
+
 [tool.setuptools.package-dir]
 "bootleg_macro" = "."
 "bootleg_macro.indexes" = "indexes"
