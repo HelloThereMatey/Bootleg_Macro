@@ -42,6 +42,31 @@ def test_no_duplicate_top_level_definitions(path):
     )
 
 
+@pytest.mark.parametrize(
+    "path", _module_files(), ids=lambda p: str(p.relative_to(PKG_ROOT))
+)
+def test_no_duplicate_methods(path):
+    """A class must not define the same method twice.
+
+    Pair_stats had fourteen methods duplicated verbatim, so edits to the first
+    copy were silently overridden by the second.
+    """
+    tree = ast.parse(path.read_text())
+    problems = []
+    for cls in [n for n in tree.body if isinstance(n, ast.ClassDef)]:
+        names = [c.name for c in cls.body if isinstance(c, ast.FunctionDef)]
+        problems += [
+            f"{cls.name}.{name} (first at line "
+            f"{next(c.lineno for c in cls.body if isinstance(c, ast.FunctionDef) and c.name == name)})"
+            for name in dict.fromkeys(names)
+            if names.count(name) > 1
+        ]
+    assert not problems, (
+        f"{path.relative_to(PKG_ROOT)} defines {', '.join(problems)} more than "
+        "once; the earlier definition is silently discarded"
+    )
+
+
 def test_normality_tests_reports_three_tests():
     """Anderson-Darling must survive SciPy's mandatory p-value method."""
     import matplotlib.pyplot as plt

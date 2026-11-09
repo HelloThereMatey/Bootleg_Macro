@@ -119,10 +119,6 @@ class ResultsTable(QtWidgets.QTableView):
         super().setModel(model)
         self._model = model
 
-    def setModel(self, model):
-        """Override so we track the model reference for double-click lookup."""
-        super().setModel(model)
-        self._model = model
 
     def set_results(self, df: pd.DataFrame) -> None:
         """Populate the table with search results DataFrame."""

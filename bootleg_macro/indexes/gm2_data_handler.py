@@ -180,16 +180,6 @@ class Global_M2:
                 return p
         return self.wd / config_folder / config_file
 
-    def _find_config_file(self, config_folder: str, config_file: str) -> Path:
-        """Find config file in package dir or repo root fallback locations."""
-        candidates = [
-            self.wd / config_folder / config_file,
-            self.wd.parent.parent / 'Liquidity' / 'Global_M2' / config_folder / config_file,
-        ]
-        for p in candidates:
-            if p.is_file():
-                return p
-        return self.wd / config_folder / config_file
 
     def _load_country_list(self):
         """
