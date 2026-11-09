@@ -24,6 +24,9 @@ docs/
 # Data cache (runtime generated)
 bootleg_datafeed/local_cache/
 
+# Chart images written by the test suite
+bootleg_datafeed/tests/source_charts/
+
 # Node.js (used by TradingView / Yahoo Finance search)
 node_modules/
 

@@ -14,9 +14,10 @@ from bootleg_datafeed import Dataset
 _ds = Dataset()
 BEA_KEY = _ds.get_api_key('bea')
 if not BEA_KEY:
-    raise RuntimeError(
+    pytest.skip(
         "BEA API key not found. Add 'bea' key to your API_Keys.json "
-        f"at {Path(_ds._api_keys_path) / 'API_Keys.json'} or use set_api_key('bea', 'your_key')."
+        f"at {Path(_ds._api_keys_path) / 'API_Keys.json'} or use set_api_key('bea', 'your_key').",
+        allow_module_level=True,
     )
 
 

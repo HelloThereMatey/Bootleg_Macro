@@ -49,20 +49,23 @@ def pull_yfinance(
     # Create ticker object
     ticker_obj = yf.Ticker(ticker)
 
-    # Fetch data
+    # Fetch data. `adjust_prices=True` means total-return style prices: dividends
+    # and splits are folded into the Close column. With False the raw close is
+    # kept, which is the right choice only when the caller wants quoted prices.
     if interval == "1d":
         # yfinance is faster for daily data
         data = ticker_obj.history(
             start=start_date,
             end=end_date,
             interval=interval,
-            auto_adjust=False,  # Keep close unadjusted
+            auto_adjust=bool(adjust_prices),
         )
     else:
         data = ticker_obj.history(
             start=start_date,
             end=end_date,
             interval=interval,
+            auto_adjust=bool(adjust_prices),
         )
 
     if data.empty:

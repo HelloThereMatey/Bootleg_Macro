@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+from _test_utils import require_key, require_module, requires_key, requires_module, service_available
 """
 Tests for the bm WatchlistSearch module.
 """
@@ -101,6 +106,7 @@ def test_search_unknown_source():
         ws.search('unknown_source', 'test')
 
 
+@requires_key("fred")
 def test_search_fred_normalizes_columns():
     """FRED search returns normalized columns (id, title, source, meta)."""
     ws = WatchlistSearch()

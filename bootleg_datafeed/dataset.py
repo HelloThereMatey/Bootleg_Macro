@@ -138,6 +138,7 @@ class Dataset:
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         interval: str = "1d",
+        adjust_prices: bool = True,
     ) -> StandardSeries:
         """Pull data from Yahoo Finance.
 
@@ -146,6 +147,8 @@ class Dataset:
             start_date: Start date (YYYY-MM-DD)
             end_date: End date (YYYY-MM-DD)
             interval: Data interval ('1d', '1wk', '1mo', etc.)
+            adjust_prices: Fold dividends/splits into the series (total return).
+                Set False for quoted prices.
 
         Returns:
             StandardSeries with data and metadata
@@ -157,6 +160,7 @@ class Dataset:
             start_date=start_date,
             end_date=end_date,
             interval=interval,
+            adjust_prices=adjust_prices,
         )
         self.last_result = result
         return result

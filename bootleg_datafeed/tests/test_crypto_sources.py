@@ -9,10 +9,19 @@ All charts are saved at high resolution (scale=3) via plotly write_image.
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+from _test_utils import (require_key, require_module, requires_key,
+                         requires_module, service_available, skip_on_rate_limit)
 
 import pandas as pd
+import pytest
 from bootleg_datafeed import WatchlistSearch, Dataset, StandardSeries
 from bootleg_macro.toolz import Watchlist
+
+# CryptoCompare moved to a keyed API (401 without one); tedata is optional.
+
+# CoinGecko needs no key but rate-limits its free tier; the source now retries
+# with backoff, and a surviving 429 skips the test instead of failing it.
 
 
 # Output directory for charts
@@ -72,6 +81,8 @@ def _save_matplotlib_png(series: pd.Series, filename: str, dpi: int = 300) -> Pa
 # CoinGecko tests
 # =============================================================================
 
+@skip_on_rate_limit
+@skip_on_rate_limit
 def test_coingecko_search_bitcoin():
     """Search CoinGecko for bitcoin."""
     ws = WatchlistSearch()
@@ -84,6 +95,8 @@ def test_coingecko_search_bitcoin():
     return results.iloc[0]
 
 
+@skip_on_rate_limit
+@skip_on_rate_limit
 def test_coingecko_search_ethereum():
     """Search CoinGecko for ethereum."""
     ws = WatchlistSearch()
@@ -94,6 +107,8 @@ def test_coingecko_search_ethereum():
     return results.iloc[0]
 
 
+@skip_on_rate_limit
+@skip_on_rate_limit
 def test_coingecko_pull_bitcoin():
     """Pull Bitcoin from CoinGecko and chart it."""
     ds = Dataset()
@@ -113,6 +128,8 @@ def test_coingecko_pull_bitcoin():
     return btc
 
 
+@skip_on_rate_limit
+@skip_on_rate_limit
 def test_coingecko_pull_ethereum():
     """Pull Ethereum from CoinGecko and chart it."""
     ds = Dataset()
@@ -131,6 +148,7 @@ def test_coingecko_pull_ethereum():
 # CryptoCompare tests
 # =============================================================================
 
+@requires_key("cryptocompare")
 def test_cryptocompare_search_btc():
     """Search CryptoCompare for BTC."""
     ws = WatchlistSearch()
@@ -143,6 +161,7 @@ def test_cryptocompare_search_btc():
     return results.iloc[0]
 
 
+@requires_key("cryptocompare")
 def test_cryptocompare_search_eth():
     """Search CryptoCompare for ETH."""
     ws = WatchlistSearch()
@@ -153,6 +172,7 @@ def test_cryptocompare_search_eth():
     return results.iloc[0]
 
 
+@requires_key("cryptocompare")
 def test_cryptocompare_pull_btc():
     """Pull Bitcoin from CryptoCompare and chart it."""
     ds = Dataset()
@@ -170,6 +190,7 @@ def test_cryptocompare_pull_btc():
     return btc
 
 
+@requires_key("cryptocompare")
 def test_cryptocompare_pull_eth():
     """Pull Ethereum from CryptoCompare and chart it."""
     ds = Dataset()
@@ -184,6 +205,7 @@ def test_cryptocompare_pull_eth():
     return eth
 
 
+@requires_key("cryptocompare")
 def test_cryptocompare_pull_full_history():
     """Pull full ~2000 day history for BTC and ETH."""
     ds = Dataset()
@@ -209,6 +231,7 @@ def test_cryptocompare_pull_full_history():
 # tedata (Trading Economics) tests
 # =============================================================================
 
+@requires_module("tedata")
 def test_tedata_search():
     """Search tedata for 'crude oil'."""
     ws = WatchlistSearch()
@@ -225,6 +248,7 @@ def test_tedata_search():
         return None
 
 
+@requires_module("tedata")
 def test_tedata_pull_crude_oil():
     """Pull crude oil from tedata and chart it."""
     ds = Dataset()
@@ -249,6 +273,7 @@ def test_tedata_pull_crude_oil():
         return None
 
 
+@requires_module("tedata")
 def test_tedata_watchlist_build():
     """Build a watchlist with tedata series and pull all."""
     ws = WatchlistSearch()

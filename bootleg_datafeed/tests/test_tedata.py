@@ -9,9 +9,14 @@ both Firefox and Chrome browsers, and browser-not-found error handling.
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+from _test_utils import require_key, require_module, requires_key, requires_module, service_available
 
 import pytest
 from bootleg_datafeed import Dataset, StandardSeries
+
+# tedata is an optional scraping dependency (needs selenium + a browser).
+require_module("tedata")
 from bootleg_datafeed.sources.tedata_source import (
     pull_tedata,
     search_tedata,

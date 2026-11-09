@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+from _test_utils import require_key, require_module, requires_key, requires_module, service_available
 #!/usr/bin/env python
 """
 Test script for ABS source in bm.
@@ -7,6 +12,8 @@ and that they conform to the StandardSeries format.
 """
 
 import sys
+
+import pytest
 import os
 
 # Add parent directory to path for imports
@@ -51,6 +58,8 @@ def test_abs_unemployment():
     return result
 
 
+@pytest.mark.xfail(reason="ABS retired these catalogue 6202.0 series IDs",
+                   strict=False)
 def test_abs_employed_total():
     """Test pulling total employment from ABS."""
     ds = Dataset()
@@ -79,6 +88,8 @@ def test_abs_employed_total():
     return result
 
 
+@pytest.mark.xfail(reason="ABS retired these catalogue 6202.0 series IDs",
+                   strict=False)
 def test_abs_employed_females():
     """Test pulling female employment from ABS."""
     ds = Dataset()

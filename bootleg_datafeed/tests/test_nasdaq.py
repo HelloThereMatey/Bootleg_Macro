@@ -6,6 +6,8 @@ API keys are loaded from the Dataset instance (reads {user_path}/system/API_Keys
 """
 
 import sys
+
+import pytest
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -17,9 +19,10 @@ from bootleg_datafeed.sources.nasdaq_source import pull_nasdaq, search_nasdaq, g
 _ds = Dataset()
 NASDAQ_KEY = _ds.get_api_key('nasdaq')
 if not NASDAQ_KEY:
-    raise RuntimeError(
+    pytest.skip(
         "Nasdaq Data Link API key not found. Add 'nasdaq' key to your API_Keys.json "
-        f"at {Path(_ds._api_keys_path) / 'API_Keys.json'} or use set_api_key('nasdaq', 'your_key')."
+        f"at {Path(_ds._api_keys_path) / 'API_Keys.json'} or use set_api_key('nasdaq', 'your_key').",
+        allow_module_level=True,
     )
 
 

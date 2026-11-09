@@ -19,6 +19,38 @@ from ..models import SeriesMetadata, StandardSeries
 
 BASE_URL = "https://api.coingecko.com/api/v3"
 
+# CoinGecko's free tier rate-limits aggressively (HTTP 429) and the limit is per
+# minute, so a single retry with a short backoff usually clears it. Honour
+# Retry-After when present, otherwise back off 5s, 15s, 45s.
+_RETRY_DELAYS = (5, 15, 45)
+
+
+def _fail(url: str):
+    raise requests.RequestException(f"CoinGecko request failed after retries: {url}")
+
+
+def _get(url: str, params: dict, timeout: int = 30) -> requests.Response:
+    """GET with bounded retry on 429 / 5xx."""
+    import time
+
+    last: Optional[requests.Response] = None
+    for delay in (0,) + _RETRY_DELAYS:
+        if delay:
+            time.sleep(delay)
+        try:
+            resp = requests.get(url, params=params, timeout=timeout)
+        except requests.RequestException:
+            if delay == _RETRY_DELAYS[-1]:
+                raise
+            continue
+        last = resp
+        if resp.status_code != 429 and resp.status_code < 500:
+            return resp
+        retry_after = resp.headers.get("Retry-After")
+        if retry_after and retry_after.isdigit():
+            time.sleep(min(int(retry_after), 60))
+    return last if last is not None else _fail(url)
+
 
 def pull_coingecko(
     coin_id: str,
@@ -46,7 +78,7 @@ def pull_coingecko(
         "interval": "daily",
     }
 
-    response = requests.get(url, params=params)
+    response = _get(url, params)
     if response.status_code != 200:
         raise ValueError(f"CoinGecko API error: {response.status_code} - {response.text}")
 
@@ -92,7 +124,7 @@ def search_coins(query: str) -> pd.DataFrame:
     url = f"{BASE_URL}/search"
     params = {"query": query}
 
-    response = requests.get(url, params=params)
+    response = _get(url, params)
     if response.status_code != 200:
         raise ValueError(f"CoinGecko search error: {response.status_code}")
 
@@ -122,7 +154,7 @@ def get_coin_id(identifier: str) -> str:
     """
     # Try direct lookup first
     url = f"{BASE_URL}/coins/list"
-    response = requests.get(url)
+    response = _get(url, {})
     if response.status_code == 200:
         all_coins = pd.DataFrame(response.json())
         # Search by id, symbol, or name (case insensitive)

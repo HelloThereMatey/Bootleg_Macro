@@ -10,7 +10,12 @@ requires-python = ">=3.11"
 license = {text = "MIT"}
 dependencies = [
     "bootleg-datafeed>=0.1",
-    # toolz and indexes are included as subdirectories in this package
+    # toolz/ imports these but they were never declared, so a clean
+    # `import bootleg_macro` failed on plotly, then statsmodels, then scipy
+    "plotly>=5.0",
+    "statsmodels>=0.14",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
 ]
 
 [project.optional-dependencies]
@@ -19,6 +24,27 @@ gui = [
 ]
 all = ["bootleg-macro[gui]"]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["bootleg_macro*"]
+# Flat layout — pyproject.toml sits inside the package itself, so
+# `packages.find` could never match (empty wheel, editable install mapping
+# nothing). Map the package root onto "." and each subpackage onto its dir.
+[tool.setuptools]
+packages = [
+    "bootleg_macro",
+    "bootleg_macro.indexes",
+    "bootleg_macro.indexes.tests",
+    "bootleg_macro.toolz",
+    "bootleg_macro.toolz.tests",
+    "bootleg_macro.watchlist_gui",
+    "bootleg_macro.watchlist_gui.gui",
+    "bootleg_macro.watchlist_gui.tests",
+]
+
+[tool.setuptools.package-dir]
+"bootleg_macro" = "."
+"bootleg_macro.indexes" = "indexes"
+"bootleg_macro.indexes.tests" = "indexes/tests"
+"bootleg_macro.toolz" = "toolz"
+"bootleg_macro.toolz.tests" = "toolz/tests"
+"bootleg_macro.watchlist_gui" = "watchlist_gui"
+"bootleg_macro.watchlist_gui.gui" = "watchlist_gui/gui"
+"bootleg_macro.watchlist_gui.tests" = "watchlist_gui/tests"

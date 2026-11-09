@@ -16,13 +16,31 @@ dependencies = [
     "numpy>=1.0",
     "readabs>=0.1",
     "nasdaq-data-link>=0.1",
+    "websocket-client>=1.6",
 ]
 
 [project.optional-dependencies]
-tv = []  # tvDatafeedz is a local MacroBackend module — install manually
 chrome = ["selenium"]
 all = ["selenium"]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["bootleg_datafeed*"]
+# This project is flat-layout: pyproject.toml lives *inside* the package, so
+# `packages.find` looked for a bootleg_datafeed/ subdirectory that does not
+# exist (empty 1.2 KB wheel, and an editable install that mapped nothing).
+# Map the package root onto "." and each subpackage onto its real directory.
+[tool.setuptools]
+packages = [
+    "bootleg_datafeed",
+    "bootleg_datafeed.sources",
+    "bootleg_datafeed.sources.abs_source",
+    "bootleg_datafeed.sources.abs_source.extend_history",
+    "bootleg_datafeed.sources.tvDatafeedz",
+    "bootleg_datafeed.tests",
+]
+
+[tool.setuptools.package-dir]
+"bootleg_datafeed" = "."
+"bootleg_datafeed.sources" = "sources"
+"bootleg_datafeed.sources.abs_source" = "sources/abs_source"
+"bootleg_datafeed.sources.abs_source.extend_history" = "sources/abs_source/extend_history"
+"bootleg_datafeed.sources.tvDatafeedz" = "sources/tvDatafeedz"
+"bootleg_datafeed.tests" = "tests"

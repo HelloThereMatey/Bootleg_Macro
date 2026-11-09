@@ -9,6 +9,9 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _test_utils import require_key, require_module, requires_key, requires_module, service_available
+
 from bootleg_datafeed import Dataset, StandardSeries, SOURCES
 
 
@@ -82,6 +85,7 @@ def test_abs():
     return True
 
 
+@requires_key("fred")
 def test_fred():
     """Test FRED source - uses API key from config."""
     ds = Dataset()
@@ -125,6 +129,7 @@ def test_rba():
     return True
 
 
+@requires_module("tedata")
 def test_tedata():
     """Test Trading Economics source - uses Selenium."""
     ds = Dataset()
@@ -147,6 +152,7 @@ def test_tedata():
     return True
 
 
+@requires_key("bea")
 def test_bea():
     """Test BEA source - uses API key."""
     ds = Dataset()
@@ -171,6 +177,7 @@ def test_bea():
     return True
 
 
+@requires_key("nasdaq")
 def test_nasdaq_blocked():
     """Test nasdaq source - expected to be blocked by CDN."""
     ds = Dataset()
@@ -194,6 +201,7 @@ def test_nasdaq_blocked():
             return True
 
 
+@requires_key("glassnode")
 def test_glassnode_blocked():
     """Test glassnode source - expected to need API key."""
     ds = Dataset()

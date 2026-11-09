@@ -3,9 +3,14 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
+from _test_utils import require_key, require_module, requires_key, requires_module, service_available
 
 import pytest
 from bootleg_datafeed import Dataset
+
+# No key configured means these cannot run at all.
+require_key("glassnode")
 
 # Note: User should provide their own Glassnode API key for testing
 # The key will be loaded from API_Keys.json or passed directly

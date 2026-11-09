@@ -134,12 +134,25 @@ def convert_to_standard_series(
 
     series = data.copy()
 
-    # Ensure index is DatetimeIndex
+    # Ensure index is DatetimeIndex. A yfinance pull that includes the current
+    # session can mix tz-aware bars with a naive final bar, which pandas refuses
+    # to coerce ("Tz-aware datetime.datetime cannot be converted to datetime64
+    # unless utc=True"). Normalise tz first, then drop the tz so the index is
+    # plain dates.
     if hasattr(series.index, 'to_timestamp'):
         # Handle PeriodIndex by converting to timestamps
         series.index = series.index.to_timestamp()
     elif not isinstance(series.index, pd.DatetimeIndex):
-        series.index = pd.to_datetime(series.index)
+        try:
+            series.index = pd.to_datetime(series.index, utc=True)
+        except (ValueError, TypeError):
+            series.index = pd.to_datetime(
+                [pd.Timestamp(x).tz_localize(None) if pd.Timestamp(x).tzinfo is None
+                 else pd.Timestamp(x).tz_convert("UTC").tz_localize(None)
+                 for x in series.index]
+            )
+    if getattr(series.index, "tz", None) is not None:
+        series.index = series.index.tz_convert("UTC").tz_localize(None)
 
     # Deduplicate index
     series = series[~series.index.duplicated(keep='first')]
