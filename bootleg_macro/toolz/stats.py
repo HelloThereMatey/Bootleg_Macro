@@ -90,62 +90,6 @@ def check_stationarity(series):
 # Pair_stats
 # ---------------------------------------------------------------------------
 
-class Pair_stats:
-    """Pairwise correlation analysis between two time series.
-
-    Parameters
-    ----------
-    series1, series2 : pd.Series
-        Input time series.
-    windows : list of int, default [30, 90, 180, 365]
-        Rolling window lengths.
-    corr_method : {"pearson", "spearman", "kendall"}
-    ser1_title, ser2_title : str, optional
-        Display names.
-    watchlist_meta : pd.DataFrame, optional
-        Metadata DataFrame for unit labels.
-    downsample_to : str, optional
-        Pandas frequency to resample both series to (e.g. "W", "M").
-    """
-
-    FREQ_REP = {"D": "Daily", "W": "Weekly", "M": "Monthly", "Q": "Quarterly", "Y": "Yearly"}
-
-    def __init__(
-        self,
-        series1: pd.Series,
-        series2: pd.Series,
-        windows: list = None,
-        corr_method: str = "pearson",
-        ser1_title: str = "",
-        ser2_title: str = "",
-        watchlist_meta: pd.DataFrame = pd.DataFrame(),
-        downsample_to: str = "",
-    ):
-        if windows is None:
-            windows = [30, 90, 180, 365]
-
-        self.series1 = series1.copy()
-        self.series2 = series2.copy()
-        self.corr_method = corr_method
-        self.downsample_to = downsample_to
-        self.windows = windows
-        self.watchlist_meta = watchlist_meta if not watchlist_meta.empty else None
-
-        self.ser1_title = ser1_title or (series1.name or "Series1")
-        self.ser2_title = ser2_title or (series2.name or "Series2")
-        self.series1.name = self.ser1_title
-        self.series2.name = self.ser2_title
-
-        self.frequency = ""
-        self.per_in_year = 252  # fallback
-
-        if self.check_input_series() is None:
-            raise ValueError("Could not align input series.")
-
-        self.name = f"{self.ser1_title} and {self.ser2_title}"
-        self.data = self.returns_df()
-        self.windows.append(min(len(self.series1), len(self.series2)) - 2)
-        self.rolling_stats(corr_method=corr_method)
 
 
 # ---------------------------------------------------------------------------
@@ -1116,25 +1060,3 @@ def results_to_markdown(results: dict) -> str:
     return "\n".join(lines)
 
 
-def results_to_markdown(results: dict) -> str:
-    """Convert error-assessment dict to a markdown table string."""
-    lines = ["# Correlation Error Assessment", f"Data: {results.get('data', '?')}", ""]
-    lines.append("| Metric | Value |")
-    lines.append("|--------|-------|")
-    lines.append(f"| Observations | {results.get('n', '?')} |")
-    lines.append(f"| Pearson r | {results.get('pearson_r', '?'):.6f} |")
-    lines.append(f"| p-value | {results.get('p_value', '?'):.4e} |")
-    lines.append(f"| Std Error | {results.get('std_error', '?'):.6f} |")
-    lines.append("")
-    for k in ("shapiro_series1", "shapiro_series2"):
-        v = results.get(k, {})
-        lines.append(f"**{k}** — stat={v.get('statistic', '?'):.4f}, p={v.get('p_value', '?'):.4e}")
-    lines.append("")
-    lines.append("### Stationarity")
-    for k in ("stationarity_series1", "stationarity_series2"):
-        v = results.get(k, {})
-        lines.append(f"**{k}**:")
-        for t in ("ADF", "KPSS"):
-            tv = v.get(t, {})
-            lines.append(f"- {t}: stat={tv.get('statistic', '?'):.4f}, p={tv.get('p-value', '?'):.4e}")
-    return "\n".join(lines)
