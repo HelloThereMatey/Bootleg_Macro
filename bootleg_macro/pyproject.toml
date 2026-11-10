@@ -13,6 +13,10 @@ dependencies = [
     # toolz/ imports these but they were never declared, so a clean
     # `import bootleg_macro` failed on plotly, then statsmodels, then scipy
     "plotly>=5.0",
+    # charting.save_png() exports figures via plotly image export,
+    # which raises "Image export requires the Kaleido package"
+    # without this. Charts are a headline feature, so it is required.
+    "kaleido>=1.0",
     "statsmodels>=0.14",
     "scipy>=1.10",
     "scikit-learn>=1.3",

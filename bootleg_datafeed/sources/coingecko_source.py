@@ -2,7 +2,7 @@
 CoinGecko data source for bm.
 
 Pulls cryptocurrency price data from CoinGecko API.
-No API key required.
+A CoinGecko demo API key is now required (optional argument).
 """
 
 from __future__ import annotations
@@ -29,16 +29,27 @@ def _fail(url: str):
     raise requests.RequestException(f"CoinGecko request failed after retries: {url}")
 
 
-def _get(url: str, params: dict, timeout: int = 30) -> requests.Response:
+def _auth_headers(api_key: Optional[str]) -> dict:
+    """CoinGecko demo keys go in x-cg-demo-api-key; without one you get 401."""
+    return {"x-cg-demo-api-key": api_key} if api_key else {}
+
+
+def _get(
+    url: str,
+    params: dict,
+    timeout: int = 30,
+    api_key: Optional[str] = None,
+) -> requests.Response:
     """GET with bounded retry on 429 / 5xx."""
     import time
 
+    headers = _auth_headers(api_key)
     last: Optional[requests.Response] = None
     for delay in (0,) + _RETRY_DELAYS:
         if delay:
             time.sleep(delay)
         try:
-            resp = requests.get(url, params=params, timeout=timeout)
+            resp = requests.get(url, params=params, headers=headers, timeout=timeout)
         except requests.RequestException:
             if delay == _RETRY_DELAYS[-1]:
                 raise
@@ -56,6 +67,7 @@ def pull_coingecko(
     coin_id: str,
     days: int = 365,
     vs_currency: str = "usd",
+    api_key: Optional[str] = None,
 ) -> StandardSeries:
     """Pull cryptocurrency price history from CoinGecko.
 
@@ -63,6 +75,10 @@ def pull_coingecko(
         coin_id: CoinGecko coin ID (e.g., 'bitcoin', 'ethereum', 'dogecoin')
         days: Number of days of history (max 365 for free tier)
         vs_currency: Quote currency (default: 'usd')
+        api_key: CoinGecko demo API key. CoinGecko no longer serves the public
+            API anonymously — without a key every request returns 401 — so
+            this is looked up from API_Keys.json under 'coingecko' by callers
+            that have one.
 
     Returns:
         StandardSeries with price data and metadata
@@ -78,9 +94,15 @@ def pull_coingecko(
         "interval": "daily",
     }
 
-    response = _get(url, params)
+    response = _get(url, params, api_key=api_key)
+    if response.status_code in (401, 403):
+        raise ValueError(
+            f"CoinGecko API error: {response.status_code} — CoinGecko now requires "
+            "an API key (free demo key from coingecko.com). Add 'coingecko' to "
+            "API_Keys.json, or use the tradingview source for crypto prices."
+        )
     if response.status_code != 200:
-        raise ValueError(f"CoinGecko API error: {response.status_code} - {response.text}")
+        raise ValueError(f"CoinGecko API error: {response.status_code} - {response.text[:300]}")
 
     data = response.json()
 

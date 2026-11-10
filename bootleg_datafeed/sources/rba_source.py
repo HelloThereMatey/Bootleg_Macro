@@ -91,7 +91,9 @@ def pull_rba(
     std_freq = FrequencyConverter.standardize(freq) if freq else None
 
     metadata = SeriesMetadata(
-        id=series_id,
+        # Include the table when known: pull_rba needs it, and without it a
+        # reloaded watchlist row falls back to searching every RBA table.
+        id=f"{series_id}, {table_no}" if table_no else series_id,
         title=title,
         source='rba',
         original_source='Reserve Bank of Australia',

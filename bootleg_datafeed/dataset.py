@@ -262,6 +262,7 @@ class Dataset:
         coin_id: str,
         days: int = 365,
         vs_currency: str = "usd",
+        api_key: Optional[str] = None,
     ) -> StandardSeries:
         """Pull cryptocurrency price data from CoinGecko.
 
@@ -269,13 +270,20 @@ class Dataset:
             coin_id: CoinGecko coin ID (e.g., 'bitcoin', 'ethereum')
             days: Number of days of history (max 365 for free tier)
             vs_currency: Quote currency (default: 'usd')
+            api_key: Demo API key; defaults to the 'coingecko' entry in
+                API_Keys.json. CoinGecko returns 401 anonymously now.
 
         Returns:
             StandardSeries with data and metadata
         """
         from .sources.coingecko_source import pull_coingecko as _pull_coingecko
 
-        result = _pull_coingecko(coin_id=coin_id, days=days, vs_currency=vs_currency)
+        result = _pull_coingecko(
+            coin_id=coin_id,
+            days=days,
+            vs_currency=vs_currency,
+            api_key=api_key or self.get_api_key("coingecko"),
+        )
         self.last_result = result
         return result
 
@@ -573,9 +581,13 @@ class Dataset:
         elif source == 'coingecko':
             return self.pull_coingecko(*args, **kwargs)
         elif source in ('abs', 'abs_series'):
-            return self.pull_abs(*args, **kwargs)
+            # ABS and RBA accept dates but callers here were silently dropping
+            # them, so a requested window was ignored.
+            return self.pull_abs(*args, start_date=start_date,
+                                 end_date=end_date, **kwargs)
         elif source in ('rba', 'rba_series'):
-            return self.pull_rba(*args, **kwargs)
+            return self.pull_rba(*args, start_date=start_date,
+                                 end_date=end_date, **kwargs)
         elif source in ('tv', 'tradingview'):
             return self.pull_tradingview(*args, **kwargs)
         elif source == 'nasdaq':

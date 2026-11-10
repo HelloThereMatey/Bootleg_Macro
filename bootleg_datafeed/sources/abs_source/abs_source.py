@@ -94,7 +94,8 @@ def pull_abs(
         description = None
 
     metadata = SeriesMetadata(
-        id=series_id,
+        # Carry the catalogue so a reloaded watchlist row re-pulls directly.
+        id=f"{series_id}, {catalog_num}" if catalog_num else series_id,
         title=title,
         source='abs',
         original_source='Australian Bureau of Statistics',

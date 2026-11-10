@@ -60,8 +60,15 @@ METADATA_INDEX = [
 # Sources that accept optional delimited params in the watchlist id column
 MULTI_PARAM_SOURCES = {
     'tv': ['symbol', 'exchange'],
+    # Metadata records the source as "tradingview", so the alias must be here
+    # too: without it a stored id like "BTCUSD, INDEX" reached pull_tradingview
+    # whole, the exchange fell back to NASDAQ, and the pull failed.
+    'tradingview': ['symbol', 'exchange'],
     'bea': ['dataset', 'table_code'],
     'abs': ['series_id', 'catalog_num'],
+    # pull_rba needs the table number; without parsing "FIRMMCRTD, F1" it
+    # searched every table (slow) or failed outright.
+    'rba': ['series_id', 'table_no'],
     'glassnode': ['metric', 'asset', 'interval'],
     'cryptocompare': ['fsym', 'tsym'],
 }

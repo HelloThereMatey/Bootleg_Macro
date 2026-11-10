@@ -15,6 +15,10 @@ dependencies = [
     "yfinance>=0.1",
     "numpy>=1.0",
     "readabs>=0.1",
+    # RBA serves legacy .xls workbooks for many tables; pandas needs a reader
+    # for them or pull_rba dies with "Import python-calamine failed".
+    "python-calamine>=0.1",
+    "openpyxl>=3.1",
     "nasdaq-data-link>=0.1",
     "websocket-client>=1.6",
 ]

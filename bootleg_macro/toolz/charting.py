@@ -327,7 +327,18 @@ def save_png(
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    fig.write_image(path, scale=scale, **kwargs)
+    try:
+        fig.write_image(path, scale=scale, **kwargs)
+    except (RuntimeError, ValueError) as exc:
+        msg = str(exc)
+        if "kaleido" in msg.lower() or "browser" in msg.lower():
+            raise RuntimeError(
+                "PNG export needs kaleido plus a Chrome/Chromium binary. "
+                "Install the engine (`pip install 'kaleido>=1.0'`) and a "
+                "browser (`plotly_get_chrome -y`), or save HTML instead via "
+                "charting.save_html(). Original error: " + msg.split("\n")[0]
+            ) from exc
+        raise
     return path
 
 

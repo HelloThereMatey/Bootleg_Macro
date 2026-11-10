@@ -85,8 +85,15 @@ def pull_tv(
         extended_session=extended_session,
     )
 
-    if data.empty:
-        raise ValueError(f"No data returned from TradingView for {exchange}:{symbol}")
+    # tvDatafeed returns None (not an empty frame) when it cannot resolve the
+    # symbol/exchange pair, which used to surface as
+    # "'NoneType' object has no attribute 'empty'" with no hint of the cause.
+    if data is None or data.empty:
+        raise ValueError(
+            f"No data returned from TradingView for {exchange}:{symbol}. "
+            "Check the exchange code (e.g. INDEX, OANDA, AMEX, NASDAQ); an "
+            "unresolvable symbol/exchange pair yields no bars."
+        )
 
     # Format symbol name
     symbol_name = f"{exchange}:{symbol}" if ":" not in symbol else symbol
@@ -103,7 +110,10 @@ def pull_tv(
     std_freq = FREQ_MAP.get(interval, 'D')
 
     metadata = SeriesMetadata(
-        id=symbol_name.replace(':', '_'),
+        # Keep the watchlist id round-trippable: append_series stores
+        # metadata.id, and _parse_id splits "SYMBOL, EXCHANGE" back into pull
+        # parameters. "INDEX_BTCUSD" (the old form) cannot be pulled again.
+        id=f"{symbol}, {exchange}",
         title=f"{symbol} ({exchange})",
         source='tradingview',
         original_source=f'TradingView {exchange}',
