@@ -6,6 +6,7 @@ Tests all implemented sources.
 
 import sys
 import os
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -130,6 +131,10 @@ def test_rba():
 
 
 @requires_module("tedata")
+@pytest.mark.skipif(
+    os.environ.get("TEDATA_LIVE") != "1",
+    reason="live scraping test: set TEDATA_LIVE=1 to run",
+)
 def test_tedata():
     """Test Trading Economics source - uses Selenium."""
     ds = Dataset()

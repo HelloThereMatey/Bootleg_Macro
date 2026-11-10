@@ -19,6 +19,18 @@ from _test_utils import require_module, requires_key, requires_module
 # tedata is an optional scraping dependency (selenium + a browser).
 require_module('tedata')
 
+# The module importing says nothing about whether a real browser can drive a
+# live site, which is what these tests do. Opt in with TEDATA_LIVE=1.
+import os as _os
+
+if _os.environ.get('TEDATA_LIVE') != '1':
+    import pytest as _pytest
+    _pytest.skip(
+        "live scraping tests: set TEDATA_LIVE=1 to run them against "
+        "tradingeconomics.com with a real browser",
+        allow_module_level=True,
+    )
+
 # Configure logging to show all messages
 logging.basicConfig(
     level=logging.INFO,
