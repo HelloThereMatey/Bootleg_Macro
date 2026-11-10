@@ -7,6 +7,9 @@ TradingView chart data.
 
 from typing import Optional
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import pandas as pd
 
 from .tvDatafeedz import TvDatafeed, Interval
@@ -48,6 +51,63 @@ FREQ_MAP = {
     '1W': 'W',
     '1M': 'M',
 }
+
+# Where each exchange's trading day sits on the clock. Used to recover the
+# session date from a bar timestamp (see _align_daily_bars).
+EXCHANGE_TZ = {
+    # US
+    'AMEX': 'America/New_York', 'NASDAQ': 'America/New_York',
+    'NYSE': 'America/New_York', 'SP': 'America/New_York',
+    'CBOE': 'America/New_York', 'TVC': 'America/New_York',
+    'CME': 'America/Chicago', 'CME_MINI': 'America/Chicago',
+    'CBOT': 'America/Chicago', 'COMEX': 'America/New_York',
+    'NYSE_ARCA': 'America/New_York',
+    # Europe / Asia
+    'LSE': 'Europe/London', 'XETR': 'Europe/Berlin', 'EURONEXT': 'Europe/Paris',
+    'NSE': 'Asia/Kolkata', 'BSE': 'Asia/Kolkata',
+    'TSE': 'Asia/Tokyo', 'HKEX': 'Asia/Hong_Kong', 'SSE': 'Asia/Shanghai',
+    'ASX': 'Australia/Sydney', 'NZX': 'Pacific/Auckland',
+    # 24/7 / FX / crypto
+    'INDEX': 'UTC', 'OANDA': 'UTC', 'FX_IDC': 'UTC', 'BITSTAMP': 'UTC',
+    'BINANCE': 'UTC', 'COINBASE': 'UTC', 'KRAKEN': 'UTC', 'BITFINEX': 'UTC',
+}
+DEFAULT_TZ = 'UTC'
+DAILY_INTERVALS = ('1D', '1W', '1M')
+
+
+def _align_daily_bars(series: pd.Series, exchange: str, interval: str) -> pd.Series:
+    """Move bar timestamps onto the exchange's own session date.
+
+    tvDatafeed stamps daily bars with the session *open* rendered in the
+    machine's local timezone. On a UTC+11 host the 09:30 New York open becomes
+    00:30/01:30 the following morning, so every US bar lands one calendar day
+    late — a Friday close is labelled Saturday, and a Monday session is labelled
+    Tuesday. That is invisible in the values but shifts every date.
+
+    Interpreting the naive timestamp as local time and converting into the
+    exchange's timezone recovers the true session date. Bitcoin and FX bars,
+    stamped at 00:00 UTC, are unchanged by this.
+    """
+    if interval not in DAILY_INTERVALS:
+        return series
+    if series.empty or not isinstance(series.index, pd.DatetimeIndex):
+        return series
+
+    target = EXCHANGE_TZ.get(exchange.upper(), DEFAULT_TZ)
+    if target == 'UTC':
+        # 24/7 markets (crypto, FX, indices quoted round the clock) are already
+        # stamped on UTC days. Passing them through the machine's local zone
+        # would move the label by a day for no gain.
+        return series
+
+    idx = series.index
+    if idx.tz is None:
+        idx = idx.tz_localize(datetime.now().astimezone().tzinfo)
+    idx = idx.tz_convert(ZoneInfo(target)).tz_localize(None).normalize()
+
+    aligned = series.copy()
+    aligned.index = idx
+    return aligned[~aligned.index.duplicated(keep='last')].sort_index()
 
 
 def pull_tv(
@@ -104,6 +164,9 @@ def pull_tv(
     else:
         series = data['close']
         series.name = f"{symbol_name}_close"
+
+    # Recover the session date before anything reads the index.
+    series = _align_daily_bars(series, exchange, interval)
 
     series = convert_to_standard_series(series)
 
