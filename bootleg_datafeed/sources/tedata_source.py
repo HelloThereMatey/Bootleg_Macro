@@ -69,18 +69,93 @@ def _check_browser_available(browser: BrowserPreference) -> str:
 
 def _browser_installed(browser: str) -> bool:
     """Check if a browser is installed and accessible."""
+    import shutil
+
     try:
         if browser == "firefox":
             from selenium.webdriver.firefox.options import Options as FirefoxOptions
             from selenium.webdriver.firefox.service import Service as FirefoxService
-            return True
+            return shutil.which("firefox") is not None or shutil.which(
+                "geckodriver"
+            ) is not None
         elif browser == "chrome":
             from selenium.webdriver.chrome.options import Options as ChromeOptions
             from selenium.webdriver.chrome.service import Service as ChromeService
-            return True
+            return shutil.which("google-chrome") is not None or shutil.which(
+                "chromium"
+            ) is not None
     except ImportError:
         return False
     return True
+
+
+def _resolve_firefox_binary() -> Optional[str]:
+    """Return a *real* Firefox executable, unwrapping conda's shell shim.
+
+    conda-forge ships `bin/firefox` as a bash script that execs
+    `bin/FirefoxApp/firefox`. geckodriver cannot launch the shim — it reports
+    "Process unexpectedly closed with status 0" — so prefer the real binary.
+    """
+    import os
+    import shutil
+
+    candidate = shutil.which("firefox")
+    if not candidate:
+        return None
+    try:
+        with open(candidate, "rb") as handle:
+            is_script = handle.read(2) == b"#!"
+    except OSError:
+        return candidate
+    if is_script:
+        real = os.path.join(os.path.dirname(candidate), "FirefoxApp", "firefox")
+        if os.path.exists(real):
+            return real
+    return candidate
+
+
+def _patch_tedata_browser_paths() -> None:
+    """Point `tedata` at the browser/driver this interpreter can actually find.
+
+    tedata.base hard-codes "/usr/bin/firefox" and "/usr/bin/geckodriver". Where
+    those distro paths do not exist (conda/mamba environments, macOS, Windows)
+    Selenium falls back to Selenium Manager — which needs network access and
+    fails with "Unable to obtain driver for firefox" in ~0.1s. Resolving the
+    binaries through PATH instead makes the source usable in a conda env.
+    """
+    import os
+    import shutil
+
+    try:
+        import tedata.base as tb
+    except ImportError:  # pragma: no cover - guarded by require_module upstream
+        return
+
+    firefox = _resolve_firefox_binary()
+    geckodriver = shutil.which("geckodriver")
+    if not (firefox and geckodriver):
+        return
+
+    original = getattr(tb, "_bm_original_firefox_class", None)
+    if original is None:
+        original = tb.TimestampedFirefox
+        tb._bm_original_firefox_class = original
+
+    class _PathAwareFirefox(original):  # type: ignore[misc, valid-type]
+        def __init__(self, *args, **kwargs):
+            options = kwargs.get("options")
+            binary = getattr(options, "binary_location", None)
+            if binary and not os.path.exists(binary):
+                options.binary_location = firefox
+            service = kwargs.get("service")
+            path = getattr(service, "path", None) if service is not None else None
+            if not path or not os.path.exists(str(path)):
+                from selenium.webdriver.firefox.service import Service as FxService
+
+                kwargs["service"] = FxService(geckodriver)
+            super().__init__(*args, **kwargs)
+
+    tb.TimestampedFirefox = _PathAwareFirefox
 
 
 def get_tedata_url(series_id: str) -> str:
@@ -119,6 +194,8 @@ def pull_tedata(
         ValueError: If no data returned from the chart
     """
     import tedata as ted
+
+    _patch_tedata_browser_paths()
 
     browser_pref = BrowserPreference(browser) if isinstance(browser, str) else browser
     available_browser = _check_browser_available(browser_pref)
@@ -250,6 +327,8 @@ def search_tedata(
         DataFrame with columns: country, metric, url
     """
     import tedata as ted
+
+    _patch_tedata_browser_paths()
 
     browser_pref = BrowserPreference(browser) if isinstance(browser, str) else browser
     available_browser = _check_browser_available(browser_pref)

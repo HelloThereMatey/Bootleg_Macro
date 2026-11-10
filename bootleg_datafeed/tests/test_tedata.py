@@ -17,6 +17,20 @@ from bootleg_datafeed import Dataset, StandardSeries
 
 # tedata is an optional scraping dependency (needs selenium + a browser).
 require_module("tedata")
+
+# Knowing the module imports is not enough: these tests drive a real browser
+# against a live site. They are slow, and they fail for environmental reasons
+# (no geckodriver, headless Firefox refusing to start, site markup changes)
+# rather than code defects. Opt in explicitly with TEDATA_LIVE=1.
+import os as _os
+
+if _os.environ.get("TEDATA_LIVE") != "1":
+    pytest.skip(
+        "live scraping tests: set TEDATA_LIVE=1 to run them against "
+        "tradingeconomics.com with a real browser",
+        allow_module_level=True,
+    )
+
 from bootleg_datafeed.sources.tedata_source import (
     pull_tedata,
     search_tedata,
